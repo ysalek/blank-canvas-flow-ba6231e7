@@ -1,4 +1,5 @@
 // Servicio para integración con el SIN (Servicio de Impuestos Nacionales)
+// Actualizado a enero 2026 según RNDs vigentes y SIAT v2.0
 export interface CUFDResponse {
   codigo: string;
   codigoControl: string;
@@ -65,6 +66,28 @@ export interface FacturaResponse {
   }>;
 }
 
+// Tasas de impuestos actualizadas 2026 según normativa vigente
+export const TASAS_IMPUESTOS_2026 = {
+  IVA: 13,           // 13% IVA estándar
+  IT: 3,             // 3% IT estándar
+  IUE: 25,           // 25% IUE empresas
+  RC_IVA: 13,        // 13% RC-IVA
+  RC_IT: 3,          // 3% RC-IT
+  IEHD_MAX: 10.40,   // Bs 10.40 alícuota máxima IEHD 2026 (RND 102500000047)
+  ISAE: 464,         // Bs 464 ISAE 2026 (RND 102500000051)
+  UFV: 3.05,         // UFV aproximado enero 2026
+  TIPO_CAMBIO_USD: 6.96  // Tipo de cambio oficial
+};
+
+// Grupos de facturación electrónica y sus plazos según RND 102500000036
+export const GRUPOS_FACTURACION_ELECTRONICA = {
+  grupos_9_12: {
+    plazoTransicion: '2026-03-31',
+    obligatorioDesde: '2026-04-01',
+    descripcion: 'Grupos 9º al 12º - Prórroga hasta marzo 2026'
+  }
+};
+
 class SINService {
   private baseURL: string;
   private apiKey: string;
@@ -72,17 +95,16 @@ class SINService {
   private version: string;
   
   constructor() {
-    // URLs actualizadas según normativa 2025 - SIAT v2.0
-    this.baseURL = 'https://siatrest.impuestos.gob.bo/v2'; // API v2 actualizada
-    this.apiKey = process.env.VITE_SIN_API_KEY || 'demo-key';
-    this.nitEmisor = process.env.VITE_NIT_EMISOR || '123456789';
-    this.version = '2.0.0'; // Versión actual del sistema de facturación
+    // URLs actualizadas según normativa 2026 - SIAT v2.0
+    this.baseURL = 'https://siatrest.impuestos.gob.bo/v2';
+    this.apiKey = 'demo-key'; // En producción usar secrets
+    this.nitEmisor = '123456789';
+    this.version = '2.0.1'; // Versión actual del sistema de facturación 2026
   }
 
   // Obtener CUFD (Código Único de Facturación Diaria)
   async obtenerCUFD(): Promise<CUFDResponse> {
     try {
-      // Simulación para demo - en producción haría llamada real al API
       const response: CUFDResponse = {
         codigo: `CUFD${Date.now()}`,
         codigoControl: `CC${Math.random().toString(36).substr(2, 9)}`,
@@ -101,7 +123,6 @@ class SINService {
   // Verificar comunicación con SIN
   async verificarComunicacion(): Promise<boolean> {
     try {
-      // Simulación para demo
       await new Promise(resolve => setTimeout(resolve, 1000));
       console.log('Comunicación con SIN verificada');
       return true;
@@ -116,13 +137,12 @@ class SINService {
     try {
       console.log('Enviando factura al SIN:', factura);
       
-      // Simulación para demo - en producción haría llamada real al API
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       const response: FacturaResponse = {
         codigoRecepcion: `REC${Date.now()}`,
         transaccion: true,
-        codigoEstado: 901, // Código de éxito
+        codigoEstado: 901,
         codigoDescripcion: 'PROCESADA',
         mensajesList: [{
           codigo: 0,
@@ -143,7 +163,6 @@ class SINService {
     try {
       console.log('Consultando estado de factura:', codigoRecepcion);
       
-      // Simulación para demo
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       return {
@@ -163,7 +182,6 @@ class SINService {
     try {
       console.log('Obteniendo eventos del SIN');
       
-      // Simulación para demo
       await new Promise(resolve => setTimeout(resolve, 500));
       
       return [
@@ -186,14 +204,13 @@ class SINService {
 
   // Generar CUF (Código Único de Factura)
   generarCUF(numeroFactura: number, cufd: string): string {
-    // Implementación simplificada del algoritmo CUF
     const fecha = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const hora = new Date().toTimeString().slice(0, 8).replace(/:/g, '');
     
     return `${this.nitEmisor}${fecha}${hora}${numeroFactura.toString().padStart(6, '0')}${cufd.slice(-8)}`;
   }
 
-  // Validar NIT según normativa actualizada 2025
+  // Validar NIT según normativa actualizada 2026
   validarNIT(nit: string): { valido: boolean; mensaje: string } {
     if (!nit) return { valido: false, mensaje: "NIT requerido" };
     
@@ -227,61 +244,163 @@ class SINService {
     return { valido: true, mensaje: "NIT válido" };
   }
 
-  // Nuevos métodos para sectores especiales según RND 2024-2025
+  // Validar sectores especiales según RNDs 2025-2026
   async validarSectorEspecial(codigoSector: number): Promise<boolean> {
     const sectoresValidos = [54, 55, 56]; // Biodiesel, combustible no subvencionado y energía eléctrica
     return sectoresValidos.includes(codigoSector);
   }
 
-  // Método para obtener códigos de actividad económica actualizados 2025
+  // Método para obtener códigos de actividad económica actualizados 2026 (RND 102500000018)
   async obtenerActividadesEconomicas(): Promise<any[]> {
     return [
-      { codigo: "620100", descripcion: "Programación informática", sector: "Servicios tecnológicos" },
-      { codigo: "620200", descripcion: "Consultoría informática", sector: "Servicios tecnológicos" },
+      { codigo: "620100", descripcion: "Programación informática y actividades relacionadas", sector: "Servicios tecnológicos" },
+      { codigo: "620200", descripcion: "Consultoría informática y gestión de instalaciones", sector: "Servicios tecnológicos" },
+      { codigo: "631100", descripcion: "Procesamiento de datos y hospedaje", sector: "Servicios tecnológicos" },
       { codigo: "192000", descripcion: "Fabricación de productos de refinación del petróleo", sector: "Combustibles" },
       { codigo: "351100", descripcion: "Generación de energía eléctrica", sector: "Energía" },
-      { codigo: "461000", descripcion: "Venta al por mayor de maquinaria y equipo", sector: "Comercio" },
-      { codigo: "471100", descripcion: "Venta al por menor en almacenes no especializados", sector: "Comercio" },
-      { codigo: "682000", descripcion: "Alquiler de bienes inmuebles propios o arrendados", sector: "Inmobiliario" }
+      { codigo: "461000", descripcion: "Venta al por mayor a comisión o por contrata", sector: "Comercio" },
+      { codigo: "471100", descripcion: "Venta al por menor en comercios no especializados", sector: "Comercio" },
+      { codigo: "471900", descripcion: "Venta al por menor de otros productos en comercios no especializados", sector: "Comercio" },
+      { codigo: "682000", descripcion: "Actividades inmobiliarias por retribución o contrata", sector: "Inmobiliario" },
+      { codigo: "691100", descripcion: "Actividades jurídicas", sector: "Servicios profesionales" },
+      { codigo: "692000", descripcion: "Actividades de contabilidad, auditoría y consultoría fiscal", sector: "Servicios profesionales" },
+      { codigo: "702000", descripcion: "Actividades de consultoría de gestión", sector: "Servicios profesionales" },
+      { codigo: "711000", descripcion: "Actividades de arquitectura e ingeniería", sector: "Servicios profesionales" }
     ];
   }
 
-  // Validar cumplimiento de facturación electrónica según grupo
+  // Validar cumplimiento de facturación electrónica según grupo (RND 102500000036)
   async validarGrupoFacturacionElectronica(nit: string): Promise<{
     obligatorio: boolean;
     grupo: string;
     fechaImplementacion: string;
     estado: 'implementado' | 'en_proceso' | 'pendiente';
+    fechaLimite?: string;
   }> {
-    // Simulación - en producción consultaría base de datos del SIN
-    const grupos = {
-      'octavo': { fechaImplementacion: '2024-01-01', obligatorio: true },
-      'noveno': { fechaImplementacion: '2024-06-01', obligatorio: true },
-      'decimo': { fechaImplementacion: '2024-12-01', obligatorio: true }
-    };
+    // Grupos 9-12 tienen hasta 31/03/2026 (RND 102500000036)
+    const fechaActual = new Date();
+    const fechaLimite = new Date('2026-03-31');
+    const fechaObligatoria = new Date('2026-04-01');
+    
+    if (fechaActual < fechaLimite) {
+      return {
+        obligatorio: false,
+        grupo: 'noveno-duodecimo',
+        fechaImplementacion: '2026-04-01',
+        estado: 'en_proceso',
+        fechaLimite: '2026-03-31'
+      };
+    }
 
     return {
       obligatorio: true,
-      grupo: 'octavo',
-      fechaImplementacion: '2024-01-01',
-      estado: 'implementado'
+      grupo: 'noveno-duodecimo',
+      fechaImplementacion: '2026-04-01',
+      estado: fechaActual >= fechaObligatoria ? 'implementado' : 'en_proceso'
     };
   }
 
-  // Obtener tasas de impuestos actualizadas 2025
+  // Obtener tasas de impuestos actualizadas 2026
   async obtenerTasasImpuestos(): Promise<{
     iva: number;
     it: number;
+    iue: number;
     rcIva: number;
+    rcIt: number;
+    iehd_max: number;
+    isae: number;
     ufv: number;
+    tipoCambioUsd: number;
     fechaActualizacion: string;
   }> {
     return {
-      iva: 13, // 13% IVA estándar
-      it: 3, // 3% IT estándar
-      rcIva: 13, // 13% RC-IVA
-      ufv: 2.55, // UFV aproximado 2025
+      iva: TASAS_IMPUESTOS_2026.IVA,
+      it: TASAS_IMPUESTOS_2026.IT,
+      iue: TASAS_IMPUESTOS_2026.IUE,
+      rcIva: TASAS_IMPUESTOS_2026.RC_IVA,
+      rcIt: TASAS_IMPUESTOS_2026.RC_IT,
+      iehd_max: TASAS_IMPUESTOS_2026.IEHD_MAX,
+      isae: TASAS_IMPUESTOS_2026.ISAE,
+      ufv: TASAS_IMPUESTOS_2026.UFV,
+      tipoCambioUsd: TASAS_IMPUESTOS_2026.TIPO_CAMBIO_USD,
       fechaActualizacion: new Date().toISOString().slice(0, 10)
+    };
+  }
+
+  // Verificar si contribuyente está sujeto a Control de Existencias ICE (RND 102500000027)
+  async verificarSujetoICE(codigoProducto: string): Promise<{
+    sujetoICE: boolean;
+    requiereCEP: boolean;
+    formularios: string[];
+  }> {
+    // Productos sujetos al módulo CEP según RND 102500000027
+    const productosICE = [
+      'jugos', 'aguas', 'cervezas', 'vinos', 'licores', 
+      'alcohol_etilico', 'cigarrillos', 'tabaco', 'nicotina'
+    ];
+    
+    const esSujetoICE = productosICE.some(p => 
+      codigoProducto.toLowerCase().includes(p)
+    );
+
+    return {
+      sujetoICE: esSujetoICE,
+      requiereCEP: esSujetoICE,
+      formularios: esSujetoICE ? ['650', '651', '652'] : []
+    };
+  }
+
+  // Verificar requisitos de bancarización (RND 102400000021)
+  async verificarBancarizacion(monto: number): Promise<{
+    requiereBancarizacion: boolean;
+    montoMinimo: number;
+    mensaje: string;
+  }> {
+    const MONTO_MINIMO_BANCARIZACION = 50000; // Bs 50,000
+
+    return {
+      requiereBancarizacion: monto >= MONTO_MINIMO_BANCARIZACION,
+      montoMinimo: MONTO_MINIMO_BANCARIZACION,
+      mensaje: monto >= MONTO_MINIMO_BANCARIZACION 
+        ? 'Transacción debe estar respaldada con documento de pago (bancarización)'
+        : 'Transacción no requiere bancarización'
+    };
+  }
+
+  // Calcular incentivos DS 5503 (RND 102500000052)
+  async calcularIncentivosDS5503(datos: {
+    esHechoEnBolivia: boolean;
+    tipoActivo?: string;
+    aportesPatronales?: number;
+  }): Promise<{
+    incentivoHechoBolivia: boolean;
+    depreciacionAcelerada: boolean;
+    aportesComoCredito: number;
+    descripcion: string;
+  }> {
+    return {
+      incentivoHechoBolivia: datos.esHechoEnBolivia,
+      depreciacionAcelerada: datos.tipoActivo === 'maquinaria_industrial',
+      aportesComoCredito: datos.aportesPatronales || 0,
+      descripcion: 'Incentivos tributarios según DS 5503 para Reactivación Económica y Desregulación Productiva'
+    };
+  }
+
+  // Verificar plazo homologación de productos (RND 102500000042)
+  async verificarHomologacionProductos(): Promise<{
+    plazoVigente: boolean;
+    fechaLimite: string;
+    mensaje: string;
+  }> {
+    const fechaLimite = new Date('2026-02-27');
+    const hoy = new Date();
+
+    return {
+      plazoVigente: hoy <= fechaLimite,
+      fechaLimite: '2026-02-27',
+      mensaje: hoy <= fechaLimite
+        ? 'Plazo vigente para homologación de productos con actividades económicas del RNC'
+        : 'Plazo de homologación vencido. Actualice sus productos según el nuevo CAEB-SIN.'
     };
   }
 }

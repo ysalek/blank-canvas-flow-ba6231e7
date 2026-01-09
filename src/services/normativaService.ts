@@ -31,14 +31,145 @@ class NormativaService {
     this.inicializarRequisitos();
   }
 
-  // Normativas actualizadas hasta octubre 2025
+  // Normativas actualizadas hasta enero 2026 según RND vigentes del SIN
   private inicializarNormativas(): void {
     this.normativas = [
+      // === RNDs DICIEMBRE 2025 - NUEVAS ===
+      {
+        codigo: 'RND-102500000053',
+        titulo: 'Prórroga RAU Gestión 2024',
+        descripcion: 'Se prorroga hasta el 30 de enero de 2026 el plazo para la presentación de DDJJ, pago del RAU y tramitación del Certificado de No Imponibilidad RAU, correspondientes a la gestión 2024.',
+        fechaVigencia: '2026-01-30',
+        fechaActualizacion: '2025-12-30',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000052',
+        titulo: 'Incentivos Tributarios DS 5503 - Reactivación Económica',
+        descripcion: 'Reglamenta los incentivos tributarios del DS 5503: Incentivo Hecho en Bolivia (Art. 27), Depreciación Acelerada (Art. 28) y Aportes patronales como pago a cuenta del IVA (Art. 30).',
+        fechaVigencia: '2025-12-17',
+        fechaActualizacion: '2025-12-30',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000051',
+        titulo: 'ISAE 2026 - Impuesto Salidas Aéreas',
+        descripcion: 'Actualiza el monto del Impuesto a las Salidas Aéreas al Exterior (ISAE) para 2026 en Bs 464.-',
+        fechaVigencia: '2026-01-01',
+        fechaActualizacion: '2025-12-30',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000050',
+        titulo: 'IUE Transporte Interdepartamental 2025',
+        descripcion: 'Actualización de importes IUE para servicio público de transporte interdepartamental de pasajeros y carga según tipo de vehículo.',
+        fechaVigencia: '2025-12-01',
+        fechaActualizacion: '2025-12-30',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000049',
+        titulo: 'ICE Alícuotas 2026',
+        descripcion: 'Actualización de alícuotas específicas de productos gravados por el Impuesto a los Consumos Específicos (ICE) para gestión 2026.',
+        fechaVigencia: '2026-01-01',
+        fechaActualizacion: '2025-12-30',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000047',
+        titulo: 'IEHD Alícuota Máxima 2026',
+        descripcion: 'Actualiza la alícuota máxima del IEHD a Bs 10,40.- aplicable desde el 1 de enero de 2026.',
+        fechaVigencia: '2026-01-01',
+        fechaActualizacion: '2025-12-30',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000043',
+        titulo: 'Procedimientos Declaraciones Juradas',
+        descripcion: 'Modifica la RND Nº 10-0024-08 del reglamento de procedimientos especiales para control de presentación de declaraciones juradas.',
+        fechaVigencia: '2025-11-01',
+        fechaActualizacion: '2025-11-20',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000042',
+        titulo: 'Homologación de Productos RNC',
+        descripcion: 'Prórroga hasta el 27 de febrero de 2026 para que contribuyentes IVA realicen la homologación de productos con actividades económicas del RNC.',
+        fechaVigencia: '2026-02-27',
+        fechaActualizacion: '2025-11-15',
+        categoria: 'facturacion',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000041',
+        titulo: 'Anulación Extraordinaria Documentos Fiscales',
+        descripcion: 'Modifica Art. 38 de RND 102100000011. Anulación de documentos fiscales fuera de plazo mediante nota escrita. Regularización de facturas duplicadas hasta 30/01/2026.',
+        fechaVigencia: '2026-01-30',
+        fechaActualizacion: '2025-11-10',
+        categoria: 'facturacion',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000040',
+        titulo: 'Formulario 146 - Distribución Crédito CF IVA Petroleras',
+        descripcion: 'Aprueba el Formulario 146 del Módulo Distribución de Crédito del SIAT para distribución del Crédito Fiscal IVA de empresas petroleras.',
+        fechaVigencia: '2025-11-01',
+        fechaActualizacion: '2025-11-05',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000036',
+        titulo: 'Prórroga Facturación en Línea - Grupos 9º al 12º',
+        descripcion: 'Amplía hasta el 31 de marzo de 2026 el plazo para que contribuyentes de los Grupos Noveno al Décimo Segundo ajusten sus sistemas a facturación en línea. A partir del 1 de abril de 2026 deben usar exclusivamente facturación en línea.',
+        fechaVigencia: '2026-03-31',
+        fechaActualizacion: '2025-10-01',
+        categoria: 'facturacion',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000027',
+        titulo: 'Control de Existencias y Producción ICE (CEP)',
+        descripcion: 'Implementa el módulo CEP en SIAT para presentación obligatoria de DDJJ 650, 651 y 652 para contribuyentes ICE que comercialicen jugos, aguas, cervezas, vinos, licores, alcohol etílico, cigarrillos y productos con nicotina.',
+        fechaVigencia: '2025-06-06',
+        fechaActualizacion: '2025-06-10',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000019',
+        titulo: 'Facilidades de Pago - Nuevo Reglamento',
+        descripcion: 'Nuevo reglamento para solicitud, autorización y seguimiento de facilidades de pago en SIAT. Plazos hasta 30 meses, pago inicial desde 5%, garantías y condiciones de incumplimiento.',
+        fechaVigencia: '2025-05-05',
+        fechaActualizacion: '2025-04-25',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
       {
         codigo: 'RND-102500000018',
         titulo: 'Nuevo Clasificador de Actividades Económicas (CAEB-SIN)',
-        descripcion: 'Aprueba el nuevo Clasificador de Actividades Económicas del Registro Nacional de Contribuyentes del SIN. Vigente desde mayo 2025.',
-        fechaVigencia: '2025-05-01',
+        descripcion: 'Aprueba el nuevo Clasificador de Actividades Económicas del RNC, armonizado con CAEB del INE. Contribuyentes deben actualizar sistemas antes del 31/10/2025.',
+        fechaVigencia: '2025-05-05',
         fechaActualizacion: '2025-04-22',
         categoria: 'tributaria',
         estado: 'vigente',
@@ -47,27 +178,57 @@ class NormativaService {
       {
         codigo: 'RND-102500000017',
         titulo: 'Registro Nacional de Contribuyentes (RNC)',
-        descripcion: 'Sustituye el PBD-11 por el nuevo Registro Nacional de Contribuyentes. Migración automática de datos.',
-        fechaVigencia: '2025-04-01',
+        descripcion: 'Crea el nuevo RNC que regula inscripción, modificación, suspensión y baja del NIT mediante SIAT en Línea. Sustituye el PBD-11.',
+        fechaVigencia: '2025-05-05',
         fechaActualizacion: '2025-04-15',
         categoria: 'tributaria',
         estado: 'vigente',
         organismo: 'SIN'
       },
       {
-        codigo: 'RND-102500000036',
-        titulo: 'Prórroga Facturación en Línea - Grupos 9º al 12º',
-        descripcion: 'Se amplía hasta el 31 de marzo de 2026 el plazo para que contribuyentes de los Grupos Noveno al Décimo Segundo ajusten sus sistemas a facturación en línea.',
-        fechaVigencia: '2025-01-01',
-        fechaActualizacion: '2025-09-25',
-        categoria: 'facturacion',
+        codigo: 'RND-102500000016',
+        titulo: 'Declaraciones Juradas Electrónicas SIAT',
+        descripcion: 'Desde mayo 2025, todas las DDJJ deben presentarse mediante SIAT en Línea. Formularios electrónicos obligatorios y legalmente válidos.',
+        fechaVigencia: '2025-05-01',
+        fechaActualizacion: '2025-04-15',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000014',
+        titulo: 'Reglamento Declaraciones Rectificatorias',
+        descripcion: 'Reglamenta el procedimiento para presentación de DDJJ Rectificatorias a iniciativa del contribuyente o por requerimiento de la Administración Tributaria.',
+        fechaVigencia: '2025-05-05',
+        fechaActualizacion: '2025-04-10',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000013',
+        titulo: 'Tratamiento de Decimales SIAT',
+        descripcion: 'Establece el cálculo con todos los decimales y redondeo a 2 decimales (criterio estándar). Deuda Tributaria se expresa con 5 decimales.',
+        fechaVigencia: '2025-05-05',
+        fechaActualizacion: '2025-04-10',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102500000005',
+        titulo: 'Registro de Beneficiarios Finales',
+        descripcion: 'Personas jurídicas deben registrar información de beneficiarios finales. Inscriptos deben actualizar datos antes del 29/04/2025.',
+        fechaVigencia: '2025-04-29',
+        fechaActualizacion: '2025-02-15',
+        categoria: 'tributaria',
         estado: 'vigente',
         organismo: 'SIN'
       },
       {
         codigo: 'RND-102500000002',
         titulo: 'Beneficio IVA Tasa Cero 2025',
-        descripcion: 'Aplicación de Tasa Cero de IVA para sectores: agropecuario, industrial, construcción y minería durante la gestión 2025.',
+        descripcion: 'Procedimiento de facturación Tasa Cero IVA para venta interna de bienes de capital y plantas industriales para sectores agropecuario, industrial, construcción y minería según Ley 1613.',
         fechaVigencia: '2025-01-01',
         fechaActualizacion: '2025-01-15',
         categoria: 'tributaria',
@@ -75,12 +236,12 @@ class NormativaService {
         organismo: 'SIN'
       },
       {
-        codigo: 'RND-102500000031',
-        titulo: 'Prórroga presentación Estados Financieros 2025',
-        descripcion: 'Prórroga hasta el 21 de julio de 2025 para presentación de Estados Financieros, Memoria Anual, Dictamen de Auditoría Externa',
-        fechaVigencia: '2025-01-01',
-        fechaActualizacion: '2024-12-30',
-        categoria: 'contable',
+        codigo: 'RND-102500000001',
+        titulo: 'Reanudación Facilidades de Pago Incumplidas',
+        descripcion: 'Permite reanudar facilidades de pago incumplidas hasta 31/12/2024, manteniendo condiciones y beneficios, si se reanuda pago hasta el 31/03/2025.',
+        fechaVigencia: '2025-03-31',
+        fechaActualizacion: '2025-01-05',
+        categoria: 'tributaria',
         estado: 'vigente',
         organismo: 'SIN'
       },
@@ -94,60 +255,71 @@ class NormativaService {
         estado: 'vigente',
         organismo: 'SIN'
       },
+      // === TASAS E INDICADORES VIGENTES 2026 ===
       {
-        codigo: 'RND-102400000003',
-        titulo: 'Facturación Electrónica - Octavo Grupo',
-        descripcion: 'Obligatoriedad de facturación electrónica para el octavo grupo de contribuyentes',
-        fechaVigencia: '2024-01-01',
-        fechaActualizacion: '2024-03-15',
-        categoria: 'facturacion',
+        codigo: 'IVA-TASA-2026',
+        titulo: 'Tasa IVA 13% - Vigente 2026',
+        descripcion: 'Tasa general del Impuesto al Valor Agregado: 13% aplicable a todas las transacciones gravadas',
+        fechaVigencia: '2026-01-01',
+        fechaActualizacion: '2026-01-01',
+        categoria: 'tributaria',
         estado: 'vigente',
         organismo: 'SIN'
       },
       {
-        codigo: 'SIAT-V2.0',
-        titulo: 'Sistema de Facturación v2.0',
-        descripcion: 'Nueva versión del sistema de facturación con mejoras en seguridad y funcionalidades',
-        fechaVigencia: '2024-06-01',
-        fechaActualizacion: '2024-05-30',
-        categoria: 'facturacion',
+        codigo: 'IT-TASA-2026',
+        titulo: 'Tasa IT 3% - Vigente 2026',
+        descripcion: 'Tasa del Impuesto a las Transacciones: 3% sobre ingresos brutos',
+        fechaVigencia: '2026-01-01',
+        fechaActualizacion: '2026-01-01',
+        categoria: 'tributaria',
         estado: 'vigente',
         organismo: 'SIN'
       },
       {
-        codigo: 'RC-IVA-2025',
-        titulo: 'RC-IVA Actualizado 2025',
+        codigo: 'IUE-TASA-2026',
+        titulo: 'Tasa IUE 25% - Vigente 2026',
+        descripcion: 'Tasa del Impuesto sobre las Utilidades de las Empresas: 25% sobre utilidades netas',
+        fechaVigencia: '2026-01-01',
+        fechaActualizacion: '2026-01-01',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RC-IVA-2026',
+        titulo: 'RC-IVA Actualizado 2026',
         descripcion: 'Retenciones de RC-IVA: 13% para profesionales independientes, servicios y alquileres',
-        fechaVigencia: '2025-01-01',
-        fechaActualizacion: '2025-01-15',
+        fechaVigencia: '2026-01-01',
+        fechaActualizacion: '2026-01-01',
         categoria: 'tributaria',
         estado: 'vigente',
         organismo: 'SIN'
       },
       {
-        codigo: 'RC-IT-2025',
-        titulo: 'RC-IT Actualizado 2025',
+        codigo: 'RC-IT-2026',
+        titulo: 'RC-IT Actualizado 2026',
         descripcion: 'Retenciones de RC-IT: 3% sobre ingresos de profesionales independientes y alquileres',
-        fechaVigencia: '2025-01-01',
-        fechaActualizacion: '2025-01-15',
+        fechaVigencia: '2026-01-01',
+        fechaActualizacion: '2026-01-01',
         categoria: 'tributaria',
         estado: 'vigente',
         organismo: 'SIN'
       },
       {
-        codigo: 'FACILIDADES-PAGO-2025',
-        titulo: 'Facilidades de Pago Actualizadas 2025',
-        descripcion: 'Marco normativo actualizado para facilidades de pago tributario, incluyendo oportunidades para contribuyentes con planes incumplidos',
-        fechaVigencia: '2025-01-01',
-        fechaActualizacion: '2025-01-10',
+        codigo: 'DS-5503',
+        titulo: 'Decreto Supremo 5503 - Reactivación Económica',
+        descripcion: 'Incentivos tributarios: Hecho en Bolivia, Depreciación Acelerada, Aportes patronales como pago a cuenta IVA. Vigente desde 17/12/2025.',
+        fechaVigencia: '2025-12-17',
+        fechaActualizacion: '2025-12-17',
         categoria: 'tributaria',
         estado: 'vigente',
-        organismo: 'SIN'
+        organismo: 'Ministerio_Economia'
       },
       {
         codigo: 'LEY-1613',
         titulo: 'Ley Presupuesto General del Estado 2025',
-        descripcion: 'Ley del Presupuesto General del Estado para la gestión 2025',
+        descripcion: 'Ley del Presupuesto General del Estado para la gestión 2025. Incluye IVA Tasa Cero para sectores productivos.',
         fechaVigencia: '2025-01-01',
         fechaActualizacion: '2025-01-01',
         categoria: 'financiera',
@@ -155,74 +327,44 @@ class NormativaService {
         organismo: 'Ministerio_Economia'
       },
       {
-        codigo: 'IVA-TASA-2025',
-        titulo: 'Tasa IVA 13% - Vigente',
-        descripcion: 'Tasa general del Impuesto al Valor Agregado: 13% aplicable a todas las transacciones gravadas',
-        fechaVigencia: '2025-01-01',
-        fechaActualizacion: '2025-01-01',
-        categoria: 'tributaria',
+        codigo: 'SALARIO-MINIMO-2026',
+        titulo: 'Salario Mínimo Nacional 2026',
+        descripcion: 'SMN actualizado para gestión 2026. Pendiente de confirmación mediante DS.',
+        fechaVigencia: '2026-05-01',
+        fechaActualizacion: '2026-01-01',
+        categoria: 'laboral',
         estado: 'vigente',
-        organismo: 'SIN'
+        organismo: 'Ministerio_Trabajo'
       },
       {
-        codigo: 'IT-TASA-2025',
-        titulo: 'Tasa IT 3% - Vigente',
-        descripcion: 'Tasa del Impuesto a las Transacciones: 3% sobre ingresos brutos',
-        fechaVigencia: '2025-01-01',
-        fechaActualizacion: '2025-01-01',
-        categoria: 'tributaria',
+        codigo: 'UFV-2026',
+        titulo: 'Unidad de Fomento de Vivienda 2026',
+        descripcion: 'UFV actualizada diariamente por el BCB. Valor aproximado enero 2026: 3.05 Bs',
+        fechaVigencia: '2026-01-01',
+        fechaActualizacion: '2026-01-09',
+        categoria: 'financiera',
         estado: 'vigente',
-        organismo: 'SIN'
+        organismo: 'Ministerio_Economia'
       },
       {
-        codigo: 'IUE-TASA-2025',
-        titulo: 'Tasa IUE 25% - Vigente',
-        descripcion: 'Tasa del Impuesto sobre las Utilidades de las Empresas: 25% sobre utilidades netas',
-        fechaVigencia: '2025-01-01',
-        fechaActualizacion: '2025-01-01',
-        categoria: 'tributaria',
+        codigo: 'TC-USD-2026',
+        titulo: 'Tipo de Cambio USD 2026',
+        descripcion: 'Tipo de cambio oficial USD/BOB: 6.96 Bs por dólar estadounidense',
+        fechaVigencia: '2026-01-01',
+        fechaActualizacion: '2026-01-09',
+        categoria: 'financiera',
         estado: 'vigente',
-        organismo: 'SIN'
+        organismo: 'Ministerio_Economia'
       },
       {
         codigo: 'LEY-317',
         titulo: 'Código Tributario Boliviano',
         descripcion: 'Normas fundamentales del régimen jurídico del sistema tributario boliviano',
         fechaVigencia: '2012-12-11',
-        fechaActualizacion: '2025-01-01',
+        fechaActualizacion: '2026-01-01',
         categoria: 'tributaria',
         estado: 'vigente',
         organismo: 'SIN'
-      },
-      {
-        codigo: 'SALARIO-MINIMO-2025',
-        titulo: 'Salario Mínimo Nacional 2025',
-        descripcion: 'D.S. N° 5383 - Incremento del 5% sobre salario básico para sector privado. SMN: Bs 2,500',
-        fechaVigencia: '2025-05-01',
-        fechaActualizacion: '2025-05-15',
-        categoria: 'laboral',
-        estado: 'vigente',
-        organismo: 'Ministerio_Trabajo'
-      },
-      {
-        codigo: 'UFV-2025',
-        titulo: 'Unidad de Fomento de Vivienda 2025',
-        descripcion: 'UFV actualizada diariamente por el BCB. Valor aproximado octubre 2025: 2.96 Bs',
-        fechaVigencia: '2025-01-01',
-        fechaActualizacion: '2025-10-04',
-        categoria: 'financiera',
-        estado: 'vigente',
-        organismo: 'Ministerio_Economia'
-      },
-      {
-        codigo: 'TC-USD-2025',
-        titulo: 'Tipo de Cambio USD 2025',
-        descripcion: 'Tipo de cambio oficial USD/BOB: 6.96 Bs por dólar estadounidense',
-        fechaVigencia: '2025-01-01',
-        fechaActualizacion: '2025-10-04',
-        categoria: 'financiera',
-        estado: 'vigente',
-        organismo: 'Ministerio_Economia'
       }
     ];
   }
@@ -235,7 +377,7 @@ class NormativaService {
     this.requisitos = [
       {
         codigo: 'IVA-MENSUAL',
-        descripcion: 'Declaración y pago de IVA mensual (Formulario 200)',
+        descripcion: 'Declaración y pago de IVA mensual (Formulario 200) - SIAT en Línea',
         obligatorio: true,
         frecuencia: 'mensual',
         fechaLimite: proximoMes.toISOString().slice(0, 10),
@@ -244,7 +386,7 @@ class NormativaService {
       },
       {
         codigo: 'IT-MENSUAL',
-        descripcion: 'Declaración y pago de IT mensual (Formulario 401)',
+        descripcion: 'Declaración y pago de IT mensual (Formulario 401) - SIAT en Línea',
         obligatorio: true,
         frecuencia: 'mensual',
         fechaLimite: proximoMes.toISOString().slice(0, 10),
@@ -253,7 +395,7 @@ class NormativaService {
       },
       {
         codigo: 'RC-IVA-MENSUAL',
-        descripcion: 'Declaración de retenciones RC-IVA (Formulario 110)',
+        descripcion: 'Declaración de retenciones RC-IVA (Formulario 110) - SIAT en Línea',
         obligatorio: true,
         frecuencia: 'mensual',
         fechaLimite: proximoMes.toISOString().slice(0, 10),
@@ -262,7 +404,7 @@ class NormativaService {
       },
       {
         codigo: 'RC-IT-MENSUAL',
-        descripcion: 'Declaración de retenciones RC-IT (Formulario 610)',
+        descripcion: 'Declaración de retenciones RC-IT (Formulario 610) - SIAT en Línea',
         obligatorio: true,
         frecuencia: 'mensual',
         fechaLimite: proximoMes.toISOString().slice(0, 10),
@@ -271,7 +413,7 @@ class NormativaService {
       },
       {
         codigo: 'IUE-TRIMESTRAL',
-        descripcion: 'Declaración jurada trimestral IUE (Formulario 500)',
+        descripcion: 'Declaración jurada trimestral IUE (Formulario 500) - SIAT en Línea',
         obligatorio: true,
         frecuencia: 'trimestral',
         fechaLimite: proximoTrimestre.toISOString().slice(0, 10),
@@ -279,36 +421,71 @@ class NormativaService {
         estado: 'pendiente'
       },
       {
-        codigo: 'ESTADOS-FINANCIEROS',
-        descripcion: 'Presentación de Estados Financieros anuales con prórroga',
+        codigo: 'ESTADOS-FINANCIEROS-2026',
+        descripcion: 'Presentación de Estados Financieros, Memoria Anual, Dictámenes y Formularios 605/601 para cierre 31/12/2025',
         obligatorio: true,
         frecuencia: 'anual',
-        fechaLimite: '2025-07-21',
+        fechaLimite: '2026-04-29',
         sancion: 'Multa progresiva según días de atraso',
         estado: 'pendiente'
       },
       {
-        codigo: 'BANCARIZACION-2025',
-        descripcion: 'Cumplimiento de requisitos de bancarización según RND-102400000021',
+        codigo: 'BENEFICIARIO-FINAL-2026',
+        descripcion: 'Registro/actualización de Beneficiarios Finales para personas jurídicas (RND 102500000005)',
+        obligatorio: true,
+        frecuencia: 'anual',
+        fechaLimite: '2026-04-29',
+        sancion: 'Multa y suspensión de actividades',
+        estado: 'pendiente'
+      },
+      {
+        codigo: 'BANCARIZACION-2026',
+        descripcion: 'Declaración mensual de transacciones bancarizadas (RND 102400000021) - SIAT en Línea',
         obligatorio: true,
         frecuencia: 'mensual',
         sancion: 'Rechazo de gastos y costos no bancarizados',
         estado: 'pendiente'
       },
       {
-        codigo: 'FACTURACION-ELECTRONICA',
-        descripcion: 'Migración a facturación electrónica según cronograma SIN',
+        codigo: 'HOMOLOGACION-PRODUCTOS-RNC',
+        descripcion: 'Homologación de productos con actividades económicas del RNC (RND 102500000042)',
         obligatorio: true,
         frecuencia: 'eventual',
-        sancion: 'Suspensión de actividades',
-        estado: 'cumplido'
+        fechaLimite: '2026-02-27',
+        sancion: 'Inconsistencias en facturación',
+        estado: 'pendiente'
       },
       {
-        codigo: 'ACTUALIZACION-PADRON',
-        descripcion: 'Actualización anual de datos en padrón de contribuyentes',
+        codigo: 'FACTURACION-ELECTRONICA-GRUPOS-9-12',
+        descripcion: 'Migración a facturación en línea para Grupos 9º al 12º (RND 102500000036)',
+        obligatorio: true,
+        frecuencia: 'eventual',
+        fechaLimite: '2026-03-31',
+        sancion: 'Suspensión de actividades desde 01/04/2026',
+        estado: 'pendiente'
+      },
+      {
+        codigo: 'CEP-ICE',
+        descripcion: 'Control de Existencias y Producción para contribuyentes ICE - Formularios 650, 651, 652 (RND 102500000027)',
+        obligatorio: true,
+        frecuencia: 'mensual',
+        sancion: 'Multa y cierre temporal',
+        estado: 'pendiente'
+      },
+      {
+        codigo: 'RAU-2024',
+        descripcion: 'DDJJ y pago del Régimen Agropecuario Unificado gestión 2024 (RND 102500000053)',
         obligatorio: true,
         frecuencia: 'anual',
-        fechaLimite: '2025-03-31',
+        fechaLimite: '2026-01-30',
+        sancion: 'Multa y recargos',
+        estado: 'pendiente'
+      },
+      {
+        codigo: 'ACTUALIZACION-RNC',
+        descripcion: 'Actualización de datos en Registro Nacional de Contribuyentes (RND 102500000017)',
+        obligatorio: true,
+        frecuencia: 'anual',
         sancion: 'Multa fija y suspensión temporal',
         estado: 'pendiente'
       },
