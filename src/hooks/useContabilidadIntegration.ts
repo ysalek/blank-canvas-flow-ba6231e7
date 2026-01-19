@@ -38,7 +38,7 @@ export interface ContabilidadIntegrationHook {
   generarAsientoPagoCompra: (compra: Compra) => AsientoContable | null;
   generarAsientoPagoFactura: (factura: Factura) => AsientoContable | null;
   generarAsientoAnulacionFactura: (factura: Factura) => AsientoContable[] | null;
-  guardarAsiento: (asiento: AsientoContable) => boolean;
+  guardarAsiento: (asiento: AsientoContable) => Promise<boolean>;
   getAsientos: () => AsientoContable[];
   getLibroMayor: () => { [key: string]: { nombre: string, codigo: string, movimientos: any[], totalDebe: number, totalHaber: number } };
   getTrialBalanceData: () => { details: TrialBalanceDetail[], totals: TrialBalanceTotals };
