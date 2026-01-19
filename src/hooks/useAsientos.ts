@@ -1,13 +1,82 @@
-
 import { useToast } from "@/hooks/use-toast";
-import { AsientoContable } from "@/components/contable/diary/DiaryData";
+import { supabase } from "@/integrations/supabase/client";
+import { AsientoContable, CuentaAsiento } from "@/components/contable/diary/DiaryData";
+import { useState, useEffect, useCallback } from "react";
 
 export const useAsientos = () => {
   const { toast } = useToast();
+  const [asientos, setAsientos] = useState<AsientoContable[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Cargar asientos desde Supabase
+  const fetchAsientos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setAsientos([]);
+        return;
+      }
+
+      // Obtener asientos contables
+      const { data: asientosData, error: asientosError } = await supabase
+        .from('asientos_contables')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('fecha', { ascending: false });
+
+      if (asientosError) throw asientosError;
+
+      // Obtener cuentas de asientos
+      const { data: cuentasData, error: cuentasError } = await supabase
+        .from('cuentas_asientos')
+        .select('*');
+
+      if (cuentasError) throw cuentasError;
+
+      // Mapear asientos con sus cuentas
+      const asientosConCuentas: AsientoContable[] = (asientosData || []).map(asiento => {
+        const cuentasDelAsiento = (cuentasData || [])
+          .filter(cuenta => cuenta.asiento_id === asiento.id)
+          .map(cuenta => ({
+            codigo: cuenta.codigo_cuenta,
+            nombre: cuenta.nombre_cuenta,
+            debe: cuenta.debe || 0,
+            haber: cuenta.haber || 0
+          }));
+
+        return {
+          id: asiento.id,
+          numero: asiento.numero,
+          fecha: asiento.fecha,
+          concepto: asiento.concepto,
+          referencia: asiento.referencia || '',
+          debe: asiento.debe || 0,
+          haber: asiento.haber || 0,
+          estado: asiento.estado as 'borrador' | 'registrado' | 'anulado',
+          cuentas: cuentasDelAsiento
+        };
+      });
+
+      setAsientos(asientosConCuentas);
+    } catch (error) {
+      console.error('Error fetching asientos:', error);
+      // Fallback a localStorage si hay error de conexión
+      const localData = localStorage.getItem('asientosContables');
+      if (localData) {
+        setAsientos(JSON.parse(localData));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAsientos();
+  }, [fetchAsientos]);
 
   const getAsientos = (): AsientoContable[] => {
-    const data = localStorage.getItem('asientosContables');
-    return data ? JSON.parse(data) : [];
+    return asientos;
   };
 
   const validarTransaccion = (asiento: AsientoContable): boolean => {
@@ -22,7 +91,7 @@ export const useAsientos = () => {
     return true;
   };
 
-  const guardarAsiento = (asiento: AsientoContable): boolean => {
+  const guardarAsiento = async (asiento: AsientoContable): Promise<boolean> => {
     if (!validarTransaccion(asiento)) {
       toast({
         title: "Error en el asiento contable",
@@ -32,19 +101,125 @@ export const useAsientos = () => {
       return false;
     }
 
-    const asientosExistentes = getAsientos();
-    const nuevosAsientos = [asiento, ...asientosExistentes];
-    localStorage.setItem('asientosContables', JSON.stringify(nuevosAsientos));
-    
-    console.log("Asiento guardado correctamente:", asiento);
-    
-    toast({
-      title: "Asiento contable registrado",
-      description: `Asiento ${asiento.numero} registrado exitosamente`,
-    });
-    return true;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        // Fallback a localStorage si no hay usuario autenticado
+        const asientosExistentes = JSON.parse(localStorage.getItem('asientosContables') || '[]');
+        const nuevosAsientos = [asiento, ...asientosExistentes];
+        localStorage.setItem('asientosContables', JSON.stringify(nuevosAsientos));
+        setAsientos(nuevosAsientos);
+        
+        toast({
+          title: "Asiento contable registrado",
+          description: `Asiento ${asiento.numero} registrado localmente`,
+        });
+        return true;
+      }
+
+      // Insertar asiento en Supabase
+      const { data: nuevoAsiento, error: asientoError } = await supabase
+        .from('asientos_contables')
+        .insert({
+          numero: asiento.numero,
+          fecha: asiento.fecha,
+          concepto: asiento.concepto,
+          referencia: asiento.referencia || null,
+          debe: asiento.debe,
+          haber: asiento.haber,
+          estado: asiento.estado || 'registrado',
+          user_id: user.id
+        })
+        .select()
+        .single();
+
+      if (asientoError) throw asientoError;
+
+      // Insertar cuentas del asiento
+      if (asiento.cuentas && asiento.cuentas.length > 0) {
+        const cuentasParaInsertar = asiento.cuentas.map(cuenta => ({
+          asiento_id: nuevoAsiento.id,
+          codigo_cuenta: cuenta.codigo,
+          nombre_cuenta: cuenta.nombre,
+          debe: cuenta.debe,
+          haber: cuenta.haber
+        }));
+
+        const { error: cuentasError } = await supabase
+          .from('cuentas_asientos')
+          .insert(cuentasParaInsertar);
+
+        if (cuentasError) throw cuentasError;
+      }
+
+      // Actualizar estado local
+      const asientoCompleto: AsientoContable = {
+        ...asiento,
+        id: nuevoAsiento.id
+      };
+      setAsientos(prev => [asientoCompleto, ...prev]);
+
+      // También guardar en localStorage como backup
+      const asientosLocal = JSON.parse(localStorage.getItem('asientosContables') || '[]');
+      localStorage.setItem('asientosContables', JSON.stringify([asientoCompleto, ...asientosLocal]));
+
+      console.log("Asiento guardado correctamente en Supabase:", nuevoAsiento);
+      
+      toast({
+        title: "Asiento contable registrado",
+        description: `Asiento ${asiento.numero} registrado exitosamente`,
+      });
+      return true;
+
+    } catch (error) {
+      console.error('Error guardando asiento:', error);
+      
+      // Fallback a localStorage en caso de error
+      const asientosExistentes = JSON.parse(localStorage.getItem('asientosContables') || '[]');
+      const nuevosAsientos = [asiento, ...asientosExistentes];
+      localStorage.setItem('asientosContables', JSON.stringify(nuevosAsientos));
+      setAsientos(nuevosAsientos);
+      
+      toast({
+        title: "Asiento guardado localmente",
+        description: "Se guardó en modo offline. Se sincronizará cuando haya conexión.",
+        variant: "default"
+      });
+      return true;
+    }
   };
 
+  const actualizarEstadoAsiento = async (id: string, nuevoEstado: 'borrador' | 'registrado' | 'anulado'): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('asientos_contables')
+        .update({ estado: nuevoEstado })
+        .eq('id', id);
 
-  return { getAsientos, guardarAsiento, validarTransaccion };
+      if (error) throw error;
+
+      setAsientos(prev => prev.map(a => 
+        a.id === id ? { ...a, estado: nuevoEstado } : a
+      ));
+
+      return true;
+    } catch (error) {
+      console.error('Error actualizando estado:', error);
+      return false;
+    }
+  };
+
+  const refetch = () => {
+    fetchAsientos();
+  };
+
+  return { 
+    getAsientos, 
+    guardarAsiento, 
+    validarTransaccion,
+    actualizarEstadoAsiento,
+    loading,
+    refetch
+  };
 };

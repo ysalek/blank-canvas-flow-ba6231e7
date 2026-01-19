@@ -23,7 +23,7 @@ const LibroDiario = () => {
   const [asientoEditando, setAsientoEditando] = useState<AsientoContable | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [asientoDetalle, setAsientoDetalle] = useState<AsientoContable | null>(null);
-  const { getAsientos, guardarAsiento } = useAsientos();
+  const { getAsientos, guardarAsiento, actualizarEstadoAsiento, refetch, loading } = useAsientos();
   const { getBalanceSheetData } = useContabilidadIntegration();
   const { toast } = useToast();
 
@@ -33,9 +33,13 @@ const LibroDiario = () => {
     cargarAsientos();
   }, []);
 
-  const cargarAsientos = () => {
+  useEffect(() => {
     const asientosData = getAsientos();
     setAsientos(asientosData);
+  }, [getAsientos]);
+
+  const cargarAsientos = () => {
+    refetch();
   };
 
   const filtrarAsientos = () => {
@@ -86,46 +90,48 @@ const LibroDiario = () => {
     setShowEditDialog(true);
   };
 
-  const eliminarAsiento = (asientoId: string) => {
-    if (confirm('¿Está seguro de eliminar este asiento? Esta acción no se puede deshacer.')) {
-      const asientosActualizados = asientos.filter(a => a.id !== asientoId);
-      setAsientos(asientosActualizados);
-      localStorage.setItem('asientosContables', JSON.stringify(asientosActualizados));
-      
+  const eliminarAsiento = async (asientoId: string) => {
+    if (confirm('¿Está seguro de anular este asiento? Esta acción cambiará su estado a "anulado".')) {
+      // En contabilidad, los asientos no se eliminan, se anulan
+      const resultado = await actualizarEstadoAsiento(asientoId, 'anulado');
+      if (resultado) {
+        setAsientos(prev => prev.map(a => 
+          a.id === asientoId ? { ...a, estado: 'anulado' as const } : a
+        ));
+        toast({
+          title: "Asiento anulado",
+          description: "El asiento contable ha sido anulado exitosamente",
+          variant: "destructive"
+        });
+      }
+    }
+  };
+
+  const cambiarEstadoAsiento = async (asientoId: string, nuevoEstado: 'borrador' | 'registrado' | 'anulado') => {
+    const resultado = await actualizarEstadoAsiento(asientoId, nuevoEstado);
+    if (resultado) {
+      setAsientos(prev => prev.map(a => 
+        a.id === asientoId ? { ...a, estado: nuevoEstado } : a
+      ));
       toast({
-        title: "Asiento eliminado",
-        description: "El asiento contable ha sido eliminado exitosamente",
-        variant: "destructive"
+        title: "Estado actualizado",
+        description: `El asiento ha sido ${nuevoEstado === 'anulado' ? 'anulado' : nuevoEstado}`,
       });
     }
   };
 
-  const cambiarEstadoAsiento = (asientoId: string, nuevoEstado: 'borrador' | 'registrado' | 'anulado') => {
-    const asientosActualizados = asientos.map(a => 
-      a.id === asientoId ? { ...a, estado: nuevoEstado } : a
-    );
-    setAsientos(asientosActualizados);
-    localStorage.setItem('asientosContables', JSON.stringify(asientosActualizados));
-    
-    toast({
-      title: "Estado actualizado",
-      description: `El asiento ha sido ${nuevoEstado === 'anulado' ? 'anulado' : nuevoEstado}`,
-    });
-  };
-
-  const guardarEdicion = () => {
+  const guardarEdicion = async () => {
     if (!asientoEditando) return;
 
-    const asientosActualizados = asientos.map(a => 
-      a.id === asientoEditando.id ? asientoEditando : a
-    );
-    setAsientos(asientosActualizados);
-    localStorage.setItem('asientosContables', JSON.stringify(asientosActualizados));
-    
-    toast({
-      title: "Asiento actualizado",
-      description: "Los cambios han sido guardados exitosamente",
-    });
+    // Para edición completa, usar guardarAsiento
+    const resultado = await guardarAsiento(asientoEditando);
+    if (resultado) {
+      refetch();
+      toast({
+        title: "Asiento actualizado",
+        description: "Los cambios han sido guardados exitosamente",
+      });
+    }
     
     setShowEditDialog(false);
     setAsientoEditando(null);
