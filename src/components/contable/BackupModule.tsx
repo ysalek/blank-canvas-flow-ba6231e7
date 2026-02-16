@@ -10,7 +10,7 @@ import { Download, Upload, Database, Shield, AlertTriangle, CheckCircle } from "
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useBackup } from "@/hooks/useBackup";
-import SystemResetButton from "./SystemResetButton";
+// SystemResetButton removed in SaaS cleanup
 
 const BackupModule = () => {
   const [isExporting, setIsExporting] = useState(false);
@@ -483,13 +483,7 @@ const BackupModule = () => {
                   />
                 </div>
 
-                {/* Reiniciar Sistema */}
-                <div className="pt-4 border-t">
-                  <SystemResetButton />
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Elimina TODOS los datos de la base de datos. Esta acción NO se puede deshacer.
-                  </p>
-                </div>
+                {/* Reiniciar Sistema - Removed in SaaS version */}
               </CardContent>
             </Card>
           </div>
