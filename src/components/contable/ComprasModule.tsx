@@ -1,26 +1,34 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, PackageCheck, Clock, Banknote, Truck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Compra, Proveedor, comprasIniciales, proveedoresIniciales } from "./purchases/PurchasesData";
+import { Compra, Proveedor } from "./purchases/PurchasesData";
 import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
 import { useSupabaseProductos } from "@/hooks/useSupabaseProductos";
-import { Producto, productosIniciales } from "./products/ProductsData";
+import { Producto } from "./products/ProductsData";
+import { useSupabaseProveedores } from "@/hooks/useSupabaseProveedores";
 import CompraForm from "./purchases/CompraForm";
 import PurchasesList from "./purchases/PurchasesList";
 import ProveedoresList from "./purchases/ProveedoresList";
 
 const ComprasModule = () => {
-  const [compras, setCompras] = useState<Compra[]>(comprasIniciales);
-  const [proveedores, setProveedores] = useState<Proveedor[]>(proveedoresIniciales);
   const [showNewCompraForm, setShowNewCompraForm] = useState(false);
   const { toast } = useToast();
   const { generarAsientoCompra, actualizarStockProducto, generarAsientoPagoCompra } = useContabilidadIntegration();
   const { productos: productosSupabase } = useSupabaseProductos();
+  const {
+    proveedores: proveedoresDB,
+    compras: comprasDB,
+    loading,
+    crearProveedor,
+    crearCompra,
+    actualizarCompra,
+    refetch
+  } = useSupabaseProveedores();
 
-  // Convertir productos de Supabase al formato esperado
+  // Convert Supabase products to expected format
   const productos: Producto[] = productosSupabase.map(p => ({
     id: p.id,
     codigo: p.codigo,
@@ -39,40 +47,67 @@ const ComprasModule = () => {
     fechaActualizacion: p.updated_at?.split('T')[0] || new Date().toISOString().slice(0, 10)
   }));
 
-  useEffect(() => {
-    const comprasGuardadas = localStorage.getItem('compras');
-    if (comprasGuardadas) setCompras(JSON.parse(comprasGuardadas));
-    
-    const proveedoresGuardados = localStorage.getItem('proveedores');
-    if (proveedoresGuardados) setProveedores(JSON.parse(proveedoresGuardados));
-  }, []);
+  // Convert DB proveedores to local format
+  const proveedores: Proveedor[] = proveedoresDB.map(p => ({
+    id: p.id,
+    nombre: p.nombre,
+    nit: p.nit,
+    telefono: p.telefono,
+    direccion: p.direccion,
+    email: p.email || '',
+    activo: p.activo,
+    fechaCreacion: p.created_at?.split('T')[0] || ''
+  }));
 
-  const handleSaveCompra = (nuevaCompra: Compra) => {
+  // Convert DB compras to local format
+  const compras: Compra[] = comprasDB.map(c => ({
+    id: c.id,
+    numero: c.numero,
+    proveedor: proveedores.find(p => p.id === c.proveedor_id) || { id: '', nombre: 'Desconocido', nit: '', telefono: '', direccion: '', email: '', activo: true, fechaCreacion: '' },
+    fecha: c.fecha,
+    fechaVencimiento: c.fecha_vencimiento || '',
+    items: [],
+    subtotal: c.subtotal,
+    descuentoTotal: c.descuento_total,
+    iva: c.iva,
+    total: c.total,
+    estado: c.estado,
+    observaciones: c.observaciones || '',
+    fechaCreacion: c.created_at?.split('T')[0] || ''
+  }));
+
+  const handleSaveCompra = async (nuevaCompra: Compra) => {
     try {
-      // 1. Generate ONE accounting entry for the entire purchase
       const asientoCompra = generarAsientoCompra({
         numero: nuevaCompra.numero,
         total: nuevaCompra.total,
         subtotal: nuevaCompra.subtotal,
         iva: nuevaCompra.iva
       });
-      
-      // If accounting fails, stop. A toast is shown inside the hook.
-      if (!asientoCompra) {
-        return;
-      }
 
-      // 2. Update stock for each item *after* successful accounting entry
+      if (!asientoCompra) return;
+
       nuevaCompra.items.forEach(item => {
         actualizarStockProducto(item.productoId, item.cantidad, 'entrada');
       });
-      
-      // 3. Update purchases list and persist
-      const nuevasCompras = [nuevaCompra, ...compras];
-      setCompras(nuevasCompras);
-      localStorage.setItem('compras', JSON.stringify(nuevasCompras));
 
-      // 4. Show success message
+      // Save to Supabase
+      await crearCompra({
+        proveedor_id: nuevaCompra.proveedor.id,
+        numero: nuevaCompra.numero,
+        fecha: nuevaCompra.fecha,
+        fecha_vencimiento: nuevaCompra.fechaVencimiento || null,
+        subtotal: nuevaCompra.subtotal,
+        descuento_total: nuevaCompra.descuentoTotal,
+        iva: nuevaCompra.iva,
+        total: nuevaCompra.total,
+        estado: nuevaCompra.estado,
+        tipo_pago: 'contado',
+        monto_pagado: 0,
+        saldo_pendiente: nuevaCompra.total,
+        observaciones: nuevaCompra.observaciones || null
+      });
+
       toast({
         title: "Compra Creada Exitosamente",
         description: `Compra N° ${nuevaCompra.numero} registrada. Inventario actualizado.`,
@@ -89,46 +124,49 @@ const ComprasModule = () => {
     }
   };
 
-  const handleProcessPurchase = (compra: Compra) => {
+  const handleProcessPurchase = async (compra: Compra) => {
     if (compra.estado !== 'recibida') {
       toast({
         title: "Acción no permitida",
-        description: `La compra ya tiene estado "${compra.estado}". Solo se pueden procesar compras en estado "recibida".`,
+        description: `La compra ya tiene estado "${compra.estado}".`,
         variant: "destructive",
       });
       return;
     }
-    
-    // Generate accounting entry for payment
+
     const asientoPago = generarAsientoPagoCompra(compra);
-    
-    // If payment entry failed, stop. Error toast is shown inside the hook.
-    if (!asientoPago) {
-      return;
+    if (!asientoPago) return;
+
+    try {
+      await actualizarCompra(compra.id, { estado: 'pagada' });
+      toast({
+        title: "Compra Procesada y Pagada",
+        description: `La compra ${compra.numero} ha sido marcada como "pagada".`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado de la compra.",
+        variant: "destructive",
+      });
     }
-    
-    // Update purchase status to 'pagada'
-    const comprasActualizadas: Compra[] = compras.map(c => 
-        c.id === compra.id ? { ...c, estado: 'pagada' } : c
-    );
-    setCompras(comprasActualizadas);
-    localStorage.setItem('compras', JSON.stringify(comprasActualizadas));
-    
-    toast({
-      title: "Compra Procesada y Pagada",
-      description: `La compra ${compra.numero} ha sido marcada como "pagada" y se generó el asiento de pago.`,
-    });
   };
 
-  const handleAddProveedor = (nuevoProveedor: Proveedor) => {
-    const proveedoresActualizados = [...proveedores, nuevoProveedor];
-    setProveedores(proveedoresActualizados);
-    localStorage.setItem('proveedores', JSON.stringify(proveedoresActualizados));
-    
-    toast({
-      title: "Proveedor agregado",
-      description: `${nuevoProveedor.nombre} ha sido agregado exitosamente.`,
-    });
+  const handleAddProveedor = async (nuevoProveedor: Proveedor) => {
+    try {
+      await crearProveedor({
+        codigo: nuevoProveedor.nit,
+        nombre: nuevoProveedor.nombre,
+        nit: nuevoProveedor.nit,
+        telefono: nuevoProveedor.telefono,
+        direccion: nuevoProveedor.direccion,
+        email: nuevoProveedor.email || null,
+        activo: nuevoProveedor.activo,
+        saldo_deuda: 0
+      });
+    } catch (error) {
+      // Toast already shown by hook
+    }
   };
 
   if (showNewCompraForm) {
@@ -146,7 +184,6 @@ const ComprasModule = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Gestión de Compras</h2>
@@ -158,7 +195,6 @@ const ComprasModule = () => {
         </Button>
       </div>
 
-      {/* Resumen */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -202,10 +238,7 @@ const ComprasModule = () => {
         </Card>
       </div>
 
-      {/* Lista de compras */}
       <PurchasesList compras={compras} onProcessPurchase={handleProcessPurchase} />
-
-      {/* Proveedores */}
       <ProveedoresList proveedores={proveedores} />
     </div>
   );
