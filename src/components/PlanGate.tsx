@@ -33,7 +33,7 @@ const PlanGate = ({ moduleId, children, fallback }: PlanGateProps) => {
             todas las herramientas avanzadas de contabilidad.
           </p>
           <div className="pt-2">
-            <Button onClick={upgradeToPro} className="gap-2">
+           <Button onClick={() => window.dispatchEvent(new Event('open-upgrade-modal'))} className="gap-2">
               <Sparkles className="w-4 h-4" />
               Actualizar a Pro — {PLAN_PRICES.pro.label}
             </Button>

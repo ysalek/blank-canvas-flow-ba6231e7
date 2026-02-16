@@ -9,7 +9,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Bell, User, LogOut, Settings } from 'lucide-react';
 import NotificationCenter from '@/components/contable/notifications/NotificationCenter';
 import PlanGate from '@/components/PlanGate';
-
+import OnboardingWizard from '@/components/onboarding/OnboardingWizard';
+import PlanUpgradeModal from '@/components/PlanUpgradeModal';
 // Lazy load components - Core (Basic plan)
 const Dashboard = lazy(() => import('@/components/contable/Dashboard'));
 const LibroDiario = lazy(() => import('@/components/contable/LibroDiario'));
@@ -61,6 +62,10 @@ const ActivityLogs = lazy(() => import('@/components/admin/ActivityLogs'));
 const Index = () => {
   const { hasPermission, user, logout } = useAuth();
   const [openNotifications, setOpenNotifications] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return !localStorage.getItem('onboarding_complete');
+  });
 
   const UserProfileMenu = () => (
     <DropdownMenu>
@@ -243,6 +248,17 @@ const Index = () => {
     document.title = `${getPageTitle()} | ContaBolivia SaaS`;
   }, [currentView]);
 
+  // Listen for upgrade modal events
+  useEffect(() => {
+    const handler = () => setShowUpgradeModal(true);
+    window.addEventListener('open-upgrade-modal', handler);
+    return () => window.removeEventListener('open-upgrade-modal', handler);
+  }, []);
+
+  if (showOnboarding) {
+    return <OnboardingWizard onComplete={() => setShowOnboarding(false)} />;
+  }
+
   return (
     <SidebarProvider>
       <div className="min-h-screen w-full flex">
@@ -276,6 +292,8 @@ const Index = () => {
               <NotificationCenter />
             </DialogContent>
           </Dialog>
+
+          <PlanUpgradeModal open={showUpgradeModal} onOpenChange={setShowUpgradeModal} />
 
           <main className="flex-1 p-6">
             <Suspense fallback={
