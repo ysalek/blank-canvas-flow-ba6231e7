@@ -232,10 +232,7 @@ const AppSidebar = () => {
         {!isCollapsed && !isAdmin && currentPlan === 'basic' && (
           <div className="mt-auto pt-4 px-3 border-t border-border/60">
             <button
-              onClick={() => {
-                window.history.pushState({}, '', '/?view=configuracion');
-                window.dispatchEvent(new PopStateEvent('popstate'));
-              }}
+              onClick={() => window.dispatchEvent(new Event('open-upgrade-modal'))}
               className="w-full p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/15 text-center hover:from-primary/15 hover:to-primary/10 transition-all duration-300"
             >
               <p className="text-sm font-semibold text-primary">Actualizar a Pro</p>

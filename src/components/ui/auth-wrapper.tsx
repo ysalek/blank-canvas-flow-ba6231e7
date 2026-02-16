@@ -10,7 +10,7 @@ const AuthWrapper = ({ children }: AuthWrapperProps) => {
   const { isAuthenticated } = useAuth();
   const location = useLocation();
 
-  const publicPaths = ['/signup', '/web', '/suscripcion'];
+  const publicPaths = ['/signup', '/web', '/suscripcion', '/reset-password'];
   const pathname = location.pathname;
   const isPublic = publicPaths.includes(pathname) || /^\/e\/[^/]+\/(web|suscripcion)$/.test(pathname);
 
