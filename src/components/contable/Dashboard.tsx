@@ -1,23 +1,16 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users, CheckCircle, AlertTriangle, Sparkles, Zap, Activity, Target, BarChart3, PieChart, Globe, Star, Award, Briefcase, Shield } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users, CheckCircle, AlertTriangle, Activity, Target, BarChart3 } from 'lucide-react';
 import { useContabilidadIntegration } from '@/hooks/useContabilidadIntegration';
 import NotificationsIcon from './dashboard/NotificationsIcon';
-import SystemValidation from './dashboard/SystemValidation';
 import EnhancedFinancialDashboard from './dashboard/EnhancedFinancialDashboard';
-import { EnhancedHeader, MetricGrid, EnhancedMetricCard, Section } from './dashboard/EnhancedLayout';
+import SystemHealth from './dashboard/SystemHealth';
 import { inicializarSistemaCompleto } from '../../utils/inicializarSistema';
 import { inicializarDatosDemo } from '@/utils/inicializarDatosDemo';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import ModuleIntegrationValidator from './integration/ModuleIntegrationValidator';
-import SystemValidator from './validation/SystemValidator';
-import SystemValidatorNew from './system/SystemValidator';
-import SystemHealth from './dashboard/SystemHealth';
-import AnnulmentValidator from './system/AnnulmentValidator';
 
 const Dashboard = () => {
   const [fechaActual] = useState(new Date().toLocaleDateString('es-BO', {
@@ -28,13 +21,46 @@ const Dashboard = () => {
   }));
 
   const [sistemaInicializado, setSistemaInicializado] = useState(false);
-  const [showSystemValidator, setShowSystemValidator] = useState(false);
   const { toast } = useToast();
 
   const { obtenerBalanceGeneral } = useContabilidadIntegration();
   const balance = obtenerBalanceGeneral();
 
-  // Obtener datos para el dashboard mejorado
+  const [dataCargada, setDataCargada] = useState(false);
+
+  useEffect(() => {
+    const cargarDatosDesdeLocalStorage = () => {
+      try {
+        // Intenta cargar los datos desde localStorage
+        const facturasGuardadas = localStorage.getItem('facturas');
+        const asientosGuardados = localStorage.getItem('asientosContables');
+        const productosGuardados = localStorage.getItem('productos');
+        const comprobantesGuardados = localStorage.getItem('comprobantes_integrados');
+        const clientesGuardados = localStorage.getItem('clientes');
+        const proveedoresGuardados = localStorage.getItem('proveedores');
+
+        // Si alguno de los datos no existe, inicializa el sistema
+        if (!facturasGuardadas || !asientosGuardados || !productosGuardados || !comprobantesGuardados || !clientesGuardados || !proveedoresGuardados) {
+          inicializarSistemaCompleto();
+          toast({
+            title: "¡Bienvenido!",
+            description: "El sistema se ha inicializado con datos de demostración.",
+          })
+        }
+        setDataCargada(true);
+      } catch (error) {
+        console.error("Error al cargar datos desde localStorage:", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Hubo un problema al cargar los datos iniciales.",
+        })
+      }
+    };
+
+    cargarDatosDesdeLocalStorage();
+  }, [toast]);
+
   const facturas = JSON.parse(localStorage.getItem('facturas') || '[]');
   const asientos = JSON.parse(localStorage.getItem('asientosContables') || '[]');
   const productos = JSON.parse(localStorage.getItem('productos') || '[]');
@@ -43,7 +69,6 @@ const Dashboard = () => {
   const proveedores = JSON.parse(localStorage.getItem('proveedores') || '[]');
 
   useEffect(() => {
-    // Inicializar datos demo y sistema
     const initSystem = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -56,52 +81,42 @@ const Dashboard = () => {
         setSistemaInicializado(true);
       }
     };
-    
     initSystem();
   }, []);
 
-  // Cálculos avanzados para métricas empresariales
   const today = new Date().toISOString().slice(0, 10);
   const thisMonth = new Date().toISOString().slice(0, 7);
   const lastMonth = new Date();
   lastMonth.setMonth(lastMonth.getMonth() - 1);
   const lastMonthStr = lastMonth.toISOString().slice(0, 7);
 
-  // Estadísticas de integración mejoradas
   const comprobantesAutorizados = comprobantes.filter((c: any) => c.estado === 'autorizado');
   const comprobantesConAsientos = comprobantes.filter((c: any) => c.asientoGenerado);
   const totalIngresos = comprobantes.filter((c: any) => c.tipo === 'ingreso' && c.estado === 'autorizado').reduce((sum: number, c: any) => sum + c.monto, 0);
   const totalGastos = comprobantes.filter((c: any) => c.tipo === 'egreso' && c.estado === 'autorizado').reduce((sum: number, c: any) => sum + c.monto, 0);
 
-  // Métricas financieras avanzadas
-  const ventasHoy = facturas.filter(f => f.fecha === today && f.estado !== 'anulada').reduce((sum, f) => sum + f.total, 0);
-  const ventasMes = facturas.filter(f => f.fecha.startsWith(thisMonth) && f.estado !== 'anulada').reduce((sum, f) => sum + f.total, 0);
-  const ventasMesAnterior = facturas.filter(f => f.fecha.startsWith(lastMonthStr) && f.estado !== 'anulada').reduce((sum, f) => sum + f.total, 0);
+  const ventasHoy = facturas.filter((f: any) => f.fecha === today && f.estado !== 'anulada').reduce((sum: number, f: any) => sum + f.total, 0);
+  const ventasMes = facturas.filter((f: any) => f.fecha.startsWith(thisMonth) && f.estado !== 'anulada').reduce((sum: number, f: any) => sum + f.total, 0);
+  const ventasMesAnterior = facturas.filter((f: any) => f.fecha.startsWith(lastMonthStr) && f.estado !== 'anulada').reduce((sum: number, f: any) => sum + f.total, 0);
   const crecimientoVentas = ventasMesAnterior > 0 ? ((ventasMes - ventasMesAnterior) / ventasMesAnterior * 100) : 0;
 
-  // ROI y rentabilidad
   const margenBruto = ventasMes > 0 ? ((ventasMes - totalGastos) / ventasMes * 100) : 0;
   const ebitda = totalIngresos - totalGastos;
   const roiMensual = totalGastos > 0 ? (ebitda / totalGastos * 100) : 0;
 
-  // Análisis de clientes
-  const clientesActivosMes = new Set(facturas.filter(f => f.fecha.startsWith(thisMonth)).map(f => f.cliente.id)).size;
-  const clientesNuevosMes = clientes.filter(c => c.fechaRegistro && c.fechaRegistro.startsWith(thisMonth)).length;
-  const ticketPromedio = facturas.length > 0 ? ventasMes / facturas.filter(f => f.fecha.startsWith(thisMonth) && f.estado !== 'anulada').length : 0;
+  const clientesActivosMes = new Set(facturas.filter((f: any) => f.fecha.startsWith(thisMonth)).map((f: any) => f.cliente?.id)).size;
+  const clientesNuevosMes = clientes.filter((c: any) => c.fechaRegistro && c.fechaRegistro.startsWith(thisMonth)).length;
+  const ticketPromedio = facturas.length > 0 ? ventasMes / Math.max(facturas.filter((f: any) => f.fecha.startsWith(thisMonth) && f.estado !== 'anulada').length, 1) : 0;
 
-  // Análisis de inventario
-  const valorInventario = productos.reduce((sum, p) => sum + (p.stockActual * p.costoUnitario), 0);
-  const productosStockBajo = productos.filter(p => p.stockActual <= p.stockMinimo && p.stockActual > 0).length;
+  const valorInventario = productos.reduce((sum: number, p: any) => sum + (p.stockActual * p.costoUnitario), 0);
+  const productosStockBajo = productos.filter((p: any) => p.stockActual <= p.stockMinimo && p.stockActual > 0).length;
   const rotacionInventario = ventasMes > 0 && valorInventario > 0 ? (ventasMes / valorInventario * 12) : 0;
 
-  // Eficiencia operacional
-  const facturasPendientes = facturas.filter(f => f.estado === 'enviada').length;
-  const tiempoCobranza = 30; // días promedio
+  const facturasPendientes = facturas.filter((f: any) => f.estado === 'enviada').length;
   const eficienciaCobranza = facturasPendientes > 0 ? ((facturas.length - facturasPendientes) / facturas.length * 100) : 100;
 
   return (
     <div className="min-h-screen bg-gradient-subtle pb-12">
-      {/* Header simplificado y limpio */}
       <div className="bg-gradient-primary px-8 py-6 mb-8">
         <div className="flex items-center justify-between">
           <div>
@@ -109,9 +124,7 @@ const Dashboard = () => {
               <Activity className="w-8 h-8" />
               Dashboard Empresarial
             </h1>
-            <p className="text-white/90 text-sm">
-              {fechaActual}
-            </p>
+            <p className="text-white/90 text-sm">{fechaActual}</p>
           </div>
           <div className="flex items-center gap-4">
             <Badge 
@@ -130,7 +143,7 @@ const Dashboard = () => {
       </div>
 
       <div className="px-8 space-y-8">
-        {/* Métricas principales simplificadas */}
+        {/* Métricas principales */}
         <div>
           <h2 className="text-xl font-semibold mb-4 text-foreground">Métricas Principales</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -175,9 +188,7 @@ const Dashboard = () => {
                     <Users className="w-6 h-6 text-warning" />
                   </div>
                   {clientesNuevosMes > 0 && (
-                    <Badge variant="default" className="text-xs">
-                      +{clientesNuevosMes} nuevos
-                    </Badge>
+                    <Badge variant="default" className="text-xs">+{clientesNuevosMes} nuevos</Badge>
                   )}
                 </div>
                 <p className="text-2xl font-bold text-foreground mb-1">{clientesActivosMes}</p>
@@ -193,8 +204,7 @@ const Dashboard = () => {
                   </div>
                   {productosStockBajo > 0 && (
                     <Badge variant="destructive" className="text-xs">
-                      <AlertTriangle className="w-3 h-3 mr-1" />
-                      {productosStockBajo}
+                      <AlertTriangle className="w-3 h-3 mr-1" />{productosStockBajo}
                     </Badge>
                   )}
                 </div>
@@ -246,7 +256,7 @@ const Dashboard = () => {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Productos Activos</span>
-                <span className="text-lg font-bold">{productos.filter(p => p.stockActual > 0).length}/{productos.length}</span>
+                <span className="text-lg font-bold">{productos.filter((p: any) => p.stockActual > 0).length}/{productos.length}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Stock Bajo</span>
@@ -279,17 +289,15 @@ const Dashboard = () => {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Tiempo Cobro</span>
-                <span className="text-lg font-bold">{tiempoCobranza} días</span>
+                <span className="text-lg font-bold">30 días</span>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Alertas y notificaciones */}
+        {/* Alertas */}
         {(Math.abs(balance.activos - (balance.pasivos + balance.patrimonio)) > 0.01 || 
-          productosStockBajo > 0 || 
-          facturasPendientes > 0 ||
-          roiMensual > 20) && (
+          productosStockBajo > 0 || facturasPendientes > 0 || roiMensual > 20) && (
           <div>
             <h2 className="text-xl font-semibold mb-4 text-foreground">Alertas y Notificaciones</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -308,7 +316,6 @@ const Dashboard = () => {
                   </CardContent>
                 </Card>
               )}
-
               {productosStockBajo > 0 && (
                 <Card className="border-l-4 border-l-warning bg-warning/5">
                   <CardContent className="p-4">
@@ -316,15 +323,12 @@ const Dashboard = () => {
                       <Package className="w-5 h-5 text-warning mt-0.5" />
                       <div>
                         <p className="font-semibold text-warning mb-1">Stock Bajo</p>
-                        <p className="text-sm text-muted-foreground">
-                          {productosStockBajo} productos necesitan reposición
-                        </p>
+                        <p className="text-sm text-muted-foreground">{productosStockBajo} productos necesitan reposición</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               )}
-
               {facturasPendientes > 0 && (
                 <Card className="border-l-4 border-l-warning bg-warning/5">
                   <CardContent className="p-4">
@@ -332,31 +336,12 @@ const Dashboard = () => {
                       <AlertTriangle className="w-5 h-5 text-warning mt-0.5" />
                       <div>
                         <p className="font-semibold text-warning mb-1">Cuentas por Cobrar</p>
-                        <p className="text-sm text-muted-foreground">
-                          {facturasPendientes} facturas pendientes de cobro
-                        </p>
+                        <p className="text-sm text-muted-foreground">{facturasPendientes} facturas pendientes de cobro</p>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               )}
-
-              {roiMensual > 20 && (
-                <Card className="border-l-4 border-l-success bg-success/5">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <TrendingUp className="w-5 h-5 text-success mt-0.5" />
-                      <div>
-                        <p className="font-semibold text-success mb-1">Rendimiento Excepcional</p>
-                        <p className="text-sm text-muted-foreground">
-                          ROI del {roiMensual.toFixed(1)}% - ¡Excelente gestión!
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
               {Math.abs(balance.activos - (balance.pasivos + balance.patrimonio)) <= 0.01 && (
                 <Card className="border-l-4 border-l-success bg-success/5">
                   <CardContent className="p-4">
@@ -364,9 +349,7 @@ const Dashboard = () => {
                       <CheckCircle className="w-5 h-5 text-success mt-0.5" />
                       <div>
                         <p className="font-semibold text-success mb-1">Sistema Integrado</p>
-                        <p className="text-sm text-muted-foreground">
-                          Balance cuadrado • Inventario sincronizado
-                        </p>
+                        <p className="text-sm text-muted-foreground">Balance cuadrado • Inventario sincronizado</p>
                       </div>
                     </div>
                   </CardContent>
@@ -379,46 +362,13 @@ const Dashboard = () => {
         {/* Análisis Financiero */}
         <div>
           <h2 className="text-xl font-semibold mb-4 text-foreground">Análisis Financiero</h2>
-          <EnhancedFinancialDashboard 
-            facturas={facturas}
-            asientos={asientos}
-            productos={productos}
-          />
+          <EnhancedFinancialDashboard facturas={facturas} asientos={asientos} productos={productos} />
         </div>
 
         {/* Monitoreo del Sistema */}
         <div>
           <h2 className="text-xl font-semibold mb-4 text-foreground">Monitoreo del Sistema</h2>
-          <div className="space-y-6">
-            <SystemHealth />
-            <ModuleIntegrationValidator />
-          </div>
-        </div>
-
-        {/* Validadores Avanzados */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-foreground">Validadores Avanzados</h2>
-            <Button 
-              onClick={() => setShowSystemValidator(!showSystemValidator)}
-              variant="outline"
-              size="sm"
-              className="border-red-300 text-red-700 hover:bg-red-50"
-            >
-              <Shield className="w-4 h-4 mr-2" />
-              {showSystemValidator ? 'Ocultar Validador' : 'Ejecutar Validación'}
-            </Button>
-          </div>
-          
-          {showSystemValidator && (
-            <SystemValidatorNew />
-          )}
-        </div>
-
-        {/* Validador de Anulaciones */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4 text-foreground">Validador de Anulaciones</h2>
-          <AnnulmentValidator />
+          <SystemHealth />
         </div>
       </div>
     </div>
