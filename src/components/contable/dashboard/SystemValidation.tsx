@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useContabilidadIntegration } from '@/hooks/useContabilidadIntegration';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ValidationResult {
   module: string;
@@ -17,115 +18,83 @@ const SystemValidation = () => {
   const [isValidating, setIsValidating] = useState(false);
   const { getAsientos, obtenerProductos, getBalanceSheetData } = useContabilidadIntegration();
 
-  const validateSystem = () => {
+  const validateSystem = async () => {
     setIsValidating(true);
     const results: ValidationResult[] = [];
 
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        results.push({ module: 'Sistema', status: 'error', message: 'No hay usuario autenticado' });
+        setValidationResults(results);
+        setIsValidating(false);
+        return;
+      }
+
       // Validar asientos contables
       const asientos = getAsientos();
-      if (asientos.length > 0) {
-        results.push({
-          module: 'Libro Diario',
-          status: 'success',
-          message: `${asientos.length} asientos registrados`,
-          count: asientos.length
-        });
-      } else {
-        results.push({
-          module: 'Libro Diario',
-          status: 'warning',
-          message: 'No hay asientos registrados'
-        });
-      }
+      results.push(asientos.length > 0
+        ? { module: 'Libro Diario', status: 'success', message: `${asientos.length} asientos registrados`, count: asientos.length }
+        : { module: 'Libro Diario', status: 'warning', message: 'No hay asientos registrados' }
+      );
 
-      // Validar productos
-      const productos = obtenerProductos();
-      if (productos.length > 0) {
-        const productosActivos = productos.filter(p => p.activo);
-        results.push({
-          module: 'Productos',
-          status: 'success',
-          message: `${productosActivos.length} productos activos`,
-          count: productosActivos.length
-        });
-      } else {
-        results.push({
-          module: 'Productos',
-          status: 'warning',
-          message: 'No hay productos registrados'
-        });
-      }
+      // Validar productos desde Supabase
+      const { data: productosData } = await supabase
+        .from('productos')
+        .select('id, activo')
+        .eq('user_id', user.id);
+      
+      const productosActivos = (productosData || []).filter(p => p.activo).length;
+      results.push(productosActivos > 0
+        ? { module: 'Productos', status: 'success', message: `${productosActivos} productos activos`, count: productosActivos }
+        : { module: 'Productos', status: 'warning', message: 'No hay productos registrados' }
+      );
 
-      // Validar clientes
-      const clientes = JSON.parse(localStorage.getItem('clientes') || '[]');
-      if (clientes.length > 0) {
-        results.push({
-          module: 'Clientes',
-          status: 'success',
-          message: `${clientes.length} clientes registrados`,
-          count: clientes.length
-        });
-      } else {
-        results.push({
-          module: 'Clientes',
-          status: 'warning',
-          message: 'No hay clientes registrados'
-        });
-      }
+      // Validar clientes desde Supabase
+      const { count: clientesCount } = await supabase
+        .from('clientes')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      
+      results.push((clientesCount || 0) > 0
+        ? { module: 'Clientes', status: 'success', message: `${clientesCount} clientes registrados`, count: clientesCount || 0 }
+        : { module: 'Clientes', status: 'warning', message: 'No hay clientes registrados' }
+      );
 
-      // Validar facturas
-      const facturas = JSON.parse(localStorage.getItem('facturas') || '[]');
-      if (facturas.length > 0) {
-        const facturasVigentes = facturas.filter((f: any) => f.estado !== 'anulada');
-        results.push({
-          module: 'Facturación',
-          status: 'success',
-          message: `${facturasVigentes.length} facturas vigentes`,
-          count: facturasVigentes.length
-        });
-      } else {
-        results.push({
-          module: 'Facturación',
-          status: 'warning',
-          message: 'No hay facturas registradas'
-        });
-      }
+      // Validar facturas desde Supabase
+      const { data: facturasData } = await supabase
+        .from('facturas')
+        .select('id, estado')
+        .eq('user_id', user.id);
+      
+      const facturasVigentes = (facturasData || []).filter(f => f.estado !== 'anulada').length;
+      results.push(facturasVigentes > 0
+        ? { module: 'Facturación', status: 'success', message: `${facturasVigentes} facturas vigentes`, count: facturasVigentes }
+        : { module: 'Facturación', status: 'warning', message: 'No hay facturas registradas' }
+      );
 
-      // Validar compras
-      const compras = JSON.parse(localStorage.getItem('compras') || '[]');
-      if (compras.length > 0) {
-        results.push({
-          module: 'Compras',
-          status: 'success',
-          message: `${compras.length} compras registradas`,
-          count: compras.length
-        });
-      } else {
-        results.push({
-          module: 'Compras',
-          status: 'warning',
-          message: 'No hay compras registradas'
-        });
-      }
+      // Validar compras desde Supabase
+      const { count: comprasCount } = await supabase
+        .from('compras')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      
+      results.push((comprasCount || 0) > 0
+        ? { module: 'Compras', status: 'success', message: `${comprasCount} compras registradas`, count: comprasCount || 0 }
+        : { module: 'Compras', status: 'warning', message: 'No hay compras registradas' }
+      );
 
-      // Validar comprobantes
-      const comprobantes = JSON.parse(localStorage.getItem('comprobantes') || '[]');
-      if (comprobantes.length > 0) {
-        const comprobantesAutorizados = comprobantes.filter((c: any) => c.estado === 'autorizado');
-        results.push({
-          module: 'Comprobantes',
-          status: 'success',
-          message: `${comprobantesAutorizados.length} comprobantes autorizados`,
-          count: comprobantesAutorizados.length
-        });
-      } else {
-        results.push({
-          module: 'Comprobantes',
-          status: 'warning',
-          message: 'No hay comprobantes registrados'
-        });
-      }
+      // Validar comprobantes desde Supabase
+      const { data: comprobantesData } = await supabase
+        .from('comprobantes_integrados')
+        .select('id, estado')
+        .eq('user_id', user.id);
+      
+      const comprobantesAutorizados = (comprobantesData || []).filter(c => c.estado === 'autorizado').length;
+      results.push(comprobantesAutorizados > 0
+        ? { module: 'Comprobantes', status: 'success', message: `${comprobantesAutorizados} comprobantes autorizados`, count: comprobantesAutorizados }
+        : { module: 'Comprobantes', status: 'warning', message: 'No hay comprobantes registrados' }
+      );
 
       // Validar balance contable
       try {

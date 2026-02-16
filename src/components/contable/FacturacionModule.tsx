@@ -5,12 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, BarChart, FileText, DollarSign, Users, Package, TrendingUp, Activity, CheckCircle, AlertCircle, Shield, Gavel } from "lucide-react";
 import { EnhancedHeader, MetricGrid, EnhancedMetricCard, Section } from "./dashboard/EnhancedLayout";
 import { useToast } from "@/hooks/use-toast";
-import { Factura, Cliente, facturasIniciales, clientesIniciales, simularValidacionSIN } from "./billing/BillingData";
+import { Factura, Cliente, simularValidacionSIN } from "./billing/BillingData";
 import { MovimientoInventario } from "./inventory/InventoryData";
 import InvoiceForm from "./billing/InvoiceForm";
 import InvoiceAccountingHistory from "./billing/InvoiceAccountingHistory";
 import { useProductosValidated } from '@/hooks/useProductosValidated';
 import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
+import { useFacturas } from "@/hooks/useFacturas";
+import { useClientesSupabase } from "@/hooks/useClientesSupabase";
 import InvoiceSummary from "./billing/InvoiceSummary";
 import InvoiceList from "./billing/InvoiceList";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -19,8 +21,8 @@ import DeclaracionIVA from "./DeclaracionIVA";
 import { supabase } from "@/integrations/supabase/client";
 
 const FacturacionModule = () => {
-  const [facturas, setFacturas] = useState<Factura[]>(facturasIniciales);
-  const [clientes, setClientes] = useState<Cliente[]>(clientesIniciales);
+  const { facturas, loading: facturasLoading, guardarFactura: guardarFacturaDB, actualizarEstadoFactura } = useFacturas();
+  const { clientes, loading: clientesLoading, agregarCliente } = useClientesSupabase();
   const [showNewInvoice, setShowNewInvoice] = useState(false);
   const [showAccountingHistory, setShowAccountingHistory] = useState(false);
   const [showDeclaracionIVA, setShowDeclaracionIVA] = useState(false);
@@ -28,8 +30,6 @@ const FacturacionModule = () => {
   const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
   const [normativasAlerts, setNormativasAlerts] = useState<any[]>([]);
   const [configuracionTributaria, setConfiguracionTributaria] = useState<any>(null);
-  const [isInitializingProducts, setIsInitializingProducts] = useState(false);
-  const [productsInitialized, setProductsInitialized] = useState(false);
   const { toast } = useToast();
   const { productos, loading: productosLoading, error: productosError, connectivity, crearProducto, actualizarStockProducto } = useProductosValidated();
   const { 
@@ -40,23 +40,11 @@ const FacturacionModule = () => {
     generarAsientoAnulacionFactura
   } = useContabilidadIntegration();
 
-  // Cargar datos desde localStorage y verificar normativas
+  // Cargar configuración tributaria y normativas
   useEffect(() => {
-    const facturasGuardadas = localStorage.getItem('facturas');
-    if (facturasGuardadas) {
-      setFacturas(JSON.parse(facturasGuardadas));
-    }
-
-    const clientesGuardados = localStorage.getItem('clientes');
-    if (clientesGuardados) {
-      setClientes(JSON.parse(clientesGuardados));
-    }
-
-    // Cargar configuración tributaria y normativas
     loadConfiguracionTributaria();
     loadNormativasAlerts();
   }, []);
-
   // Debug y validación de productos
   useEffect(() => {
     if (!productosLoading) {
@@ -109,14 +97,20 @@ const FacturacionModule = () => {
   };
 
 
-  const handleAddNewClient = (nuevoCliente: Cliente) => {
-    const nuevosClientes = [nuevoCliente, ...clientes];
-    setClientes(nuevosClientes);
-    localStorage.setItem('clientes', JSON.stringify(nuevosClientes));
-    toast({
+  const handleAddNewClient = async (nuevoCliente: Cliente) => {
+    const result = await agregarCliente(nuevoCliente);
+    if (result) {
+      toast({
         title: "Cliente creado",
         description: `${nuevoCliente.nombre} ha sido agregado exitosamente.`,
-    });
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: "No se pudo crear el cliente.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSaveInvoice = async (nuevaFactura: Factura) => {
@@ -202,10 +196,25 @@ const FacturacionModule = () => {
             // Generar asiento contable del movimiento de inventario
             generarAsientoInventario(movimientoInventario);
 
-            // Guardar el movimiento en el historial
-            const movimientosExistentes = JSON.parse(localStorage.getItem('movimientosInventario') || '[]');
-            const nuevosMovimientos = [movimientoInventario, ...movimientosExistentes];
-            localStorage.setItem('movimientosInventario', JSON.stringify(nuevosMovimientos));
+            // Guardar movimiento en Supabase
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user) {
+                await supabase.from('movimientos_inventario').insert({
+                  producto_id: item.productoId,
+                  tipo: 'salida',
+                  cantidad: item.cantidad,
+                  costo_unitario: producto.costo_unitario,
+                  fecha: facturaValidada.fecha,
+                  stock_anterior: producto.stock_actual,
+                  stock_actual: producto.stock_actual - item.cantidad,
+                  observaciones: `Venta - Factura N° ${facturaValidada.numero}`,
+                  user_id: user.id
+                });
+              }
+            } catch (movError) {
+              console.error('Error guardando movimiento:', movError);
+            }
             
             console.log(`✅ Stock descontado: ${item.descripcion} - Cantidad: ${item.cantidad}`);
           }
@@ -214,10 +223,8 @@ const FacturacionModule = () => {
         // 2. Generar asiento contable de venta
         generarAsientoVenta(facturaValidada);
         
-        // 3. Actualizar la lista de facturas y persistir
-        const nuevasFacturas = [facturaValidada, ...facturas];
-        setFacturas(nuevasFacturas);
-        localStorage.setItem('facturas', JSON.stringify(nuevasFacturas));
+        // 3. Guardar factura en Supabase
+        await guardarFacturaDB(facturaValidada);
         
         toast({
           title: "Factura ACEPTADA por el SIN",
@@ -227,9 +234,7 @@ const FacturacionModule = () => {
 
       } else {
         // La factura fue rechazada
-        const nuevasFacturas = [facturaValidada, ...facturas];
-        setFacturas(nuevasFacturas);
-        localStorage.setItem('facturas', JSON.stringify(nuevasFacturas));
+        await guardarFacturaDB(facturaValidada);
 
         toast({
           title: "Factura RECHAZADA por el SIN",
@@ -249,35 +254,29 @@ const FacturacionModule = () => {
     }
   };
 
-  const handleUpdateInvoiceStatus = (invoiceId: string, newStatus: 'pagada' | 'anulada') => {
+  const handleUpdateInvoiceStatus = async (invoiceId: string, newStatus: 'pagada' | 'anulada') => {
     const invoiceToUpdate = facturas.find(f => f.id === invoiceId);
     if (!invoiceToUpdate) return;
 
-    let updatedInvoice: Factura;
-    
     if (newStatus === 'pagada') {
       if (invoiceToUpdate.estado !== 'enviada') {
         toast({ title: "Acción no permitida", description: "Solo se pueden pagar facturas enviadas.", variant: "default" });
         return;
       }
-      updatedInvoice = { ...invoiceToUpdate, estado: 'pagada' };
+      const updatedInvoice = { ...invoiceToUpdate, estado: 'pagada' as const };
       generarAsientoPagoFactura(updatedInvoice);
+      await actualizarEstadoFactura(invoiceId, 'pagada');
       toast({ title: "Factura Pagada", description: `La factura N° ${updatedInvoice.numero} se marcó como pagada.` });
     } else if (newStatus === 'anulada') {
       if (invoiceToUpdate.estado === 'anulada' || invoiceToUpdate.estado === 'pagada') {
         toast({ title: "Acción no permitida", description: "No se puede anular una factura pagada o ya anulada.", variant: "destructive" });
         return;
       }
-      updatedInvoice = { ...invoiceToUpdate, estado: 'anulada' };
+      const updatedInvoice = { ...invoiceToUpdate, estado: 'anulada' as const };
       generarAsientoAnulacionFactura(updatedInvoice);
+      await actualizarEstadoFactura(invoiceId, 'anulada');
       toast({ title: "Factura Anulada", description: `La factura N° ${updatedInvoice.numero} ha sido anulada.` });
-    } else {
-      return;
     }
-
-    const nuevasFacturas = facturas.map(f => f.id === invoiceId ? updatedInvoice : f);
-    setFacturas(nuevasFacturas);
-    localStorage.setItem('facturas', JSON.stringify(nuevasFacturas));
   };
 
   const handleShowDetails = (invoice: Factura) => {

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
+import { supabase } from "@/integrations/supabase/client";
 import { Plus, FileText, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft, DollarSign, Eye } from "lucide-react";
 import ComprobanteForm from "./ComprobanteForm";
 import ComprobantePreview from "./ComprobantePreview";
@@ -48,107 +49,110 @@ const ComprobantesModule = () => {
   const { toast } = useToast();
   const { guardarAsiento } = useContabilidadIntegration();
 
-  useEffect(() => {
-    cargarComprobantes();
-    // Cargar datos de ejemplo si no existen
-    const existingData = localStorage.getItem('comprobantes');
-    if (!existingData) {
-      cargarDatosEjemplo();
+  const cargarComprobantes = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('comprobantes_integrados')
+        .select('*, items_comprobantes_integrados(*)')
+        .eq('user_id', user.id)
+        .order('fecha', { ascending: false });
+
+      if (error) throw error;
+
+      const mapped: Comprobante[] = (data || []).map((c: any) => ({
+        id: c.id,
+        tipo: c.tipo_comprobante as 'ingreso' | 'egreso' | 'traspaso',
+        numero: c.numero_comprobante,
+        fecha: c.fecha,
+        concepto: c.razon_social,
+        beneficiario: c.nit,
+        monto: c.total,
+        metodoPago: '',
+        referencia: c.codigo_control || '',
+        observaciones: c.estado_sin || '',
+        estado: c.estado as 'borrador' | 'autorizado' | 'anulado',
+        creadoPor: 'Sistema',
+        fechaCreacion: c.created_at,
+        cuentas: (c.items_comprobantes_integrados || []).map((item: any) => ({
+          codigo: item.codigo,
+          nombre: item.descripcion,
+          debe: item.subtotal > 0 ? item.subtotal : 0,
+          haber: item.subtotal < 0 ? Math.abs(item.subtotal) : 0
+        }))
+      }));
+
+      setComprobantes(mapped);
+    } catch (error) {
+      console.error('Error cargando comprobantes:', error);
+      // Fallback localStorage
+      const local = localStorage.getItem('comprobantes');
+      if (local) setComprobantes(JSON.parse(local));
     }
   }, []);
 
-  const cargarComprobantes = () => {
-    const comprobantesGuardados = localStorage.getItem('comprobantes');
-    if (comprobantesGuardados) {
-      setComprobantes(JSON.parse(comprobantesGuardados));
+  useEffect(() => {
+    cargarComprobantes();
+  }, [cargarComprobantes]);
+
+  const guardarComprobanteEnDB = async (nuevoComprobante: Comprobante) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        // Fallback localStorage
+        const nuevos = [nuevoComprobante, ...comprobantes];
+        setComprobantes(nuevos);
+        localStorage.setItem('comprobantes', JSON.stringify(nuevos));
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('comprobantes_integrados')
+        .insert({
+          numero_comprobante: nuevoComprobante.numero,
+          tipo_comprobante: nuevoComprobante.tipo,
+          fecha: nuevoComprobante.fecha,
+          razon_social: nuevoComprobante.concepto,
+          nit: nuevoComprobante.beneficiario,
+          subtotal: nuevoComprobante.monto,
+          iva: nuevoComprobante.monto * 0.13,
+          total: nuevoComprobante.monto,
+          estado: nuevoComprobante.estado,
+          codigo_control: nuevoComprobante.referencia || null,
+          user_id: user.id
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Insertar items/cuentas
+      if (nuevoComprobante.cuentas.length > 0 && data) {
+        const items = nuevoComprobante.cuentas.map(cuenta => ({
+          comprobante_id: data.id,
+          codigo: cuenta.codigo,
+          descripcion: cuenta.nombre,
+          cantidad: 1,
+          precio_unitario: cuenta.debe || cuenta.haber,
+          subtotal: cuenta.debe || cuenta.haber
+        }));
+
+        await supabase.from('items_comprobantes_integrados').insert(items);
+      }
+
+      const comprobanteConId = { ...nuevoComprobante, id: data?.id || nuevoComprobante.id };
+      setComprobantes(prev => [comprobanteConId, ...prev]);
+    } catch (error) {
+      console.error('Error guardando comprobante:', error);
+      const nuevos = [nuevoComprobante, ...comprobantes];
+      setComprobantes(nuevos);
+      localStorage.setItem('comprobantes', JSON.stringify(nuevos));
     }
   };
 
-  const cargarDatosEjemplo = () => {
-    const datosEjemplo: Comprobante[] = [
-      {
-        id: "1",
-        tipo: "ingreso",
-        numero: "ING-0001",
-        fecha: "2024-01-15",
-        concepto: "Venta de mercadería según factura N° 001",
-        beneficiario: "Juan Pérez - Cliente",
-        monto: 5750.00,
-        metodoPago: "1112",
-        referencia: "FAC-001",
-        observaciones: "Pago al contado en efectivo",
-        estado: "autorizado",
-        creadoPor: "Ana García - Contadora",
-        fechaCreacion: "2024-01-15T10:30:00Z",
-        cuentas: [
-          { codigo: "1112", nombre: "Banco Nacional de Bolivia", debe: 5750.00, haber: 0 },
-          { codigo: "4111", nombre: "Ventas", debe: 0, haber: 5750.00 }
-        ]
-      },
-      {
-        id: "2",
-        tipo: "egreso",
-        numero: "EGR-0001",
-        fecha: "2024-01-16",
-        concepto: "Pago de servicios básicos - Luz eléctrica",
-        beneficiario: "DELAPAZ - Distribuidora de Electricidad",
-        monto: 450.00,
-        metodoPago: "1111",
-        referencia: "RECIBO-789456",
-        observaciones: "Pago correspondiente al mes de diciembre 2023",
-        estado: "autorizado",
-        creadoPor: "Ana García - Contadora",
-        fechaCreacion: "2024-01-16T14:15:00Z",
-        cuentas: [
-          { codigo: "5231", nombre: "Servicios Básicos", debe: 450.00, haber: 0 },
-          { codigo: "1111", nombre: "Caja General", debe: 0, haber: 450.00 }
-        ]
-      },
-      {
-        id: "3",
-        tipo: "traspaso",
-        numero: "TRA-0001",
-        fecha: "2024-01-17",
-        concepto: "Transferencia entre cuentas bancarias",
-        beneficiario: "Banco Nacional de Bolivia",
-        monto: 10000.00,
-        metodoPago: "",
-        referencia: "TRANSF-123456",
-        observaciones: "Transferencia de fondos para mejor rentabilidad",
-        estado: "autorizado",
-        creadoPor: "Carlos López - Gerente",
-        fechaCreacion: "2024-01-17T09:45:00Z",
-        cuentas: [
-          { codigo: "1113", nombre: "Banco Mercantil Santa Cruz", debe: 10000.00, haber: 0 },
-          { codigo: "1112", nombre: "Banco Nacional de Bolivia", debe: 0, haber: 10000.00 }
-        ]
-      },
-      {
-        id: "4",
-        tipo: "ingreso",
-        numero: "ING-0002",
-        fecha: "2024-01-18",
-        concepto: "Cobro de cuenta pendiente - Cliente María Rodríguez",
-        beneficiario: "María Rodríguez - Cliente",
-        monto: 2100.00,
-        metodoPago: "1113",
-        referencia: "DEP-654321",
-        observaciones: "Pago de factura pendiente del mes anterior",
-        estado: "borrador",
-        creadoPor: "Ana García - Contadora",
-        fechaCreacion: "2024-01-18T11:20:00Z",
-        cuentas: [
-          { codigo: "1113", nombre: "Banco Mercantil Santa Cruz", debe: 2100.00, haber: 0 },
-          { codigo: "1121", nombre: "Cuentas por Cobrar Comerciales", debe: 0, haber: 2100.00 }
-        ]
-      }
-    ];
-
-    setComprobantes(datosEjemplo);
-    localStorage.setItem('comprobantes', JSON.stringify(datosEjemplo));
-  };
-
-  const guardarComprobante = (datos: any) => {
+  const guardarComprobante = async (datos: any) => {
     const nuevoComprobante: Comprobante = {
       ...datos,
       id: Date.now().toString(),
@@ -169,9 +173,7 @@ const ComprobantesModule = () => {
       generarAsientoContable(nuevoComprobante);
     }
 
-    const nuevosComprobantes = [nuevoComprobante, ...comprobantes];
-    setComprobantes(nuevosComprobantes);
-    localStorage.setItem('comprobantes', JSON.stringify(nuevosComprobantes));
+    await guardarComprobanteEnDB(nuevoComprobante);
 
     toast({
       title: "Comprobante creado",
@@ -197,7 +199,11 @@ const ComprobantesModule = () => {
     guardarAsiento(asiento);
   };
 
-  const autorizarComprobante = (id: string) => {
+  const autorizarComprobante = async (id: string) => {
+    try {
+      await supabase.from('comprobantes_integrados').update({ estado: 'autorizado' }).eq('id', id);
+    } catch (e) { console.error(e); }
+
     const comprobantesActualizados = comprobantes.map(c => {
       if (c.id === id) {
         const comprobanteAutorizado = { ...c, estado: 'autorizado' as const };
@@ -208,7 +214,6 @@ const ComprobantesModule = () => {
     });
 
     setComprobantes(comprobantesActualizados);
-    localStorage.setItem('comprobantes', JSON.stringify(comprobantesActualizados));
 
     toast({
       title: "Comprobante autorizado",
@@ -216,13 +221,14 @@ const ComprobantesModule = () => {
     });
   };
 
-  const anularComprobante = (id: string) => {
-    const comprobantesActualizados = comprobantes.map(c => 
-      c.id === id ? { ...c, estado: 'anulado' as const } : c
-    );
+  const anularComprobante = async (id: string) => {
+    try {
+      await supabase.from('comprobantes_integrados').update({ estado: 'anulado' }).eq('id', id);
+    } catch (e) { console.error(e); }
 
-    setComprobantes(comprobantesActualizados);
-    localStorage.setItem('comprobantes', JSON.stringify(comprobantesActualizados));
+    setComprobantes(prev => prev.map(c => 
+      c.id === id ? { ...c, estado: 'anulado' as const } : c
+    ));
 
     toast({
       title: "Comprobante anulado",
