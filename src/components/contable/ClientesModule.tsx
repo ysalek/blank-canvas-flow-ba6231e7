@@ -28,16 +28,23 @@ const ClientesModule = () => {
 
   const handleSaveCliente = async (cliente: any) => {
     try {
+      const payload = {
+        nombre: cliente.nombre,
+        nit: cliente.nit,
+        email: cliente.email || null,
+        telefono: cliente.telefono || null,
+        direccion: cliente.direccion || null,
+        activo: cliente.activo ?? true,
+      };
+
       if (editingCliente) {
-        // Editar cliente existente
-        await actualizarCliente(editingCliente.id, cliente);
+        await actualizarCliente(editingCliente.id, payload);
         toast({
           title: "Cliente actualizado",
           description: `${cliente.nombre} ha sido actualizado exitosamente.`,
         });
       } else {
-        // Crear nuevo cliente
-        await crearCliente(cliente);
+        await crearCliente(payload);
         toast({
           title: "Cliente creado",
           description: `${cliente.nombre} ha sido agregado exitosamente.`,
@@ -50,7 +57,7 @@ const ClientesModule = () => {
     } catch (error) {
       toast({
         title: "Error",
-        description: "No se pudo guardar el cliente",
+        description: "No se pudo guardar el cliente. Verifique su conexión.",
         variant: "destructive"
       });
     }
