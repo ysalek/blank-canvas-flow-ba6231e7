@@ -1,6 +1,5 @@
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { LucideIcon, TrendingUp, TrendingDown, AlertTriangle, AlertCircle, CheckCircle } from "lucide-react";
 import { calculateMetricAlert, getAlertColor } from "@/utils/metricsUtils";
 
@@ -11,8 +10,8 @@ interface MetricCardProps {
   icon: LucideIcon;
   trend: "up" | "down" | "neutral";
   color: string;
-  percentage?: number; // Para calcular alertas automáticamente
-  showAlert?: boolean; // Para mostrar alertas
+  percentage?: number;
+  showAlert?: boolean;
 }
 
 const getTrendIcon = (trend: string) => {
@@ -37,34 +36,24 @@ const MetricCard = ({
   showAlert = true 
 }: MetricCardProps) => {
   
-  // Calcular alerta si se proporciona porcentaje
   const alert = percentage !== undefined ? calculateMetricAlert(percentage) : null;
   const shouldShowAlert = showAlert && alert && alert.level !== 'normal';
-  
-  const getAlertIcon = () => {
-    if (!alert) return null;
-    switch (alert.level) {
-      case 'critical': return <AlertTriangle className="w-4 h-4" />;
-      case 'warning': return <AlertCircle className="w-4 h-4" />;
-      default: return <CheckCircle className="w-4 h-4" />;
-    }
-  };
 
   return (
-    <Card className={shouldShowAlert ? getAlertColor(alert!.level) : ''}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
-        <div className="flex items-center gap-2">
-          <Icon className={`w-5 h-5 ${color}`} />
+    <Card className={`overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 animate-fade-in ${shouldShowAlert ? getAlertColor(alert!.level) : 'border-border'}`}>
+      <CardContent className="p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+            <Icon className={`w-5 h-5 ${color}`} />
+          </div>
+          <div className="flex items-center gap-1.5 text-xs font-medium">
+            {getTrendIcon(trend)}
+          </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold mb-1">{value}</div>
-        <div className="flex items-center gap-2">
-          {getTrendIcon(trend)}
-          <p className="text-xs text-muted-foreground">{description}</p>
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="text-2xl font-bold tracking-tight">{value}</p>
+          <p className="text-xs text-muted-foreground/80">{description}</p>
         </div>
       </CardContent>
     </Card>

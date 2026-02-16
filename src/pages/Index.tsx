@@ -92,7 +92,7 @@ const Index = () => {
           onClick={async () => {
             try { await logout(); } catch (error) { console.error('Error en logout:', error); }
           }}
-          className="text-red-600 focus:text-red-600"
+          className="text-destructive focus:text-destructive"
         >
           <LogOut className="mr-2 h-4 w-4" />
           <span>Cerrar Sesión</span>
@@ -248,7 +248,7 @@ const Index = () => {
       <div className="min-h-screen w-full flex">
         <AppSidebar />
         <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 px-4 border-b">
+          <header className="flex h-14 shrink-0 items-center gap-3 px-5 border-b border-border/60 bg-background/80 backdrop-blur-md sticky top-0 z-30">
             <SidebarTrigger className="-ml-1" />
             <div className="flex-1 max-w-md">
               <Suspense fallback={<div className="h-8 bg-muted rounded animate-pulse" />}>
