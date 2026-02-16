@@ -11,9 +11,10 @@ interface PlanGateProps {
 }
 
 const PlanGate = ({ moduleId, children, fallback }: PlanGateProps) => {
-  const { hasAccess, upgradeToPro } = usePlan();
+  const { hasAccess, upgradeToPro, isAdmin } = usePlan();
 
-  if (hasAccess(moduleId)) {
+  // Admin bypass - always render children
+  if (isAdmin || hasAccess(moduleId)) {
     return <>{children}</>;
   }
 
@@ -26,9 +27,7 @@ const PlanGate = ({ moduleId, children, fallback }: PlanGateProps) => {
           <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
             <Lock className="w-8 h-8 text-primary" />
           </div>
-          <h3 className="text-xl font-bold text-foreground">
-            Función Profesional
-          </h3>
+          <h3 className="text-xl font-bold text-foreground">Función Profesional</h3>
           <p className="text-muted-foreground text-sm">
             Este módulo está disponible en el Plan Pro. Actualiza para desbloquear 
             todas las herramientas avanzadas de contabilidad.
@@ -39,9 +38,7 @@ const PlanGate = ({ moduleId, children, fallback }: PlanGateProps) => {
               Actualizar a Pro — {PLAN_PRICES.pro.label}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Sin compromiso • Cancela cuando quieras
-          </p>
+          <p className="text-xs text-muted-foreground">Sin compromiso • Cancela cuando quieras</p>
         </CardContent>
       </Card>
     </div>

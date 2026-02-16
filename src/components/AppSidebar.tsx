@@ -31,6 +31,8 @@ import {
   FileCheck,
   TestTube,
   Lock,
+  Activity,
+  LayoutDashboard,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -125,11 +127,23 @@ const menuItems = [
   }
 ];
 
+const adminMenuItems = [
+  {
+    group: 'Administración',
+    items: [
+      { title: 'Panel Admin', url: '/?view=admin-dashboard', icon: LayoutDashboard },
+      { title: 'Gestión Usuarios', url: '/?view=admin-users', icon: Users },
+      { title: 'Suscripciones', url: '/?view=admin-subscriptions', icon: CreditCard },
+      { title: 'Logs Actividad', url: '/?view=admin-logs', icon: Activity },
+    ]
+  }
+];
+
 const AppSidebar = () => {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
   const location = useLocation();
-  const { currentPlan, isProFeature } = usePlan();
+  const { currentPlan, isProFeature, isAdmin } = usePlan();
   
   const urlParams = new URLSearchParams(location.search);
   const currentView = urlParams.get('view') || 'dashboard';
@@ -166,12 +180,39 @@ const AppSidebar = () => {
               <div>
                 <h1 className="font-bold text-lg text-foreground">ContaBolivia</h1>
                 <p className="text-xs text-muted-foreground">
-                  {currentPlan === 'pro' ? 'Plan Profesional' : 'Plan Gratuito'}
+                  {isAdmin ? '⚡ Administrador' : currentPlan === 'pro' ? 'Plan Profesional' : 'Plan Gratuito'}
                 </p>
               </div>
             </div>
           )}
         </div>
+
+        {/* Admin Section */}
+        {isAdmin && adminMenuItems.map((group, groupIndex) => (
+          <div key={`admin-${groupIndex}`} className="mb-6">
+            {!isCollapsed && (
+              <div className="px-3 mb-2">
+                <span className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-1">
+                  <Shield className="w-3 h-3" />
+                  {group.group}
+                </span>
+              </div>
+            )}
+            <div className="space-y-1">
+              {group.items.map((item, itemIndex) => (
+                <button
+                  key={itemIndex}
+                  onClick={() => handleNavigation(item.url)}
+                  className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${getNavClasses(isActive(item.url))}`}
+                  title={isCollapsed ? item.title : undefined}
+                >
+                  <item.icon className="w-4 h-4 flex-shrink-0" />
+                  {!isCollapsed && <span className="flex-1 truncate text-sm">{item.title}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
 
         {/* Navigation */}
         {menuItems.map((group, groupIndex) => (
@@ -185,7 +226,7 @@ const AppSidebar = () => {
             )}
             <div className="space-y-1">
               {group.items.map((item, itemIndex) => {
-                const locked = item.plan === 'pro' && currentPlan !== 'pro';
+                const locked = item.plan === 'pro' && !isAdmin && currentPlan !== 'pro';
                 return (
                   <button
                     key={itemIndex}
@@ -202,7 +243,7 @@ const AppSidebar = () => {
                         {locked && (
                           <Lock className="w-3 h-3 text-muted-foreground" />
                         )}
-                        {item.plan === 'pro' && currentPlan === 'pro' && (
+                        {item.plan === 'pro' && !locked && !isAdmin && (
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                             Pro
                           </Badge>
@@ -216,8 +257,8 @@ const AppSidebar = () => {
           </div>
         ))}
 
-        {/* Plan upgrade CTA */}
-        {!isCollapsed && currentPlan === 'basic' && (
+        {/* Plan upgrade CTA - only for non-admins on basic */}
+        {!isCollapsed && !isAdmin && currentPlan === 'basic' && (
           <div className="mt-auto pt-4 px-3 border-t">
             <button
               onClick={() => {

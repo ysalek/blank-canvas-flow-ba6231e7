@@ -53,6 +53,11 @@ const RetencionesModule = lazy(() => import('@/components/contable/retenciones/R
 const BackupModule = lazy(() => import('@/components/contable/BackupModule'));
 const UserManagement = lazy(() => import('@/components/contable/users/UserManagement'));
 
+// Admin components
+const AdminDashboard = lazy(() => import('@/components/admin/AdminDashboard'));
+const UsersManagementAdmin = lazy(() => import('@/components/admin/UsersManagement'));
+const SubscriptionsManager = lazy(() => import('@/components/admin/SubscriptionsManager'));
+const ActivityLogs = lazy(() => import('@/components/admin/ActivityLogs'));
 const Index = () => {
   const { hasPermission, user, logout } = useAuth();
   const [openNotifications, setOpenNotifications] = useState(false);
@@ -122,6 +127,14 @@ const Index = () => {
   }, []);
 
   const renderCurrentView = () => {
+    // Admin views (no plan gate needed)
+    switch (currentView) {
+      case 'admin-dashboard': return <AdminDashboard />;
+      case 'admin-users': return <UsersManagementAdmin />;
+      case 'admin-subscriptions': return <SubscriptionsManager />;
+      case 'admin-logs': return <ActivityLogs />;
+    }
+
     // Pro-gated modules
     const proModules: Record<string, React.ReactNode> = {
       'balance-general': <BalanceGeneralModule />,
@@ -181,6 +194,10 @@ const Index = () => {
   const getPageTitle = () => {
     const titles: Record<string, string> = {
       'dashboard': 'Panel de Control',
+      'admin-dashboard': 'Panel de Administración',
+      'admin-users': 'Gestión de Usuarios',
+      'admin-subscriptions': 'Suscripciones',
+      'admin-logs': 'Logs de Actividad',
       'diario': 'Libro Diario',
       'mayor': 'Libro Mayor',
       'balance-comprobacion': 'Balance de Comprobación',
