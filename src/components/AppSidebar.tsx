@@ -1,43 +1,14 @@
 
 import React from 'react';
 import {
-  Calculator,
-  FileText,
-  Package,
-  ShoppingCart,
-  Users,
-  TrendingUp,
-  Scale,
-  BookOpen,
-  BookOpenCheck,
-  Building2,
-  Settings,
-  HelpCircle,
-  CreditCard,
-  Factory,
-  Archive,
-  ClipboardList,
-  Target,
-  PiggyBank,
-  UserCheck,
-  Receipt,
-  Home,
-  Download,
-  DollarSign,
-  Shield,
-  Brain,
-  Zap,
-  FileBarChart,
-  FileCheck,
-  TestTube,
-  Lock,
-  Activity,
-  LayoutDashboard,
+  Calculator, FileText, Package, ShoppingCart, Users, TrendingUp, Scale,
+  BookOpen, BookOpenCheck, Building2, Settings, HelpCircle, CreditCard,
+  Factory, Archive, ClipboardList, Target, PiggyBank, UserCheck, Receipt,
+  Home, Download, DollarSign, Shield, Brain, Zap, FileBarChart, FileCheck,
+  TestTube, Lock, Activity, LayoutDashboard,
 } from 'lucide-react';
 import {
-  Sidebar,
-  SidebarContent,
-  useSidebar,
+  Sidebar, SidebarContent, useSidebar,
 } from '@/components/ui/sidebar';
 import { Badge } from '@/components/ui/badge';
 import { usePlan } from '@/hooks/usePlan';
@@ -161,24 +132,24 @@ const AppSidebar = () => {
   const getNavClasses = (active: boolean) => 
     active 
       ? "bg-primary text-primary-foreground font-medium shadow-sm" 
-      : "hover:bg-accent hover:text-accent-foreground";
+      : "hover:bg-accent text-muted-foreground hover:text-foreground";
 
   return (
-    <Sidebar className="border-r border-border">
-      <SidebarContent className="p-3">
+    <Sidebar className="border-r border-border/60">
+      <SidebarContent className="p-3 overflow-y-auto scrollbar-thin">
         {/* Logo */}
-        <div className={`px-4 py-5 mb-4 ${isCollapsed ? 'text-center' : ''}`}>
+        <div className={`px-4 py-5 mb-2 ${isCollapsed ? 'text-center' : ''}`}>
           {isCollapsed ? (
-            <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center mx-auto">
+            <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center mx-auto shadow-md">
               <Calculator className="w-5 h-5 text-white" />
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center flex-shrink-0 shadow-md">
                 <Calculator className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="font-bold text-lg text-foreground">ContaBolivia</h1>
+                <h1 className="font-bold text-lg text-foreground tracking-tight">ContaBolivia</h1>
                 <p className="text-xs text-muted-foreground">
                   {isAdmin ? '⚡ Administrador' : currentPlan === 'pro' ? 'Plan Profesional' : 'Plan Gratuito'}
                 </p>
@@ -189,25 +160,25 @@ const AppSidebar = () => {
 
         {/* Admin Section */}
         {isAdmin && adminMenuItems.map((group, groupIndex) => (
-          <div key={`admin-${groupIndex}`} className="mb-6">
+          <div key={`admin-${groupIndex}`} className="mb-5">
             {!isCollapsed && (
               <div className="px-3 mb-2">
-                <span className="text-xs font-semibold text-primary uppercase tracking-wider flex items-center gap-1">
+                <span className="text-[11px] font-bold text-primary uppercase tracking-widest flex items-center gap-1.5">
                   <Shield className="w-3 h-3" />
                   {group.group}
                 </span>
               </div>
             )}
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {group.items.map((item, itemIndex) => (
                 <button
                   key={itemIndex}
                   onClick={() => handleNavigation(item.url)}
-                  className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${getNavClasses(isActive(item.url))}`}
+                  className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${getNavClasses(isActive(item.url))}`}
                   title={isCollapsed ? item.title : undefined}
                 >
-                  <item.icon className="w-4 h-4 flex-shrink-0" />
-                  {!isCollapsed && <span className="flex-1 truncate text-sm">{item.title}</span>}
+                  <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
+                  {!isCollapsed && <span className="flex-1 truncate">{item.title}</span>}
                 </button>
               ))}
             </div>
@@ -216,35 +187,35 @@ const AppSidebar = () => {
 
         {/* Navigation */}
         {menuItems.map((group, groupIndex) => (
-          <div key={groupIndex} className="mb-6">
+          <div key={groupIndex} className="mb-5">
             {!isCollapsed && (
               <div className="px-3 mb-2">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <span className="text-[11px] font-bold text-muted-foreground/70 uppercase tracking-widest">
                   {group.group}
                 </span>
               </div>
             )}
-            <div className="space-y-1">
+            <div className="space-y-0.5">
               {group.items.map((item, itemIndex) => {
                 const locked = item.plan === 'pro' && !isAdmin && currentPlan !== 'pro';
                 return (
                   <button
                     key={itemIndex}
                     onClick={() => handleNavigation(item.url)}
-                    className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                      locked ? 'opacity-60' : ''
+                    className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${
+                      locked ? 'opacity-50' : ''
                     } ${getNavClasses(isActive(item.url))}`}
                     title={isCollapsed ? item.title : undefined}
                   >
-                    <item.icon className="w-4 h-4 flex-shrink-0" />
+                    <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
                     {!isCollapsed && (
                       <>
-                        <span className="flex-1 truncate text-sm">{item.title}</span>
+                        <span className="flex-1 truncate">{item.title}</span>
                         {locked && (
-                          <Lock className="w-3 h-3 text-muted-foreground" />
+                          <Lock className="w-3.5 h-3.5 text-muted-foreground/50" />
                         )}
                         {item.plan === 'pro' && !locked && !isAdmin && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
                             Pro
                           </Badge>
                         )}
@@ -257,25 +228,25 @@ const AppSidebar = () => {
           </div>
         ))}
 
-        {/* Plan upgrade CTA - only for non-admins on basic */}
+        {/* Plan upgrade CTA */}
         {!isCollapsed && !isAdmin && currentPlan === 'basic' && (
-          <div className="mt-auto pt-4 px-3 border-t">
+          <div className="mt-auto pt-4 px-3 border-t border-border/60">
             <button
               onClick={() => {
                 window.history.pushState({}, '', '/?view=configuracion');
                 window.dispatchEvent(new PopStateEvent('popstate'));
               }}
-              className="w-full p-3 rounded-lg bg-primary/10 border border-primary/20 text-center hover:bg-primary/15 transition-colors"
+              className="w-full p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/15 text-center hover:from-primary/15 hover:to-primary/10 transition-all duration-300"
             >
               <p className="text-sm font-semibold text-primary">Actualizar a Pro</p>
-              <p className="text-xs text-muted-foreground">$29/mes • Todo ilimitado</p>
+              <p className="text-xs text-muted-foreground mt-0.5">$29/mes • Todo ilimitado</p>
             </button>
           </div>
         )}
 
         {!isCollapsed && (
-          <div className="mt-4 pt-4 px-3 border-t">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="mt-4 pt-4 px-3 border-t border-border/60">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
               <div className="w-2 h-2 rounded-full bg-success animate-pulse"></div>
               <span>Sistema Activo v3.0</span>
             </div>
