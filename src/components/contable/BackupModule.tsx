@@ -29,20 +29,27 @@ interface TableInfo {
 }
 
 const BackupModule = () => {
-  const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
   const { toast } = useToast();
-  const { crearBackup, restaurarBackup } = useBackup();
+  const { crearBackup, restaurarBackup, isExporting, isImporting } = useBackup();
 
   const [tables, setTables] = useState<TableInfo[]>([
-    { key: "facturas", label: "Facturas", table: "facturas", count: 0 },
     { key: "clientes", label: "Clientes", table: "clientes", count: 0 },
-    { key: "productos", label: "Productos", table: "productos", count: 0 },
-    { key: "asientos", label: "Asientos Contables", table: "asientos_contables", count: 0 },
-    { key: "movimientos", label: "Movimientos Inventario", table: "movimientos_inventario", count: 0 },
     { key: "proveedores", label: "Proveedores", table: "proveedores", count: 0 },
+    { key: "productos", label: "Productos", table: "productos", count: 0 },
+    { key: "facturas", label: "Facturas", table: "facturas", count: 0 },
+    { key: "items_facturas", label: "Ítems Facturas", table: "items_facturas", count: 0 },
     { key: "compras", label: "Compras", table: "compras", count: 0 },
+    { key: "items_compras", label: "Ítems Compras", table: "items_compras", count: 0 },
+    { key: "asientos", label: "Asientos Contables", table: "asientos_contables", count: 0 },
+    { key: "cuentas_asientos", label: "Cuentas Asientos", table: "cuentas_asientos", count: 0 },
     { key: "comprobantes", label: "Comprobantes", table: "comprobantes_integrados", count: 0 },
+    { key: "movimientos", label: "Mov. Inventario", table: "movimientos_inventario", count: 0 },
+    { key: "empleados", label: "Empleados", table: "empleados", count: 0 },
+    { key: "plan_cuentas", label: "Plan de Cuentas", table: "plan_cuentas", count: 0 },
+    { key: "cuentas_bancarias", label: "Cuentas Bancarias", table: "cuentas_bancarias", count: 0 },
+    { key: "mov_bancarios", label: "Mov. Bancarios", table: "movimientos_bancarios", count: 0 },
+    { key: "activos_fijos", label: "Activos Fijos", table: "activos_fijos", count: 0 },
+    { key: "pagos", label: "Pagos", table: "pagos", count: 0 },
   ]);
 
   const [deleteTarget, setDeleteTarget] = useState<TableInfo | null>(null);
@@ -185,8 +192,8 @@ const BackupModule = () => {
                     disabled={isExporting}
                     className="w-full"
                   >
-                    <Download className="w-4 h-4 mr-2" />
-                    Descargar Backup
+                    {isExporting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                    {isExporting ? "Exportando..." : "Descargar Backup Completo"}
                   </Button>
                 </div>
 
