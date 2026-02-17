@@ -26,15 +26,15 @@ const LoginForm = () => {
   const { login } = useAuth();
 
   const validateEmail = (v: string) => {
-    if (!v) { setEmailError('El correo es obligatorio'); return false; }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) { setEmailError('Formato de correo inválido'); return false; }
+    if (!v) {setEmailError('El correo es obligatorio');return false;}
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {setEmailError('Formato de correo inválido');return false;}
     setEmailError('');
     return true;
   };
 
   const validatePassword = (v: string) => {
-    if (!v) { setPasswordError('La contraseña es obligatoria'); return false; }
-    if (v.length < 6) { setPasswordError('Mínimo 6 caracteres'); return false; }
+    if (!v) {setPasswordError('La contraseña es obligatoria');return false;}
+    if (v.length < 6) {setPasswordError('Mínimo 6 caracteres');return false;}
     setPasswordError('');
     return true;
   };
@@ -65,7 +65,7 @@ const LoginForm = () => {
     setResetLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${window.location.origin}/reset-password`
       });
       if (error) throw error;
       toast({ title: 'Correo enviado', description: 'Revise su bandeja de entrada para restablecer su contraseña.' });
@@ -96,7 +96,7 @@ const LoginForm = () => {
               </div>
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-gradient-primary">Sistema Contable</h1>
+          <h1 className="text-3xl font-bold text-gradient-primary text-primary-dark">Sistema Contable</h1>
           <p className="text-muted-foreground">Gestión contable profesional para Bolivia</p>
         </div>
 
@@ -116,13 +116,13 @@ const LoginForm = () => {
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(e) => { setEmail(e.target.value); if (emailError) validateEmail(e.target.value); }}
+                    onChange={(e) => {setEmail(e.target.value);if (emailError) validateEmail(e.target.value);}}
                     onBlur={() => validateEmail(email)}
                     placeholder="admin@empresa.com"
                     required
                     disabled={isLoading}
-                    className={`pl-10 transition-smooth focus:shadow-md ${emailError ? 'border-destructive focus-visible:ring-destructive/40' : ''}`}
-                  />
+                    className={`pl-10 transition-smooth focus:shadow-md ${emailError ? 'border-destructive focus-visible:ring-destructive/40' : ''}`} />
+
                 </div>
                 {emailError && <p className="text-xs text-destructive animate-fade-in-up">{emailError}</p>}
               </div>
@@ -130,7 +130,7 @@ const LoginForm = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" className="text-sm font-medium">Contraseña</Label>
-                  <button type="button" onClick={() => { setResetEmail(email); setForgotOpen(true); }} className="text-xs text-primary hover:underline">
+                  <button type="button" onClick={() => {setResetEmail(email);setForgotOpen(true);}} className="text-xs text-primary hover:underline">
                     ¿Olvidó su contraseña?
                   </button>
                 </div>
@@ -140,13 +140,13 @@ const LoginForm = () => {
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
-                    onChange={(e) => { setPassword(e.target.value); if (passwordError) validatePassword(e.target.value); }}
+                    onChange={(e) => {setPassword(e.target.value);if (passwordError) validatePassword(e.target.value);}}
                     onBlur={() => validatePassword(password)}
                     placeholder="••••••••"
                     required
                     disabled={isLoading}
-                    className={`pl-10 pr-10 transition-smooth focus:shadow-md ${passwordError ? 'border-destructive focus-visible:ring-destructive/40' : ''}`}
-                  />
+                    className={`pl-10 pr-10 transition-smooth focus:shadow-md ${passwordError ? 'border-destructive focus-visible:ring-destructive/40' : ''}`} />
+
                   <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -154,18 +154,18 @@ const LoginForm = () => {
                 {passwordError && <p className="text-xs text-destructive animate-fade-in-up">{passwordError}</p>}
               </div>
 
-              {error && (
-                <Alert variant="destructive" className="animate-scale-in">
+              {error &&
+              <Alert variant="destructive" className="animate-scale-in">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
-              )}
+              }
 
               <Button type="submit" className="w-full btn-gradient text-white font-medium h-11" disabled={isLoading}>
-                {isLoading ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Iniciando sesión...</>
-                ) : (
-                  <><LogIn className="w-4 h-4 mr-2" />Iniciar Sesión</>
-                )}
+                {isLoading ?
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Iniciando sesión...</> :
+
+                <><LogIn className="w-4 h-4 mr-2" />Iniciar Sesión</>
+                }
               </Button>
             </form>
             <div className="pt-4 text-sm text-center space-y-2">
@@ -241,8 +241,8 @@ const LoginForm = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
-  );
+    </div>);
+
 };
 
 export default LoginForm;
