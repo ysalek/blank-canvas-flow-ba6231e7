@@ -75,6 +75,33 @@ const BackupModule = () => {
     fetchCounts();
   }, [fetchCounts]);
 
+  // Dependency map: table -> child tables that must be deleted first
+  const DEPENDENCIES: Record<string, string[]> = {
+    productos: ["movimientos_inventario", "items_facturas", "items_compras"],
+    facturas: ["items_facturas"],
+    compras: ["items_compras"],
+    asientos_contables: ["cuentas_asientos"],
+    clientes: ["items_facturas", "facturas"],
+    proveedores: ["items_compras", "compras"],
+    cuentas_bancarias: ["movimientos_bancarios"],
+  };
+
+  const deleteTableRows = async (table: string, userId: string): Promise<number> => {
+    const { data } = await supabase
+      .from(table as any)
+      .select("id", { count: "exact" })
+      .eq("user_id", userId);
+    const count = data?.length ?? 0;
+    if (count === 0) return 0;
+
+    const { error } = await supabase
+      .from(table as any)
+      .delete()
+      .eq("user_id", userId);
+    if (error) throw new Error(`Error eliminando ${table}: ${error.message}`);
+    return count;
+  };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -82,16 +109,20 @@ const BackupModule = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No autenticado");
 
-      const { error } = await supabase
-        .from(deleteTarget.table as any)
-        .delete()
-        .eq("user_id", user.id);
+      const deps = DEPENDENCIES[deleteTarget.table] || [];
+      let totalDeleted = 0;
 
-      if (error) throw error;
+      // Delete children first
+      for (const dep of deps) {
+        totalDeleted += await deleteTableRows(dep, user.id);
+      }
+
+      // Delete the target table
+      totalDeleted += await deleteTableRows(deleteTarget.table, user.id);
 
       toast({
-        title: `${deleteTarget.count} registros eliminados`,
-        description: `Todos los registros de ${deleteTarget.label} fueron eliminados correctamente.`,
+        title: `${totalDeleted} registros eliminados`,
+        description: `${deleteTarget.label} y sus dependencias fueron eliminados correctamente.`,
       });
 
       setDeleteTarget(null);
