@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Badge } from '@/components/ui/badge';
 import { usePlan } from '@/hooks/usePlan';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { useLocation } from 'react-router-dom';
 
 const menuItems = [
@@ -115,6 +116,7 @@ const AppSidebar = () => {
   const isCollapsed = state === "collapsed";
   const location = useLocation();
   const { currentPlan, isProFeature, isAdmin } = usePlan();
+  const { user } = useAuth();
   
   const urlParams = new URLSearchParams(location.search);
   const currentView = urlParams.get('view') || 'dashboard';
@@ -241,10 +243,29 @@ const AppSidebar = () => {
           </div>
         )}
 
-        {!isCollapsed && (
+        {!isCollapsed && user && (
+          <div className="mt-4 pt-4 px-3 border-t border-border/60">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <span className="text-sm font-bold text-primary">
+                  {user.nombre?.charAt(0)?.toUpperCase() || 'U'}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">{user.nombre}</p>
+                <p className="text-xs text-muted-foreground truncate">{user.empresa}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span>Sistema Activo v3.0</span>
+            </div>
+          </div>
+        )}
+        {!isCollapsed && !user && (
           <div className="mt-4 pt-4 px-3 border-t border-border/60">
             <div className="flex items-center gap-2 text-xs text-muted-foreground/70">
-              <div className="w-2 h-2 rounded-full bg-success animate-pulse"></div>
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
               <span>Sistema Activo v3.0</span>
             </div>
           </div>

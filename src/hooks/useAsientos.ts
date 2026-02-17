@@ -27,12 +27,19 @@ export const useAsientos = () => {
 
       if (asientosError) throw asientosError;
 
-      // Obtener cuentas de asientos
-      const { data: cuentasData, error: cuentasError } = await supabase
-        .from('cuentas_asientos')
-        .select('*');
+      // Obtener IDs de asientos del usuario
+      const asientoIds = (asientosData || []).map(a => a.id);
+      
+      let cuentasData: any[] = [];
+      if (asientoIds.length > 0) {
+        const { data, error: cuentasError } = await supabase
+          .from('cuentas_asientos')
+          .select('*')
+          .in('asiento_id', asientoIds);
 
-      if (cuentasError) throw cuentasError;
+        if (cuentasError) throw cuentasError;
+        cuentasData = data || [];
+      }
 
       // Mapear asientos con sus cuentas
       const asientosConCuentas: AsientoContable[] = (asientosData || []).map(asiento => {
