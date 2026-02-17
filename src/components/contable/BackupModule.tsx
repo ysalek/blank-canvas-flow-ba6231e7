@@ -76,8 +76,9 @@ const BackupModule = () => {
   }, [fetchCounts]);
 
   // Dependency map: table -> child tables that must be deleted first
+  // Dependency map: child tables to delete FIRST, in exact order (grandchildren before children)
   const DEPENDENCIES: Record<string, string[]> = {
-    productos: ["movimientos_inventario", "items_facturas", "items_compras"],
+    productos: ["items_facturas", "items_compras", "movimientos_inventario"],
     facturas: ["items_facturas"],
     compras: ["items_compras"],
     asientos_contables: ["cuentas_asientos"],
