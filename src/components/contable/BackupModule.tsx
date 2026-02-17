@@ -75,26 +75,47 @@ const BackupModule = () => {
     fetchCounts();
   }, [fetchCounts]);
 
-  // Dependency map: table -> child tables that must be deleted first
-  // Dependency map: child tables to delete FIRST, in exact order (grandchildren before children)
-  const DEPENDENCIES: Record<string, string[]> = {
-    productos: ["items_facturas", "items_compras", "movimientos_inventario"],
-    facturas: ["items_facturas"],
-    compras: ["items_compras"],
-    asientos_contables: ["cuentas_asientos"],
-    clientes: ["items_facturas", "facturas"],
-    proveedores: ["items_compras", "compras"],
-    cuentas_bancarias: ["movimientos_bancarios"],
+  // Delete child rows referencing parent IDs owned by this user
+  const deleteChildByParent = async (
+    childTable: string,
+    fkColumn: string,
+    parentTable: string,
+    userId: string
+  ): Promise<number> => {
+    const { data: parents } = await supabase
+      .from(parentTable as any)
+      .select("id")
+      .eq("user_id", userId);
+    if (!parents || parents.length === 0) return 0;
+
+    const parentIds = parents.map((p: any) => p.id);
+    let deleted = 0;
+    for (let i = 0; i < parentIds.length; i += 100) {
+      const batch = parentIds.slice(i, i + 100);
+      const { data } = await supabase
+        .from(childTable as any)
+        .select("id")
+        .in(fkColumn, batch);
+      const count = data?.length ?? 0;
+      if (count > 0) {
+        const { error } = await supabase
+          .from(childTable as any)
+          .delete()
+          .in(fkColumn, batch);
+        if (error) throw new Error(`Error eliminando ${childTable}: ${error.message}`);
+        deleted += count;
+      }
+    }
+    return deleted;
   };
 
   const deleteTableRows = async (table: string, userId: string): Promise<number> => {
     const { data } = await supabase
       .from(table as any)
-      .select("id", { count: "exact" })
+      .select("id")
       .eq("user_id", userId);
     const count = data?.length ?? 0;
     if (count === 0) return 0;
-
     const { error } = await supabase
       .from(table as any)
       .delete()
@@ -110,16 +131,31 @@ const BackupModule = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No autenticado");
 
-      const deps = DEPENDENCIES[deleteTarget.table] || [];
       let totalDeleted = 0;
+      const tbl = deleteTarget.table;
 
-      // Delete children first
-      for (const dep of deps) {
-        totalDeleted += await deleteTableRows(dep, user.id);
+      if (tbl === "productos") {
+        totalDeleted += await deleteChildByParent("items_facturas", "producto_id", "productos", user.id);
+        totalDeleted += await deleteChildByParent("items_compras", "producto_id", "productos", user.id);
+        totalDeleted += await deleteChildByParent("movimientos_inventario", "producto_id", "productos", user.id);
+      } else if (tbl === "facturas") {
+        totalDeleted += await deleteChildByParent("items_facturas", "factura_id", "facturas", user.id);
+      } else if (tbl === "compras") {
+        totalDeleted += await deleteChildByParent("items_compras", "compra_id", "compras", user.id);
+      } else if (tbl === "asientos_contables") {
+        totalDeleted += await deleteChildByParent("cuentas_asientos", "asiento_id", "asientos_contables", user.id);
+      } else if (tbl === "clientes") {
+        totalDeleted += await deleteChildByParent("items_facturas", "factura_id", "facturas", user.id);
+        totalDeleted += await deleteTableRows("facturas", user.id);
+      } else if (tbl === "proveedores") {
+        totalDeleted += await deleteChildByParent("items_compras", "compra_id", "compras", user.id);
+        totalDeleted += await deleteTableRows("compras", user.id);
+      } else if (tbl === "cuentas_bancarias") {
+        totalDeleted += await deleteChildByParent("movimientos_bancarios", "cuenta_bancaria_id", "cuentas_bancarias", user.id);
       }
 
-      // Delete the target table
-      totalDeleted += await deleteTableRows(deleteTarget.table, user.id);
+      // Delete the target table itself
+      totalDeleted += await deleteTableRows(tbl, user.id);
 
       toast({
         title: `${totalDeleted} registros eliminados`,
