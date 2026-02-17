@@ -97,7 +97,7 @@ const LoginForm = () => {
             </div>
           </div>
           <h1 className="text-3xl font-bold text-gradient-primary text-primary-dark">Sistema Contable</h1>
-          <p className="text-muted-foreground">Gestión contable profesional para Bolivia</p>
+          <p className="text-secondary-foreground">Gestión contable profesional para Bolivia</p>
         </div>
 
         {/* Login Form */}
