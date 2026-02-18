@@ -196,25 +196,7 @@ const FacturacionModule = () => {
             // Generar asiento contable del movimiento de inventario
             generarAsientoInventario(movimientoInventario);
 
-            // Guardar movimiento en Supabase
-            try {
-              const { data: { user } } = await supabase.auth.getUser();
-              if (user) {
-                await supabase.from('movimientos_inventario').insert({
-                  producto_id: item.productoId,
-                  tipo: 'salida',
-                  cantidad: item.cantidad,
-                  costo_unitario: producto.costo_unitario,
-                  fecha: facturaValidada.fecha,
-                  stock_anterior: producto.stock_actual,
-                  stock_actual: producto.stock_actual - item.cantidad,
-                  observaciones: `Venta - Factura N° ${facturaValidada.numero}`,
-                  user_id: user.id
-                });
-              }
-            } catch (movError) {
-              console.error('Error guardando movimiento:', movError);
-            }
+            // Movimiento de inventario ya creado por actualizarStockProducto
             
             console.log(`✅ Stock descontado: ${item.descripcion} - Cantidad: ${item.cantidad}`);
           }

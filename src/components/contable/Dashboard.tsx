@@ -7,10 +7,12 @@ import { useContabilidadIntegration } from '@/hooks/useContabilidadIntegration';
 import NotificationsIcon from './dashboard/NotificationsIcon';
 import EnhancedFinancialDashboard from './dashboard/EnhancedFinancialDashboard';
 import SystemHealth from './dashboard/SystemHealth';
-import { inicializarSistemaCompleto } from '../../utils/inicializarSistema';
 import { inicializarDatosDemo } from '@/utils/inicializarDatosDemo';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useProductosValidated } from '@/hooks/useProductosValidated';
+import { useClientesSupabase } from '@/hooks/useClientesSupabase';
+import { useFacturas } from '@/hooks/useFacturas';
 
 const Dashboard = () => {
   const [fechaActual] = useState(new Date().toLocaleDateString('es-BO', {
@@ -26,47 +28,10 @@ const Dashboard = () => {
   const { obtenerBalanceGeneral } = useContabilidadIntegration();
   const balance = obtenerBalanceGeneral();
 
-  const [dataCargada, setDataCargada] = useState(false);
-
-  useEffect(() => {
-    const cargarDatosDesdeLocalStorage = () => {
-      try {
-        // Intenta cargar los datos desde localStorage
-        const facturasGuardadas = localStorage.getItem('facturas');
-        const asientosGuardados = localStorage.getItem('asientosContables');
-        const productosGuardados = localStorage.getItem('productos');
-        const comprobantesGuardados = localStorage.getItem('comprobantes_integrados');
-        const clientesGuardados = localStorage.getItem('clientes');
-        const proveedoresGuardados = localStorage.getItem('proveedores');
-
-        // Si alguno de los datos no existe, inicializa el sistema
-        if (!facturasGuardadas || !asientosGuardados || !productosGuardados || !comprobantesGuardados || !clientesGuardados || !proveedoresGuardados) {
-          inicializarSistemaCompleto();
-          toast({
-            title: "¡Bienvenido!",
-            description: "El sistema se ha inicializado con datos de demostración.",
-          })
-        }
-        setDataCargada(true);
-      } catch (error) {
-        console.error("Error al cargar datos desde localStorage:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Hubo un problema al cargar los datos iniciales.",
-        })
-      }
-    };
-
-    cargarDatosDesdeLocalStorage();
-  }, [toast]);
-
-  const facturas = JSON.parse(localStorage.getItem('facturas') || '[]');
-  const asientos = JSON.parse(localStorage.getItem('asientosContables') || '[]');
-  const productos = JSON.parse(localStorage.getItem('productos') || '[]');
-  const comprobantes = JSON.parse(localStorage.getItem('comprobantes_integrados') || '[]');
-  const clientes = JSON.parse(localStorage.getItem('clientes') || '[]');
-  const proveedores = JSON.parse(localStorage.getItem('proveedores') || '[]');
+  // Datos reales desde Supabase
+  const { productos, loading: productosLoading } = useProductosValidated();
+  const { clientes, loading: clientesLoading } = useClientesSupabase();
+  const { facturas, loading: facturasLoading } = useFacturas();
 
   useEffect(() => {
     const initSystem = async () => {
@@ -90,26 +55,24 @@ const Dashboard = () => {
   lastMonth.setMonth(lastMonth.getMonth() - 1);
   const lastMonthStr = lastMonth.toISOString().slice(0, 7);
 
-  const comprobantesAutorizados = comprobantes.filter((c: any) => c.estado === 'autorizado');
-  const comprobantesConAsientos = comprobantes.filter((c: any) => c.asientoGenerado);
-  const totalIngresos = comprobantes.filter((c: any) => c.tipo === 'ingreso' && c.estado === 'autorizado').reduce((sum: number, c: any) => sum + c.monto, 0);
-  const totalGastos = comprobantes.filter((c: any) => c.tipo === 'egreso' && c.estado === 'autorizado').reduce((sum: number, c: any) => sum + c.monto, 0);
-
+  // Métricas calculadas desde datos de Supabase
   const ventasHoy = facturas.filter((f: any) => f.fecha === today && f.estado !== 'anulada').reduce((sum: number, f: any) => sum + f.total, 0);
-  const ventasMes = facturas.filter((f: any) => f.fecha.startsWith(thisMonth) && f.estado !== 'anulada').reduce((sum: number, f: any) => sum + f.total, 0);
-  const ventasMesAnterior = facturas.filter((f: any) => f.fecha.startsWith(lastMonthStr) && f.estado !== 'anulada').reduce((sum: number, f: any) => sum + f.total, 0);
+  const ventasMes = facturas.filter((f: any) => f.fecha?.startsWith(thisMonth) && f.estado !== 'anulada').reduce((sum: number, f: any) => sum + f.total, 0);
+  const ventasMesAnterior = facturas.filter((f: any) => f.fecha?.startsWith(lastMonthStr) && f.estado !== 'anulada').reduce((sum: number, f: any) => sum + f.total, 0);
   const crecimientoVentas = ventasMesAnterior > 0 ? ((ventasMes - ventasMesAnterior) / ventasMesAnterior * 100) : 0;
 
+  const totalIngresos = ventasMes;
+  const totalGastos = 0; // TODO: calcular desde compras
   const margenBruto = ventasMes > 0 ? ((ventasMes - totalGastos) / ventasMes * 100) : 0;
   const ebitda = totalIngresos - totalGastos;
   const roiMensual = totalGastos > 0 ? (ebitda / totalGastos * 100) : 0;
 
-  const clientesActivosMes = new Set(facturas.filter((f: any) => f.fecha.startsWith(thisMonth)).map((f: any) => f.cliente?.id)).size;
-  const clientesNuevosMes = clientes.filter((c: any) => c.fechaRegistro && c.fechaRegistro.startsWith(thisMonth)).length;
-  const ticketPromedio = facturas.length > 0 ? ventasMes / Math.max(facturas.filter((f: any) => f.fecha.startsWith(thisMonth) && f.estado !== 'anulada').length, 1) : 0;
+  const clientesActivosMes = clientes.filter((c: any) => c.activo !== false).length;
+  const clientesNuevosMes = clientes.filter((c: any) => c.fechaCreacion && c.fechaCreacion.startsWith(thisMonth)).length;
+  const ticketPromedio = facturas.length > 0 ? ventasMes / Math.max(facturas.filter((f: any) => f.fecha?.startsWith(thisMonth) && f.estado !== 'anulada').length, 1) : 0;
 
-  const valorInventario = productos.reduce((sum: number, p: any) => sum + (p.stockActual * p.costoUnitario), 0);
-  const productosStockBajo = productos.filter((p: any) => p.stockActual <= p.stockMinimo && p.stockActual > 0).length;
+  const valorInventario = productos.reduce((sum: number, p: any) => sum + (Number(p.stock_actual || 0) * Number(p.costo_unitario || 0)), 0);
+  const productosStockBajo = productos.filter((p: any) => Number(p.stock_actual || 0) <= Number(p.stock_minimo || 0) && Number(p.stock_actual || 0) > 0).length;
   const rotacionInventario = ventasMes > 0 && valorInventario > 0 ? (ventasMes / valorInventario * 12) : 0;
 
   const facturasPendientes = facturas.filter((f: any) => f.estado === 'enviada').length;
@@ -256,7 +219,7 @@ const Dashboard = () => {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Productos Activos</span>
-                <span className="text-lg font-bold">{productos.filter((p: any) => p.stockActual > 0).length}/{productos.length}</span>
+                <span className="text-lg font-bold">{productos.filter((p: any) => Number(p.stock_actual || 0) > 0).length}/{productos.length}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Stock Bajo</span>
@@ -362,7 +325,23 @@ const Dashboard = () => {
         {/* Análisis Financiero */}
         <div>
           <h2 className="text-xl font-semibold mb-4 text-foreground">Análisis Financiero</h2>
-          <EnhancedFinancialDashboard facturas={facturas} asientos={asientos} productos={productos} />
+          <EnhancedFinancialDashboard facturas={facturas} asientos={[]} productos={productos.map(p => ({
+            id: String(p.id),
+            codigo: String(p.codigo || ''),
+            nombre: String(p.nombre || ''),
+            descripcion: String(p.descripcion || ''),
+            categoria: String(p.categoria_id || 'General'),
+            unidadMedida: String(p.unidad_medida || 'PZA'),
+            precioVenta: Number(p.precio_venta || 0),
+            precioCompra: Number(p.precio_compra || 0),
+            costoUnitario: Number(p.costo_unitario || 0),
+            stockActual: Number(p.stock_actual || 0),
+            stockMinimo: Number(p.stock_minimo || 0),
+            codigoSIN: String(p.codigo_sin || '00000000'),
+            activo: Boolean(p.activo),
+            fechaCreacion: p.created_at?.split('T')[0] || '',
+            fechaActualizacion: p.updated_at?.split('T')[0] || ''
+          }))} />
         </div>
 
         {/* Monitoreo del Sistema */}
