@@ -86,27 +86,19 @@ const BackupModule = () => {
       .from(parentTable as any)
       .select("id")
       .eq("user_id", userId);
+
     if (!parents || parents.length === 0) return 0;
 
     const parentIds = parents.map((p: any) => p.id);
-    let deleted = 0;
-    for (let i = 0; i < parentIds.length; i += 100) {
-      const batch = parentIds.slice(i, i + 100);
-      const { data } = await supabase
-        .from(childTable as any)
-        .select("id")
-        .in(fkColumn, batch);
-      const count = data?.length ?? 0;
-      if (count > 0) {
-        const { error } = await supabase
-          .from(childTable as any)
-          .delete()
-          .in(fkColumn, batch);
-        if (error) throw new Error(`Error eliminando ${childTable}: ${error.message}`);
-        deleted += count;
-      }
-    }
-    return deleted;
+
+    const { error, count } = await supabase
+      .from(childTable as any)
+      .delete({ count: 'exact' })
+      .in(fkColumn, parentIds);
+
+    if (error) throw new Error(`Error eliminando ${childTable}: ${error.message}`);
+
+    return count || 0;
   };
 
   const deleteTableRows = async (table: string, userId: string): Promise<number> => {
