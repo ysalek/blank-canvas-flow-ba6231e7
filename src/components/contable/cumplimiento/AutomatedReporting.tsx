@@ -193,9 +193,11 @@ const AutomatedReporting = () => {
       switch (report.type) {
         case 'iva':
           // Obtener datos de facturas para IVA
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
           const { data: facturas } = await supabase
             .from('facturas')
-            .select('*')
+            .select('id, total, iva, fecha')
+            .eq('user_id', currentUser?.id || '')
             .gte('fecha', new Date(new Date().setDate(1)).toISOString().split('T')[0]);
           
           data = {

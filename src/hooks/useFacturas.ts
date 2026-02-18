@@ -14,10 +14,10 @@ export const useFacturas = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setFacturas([]); return; }
 
-      // Fetch facturas WITHOUT join to avoid 405 "read-only transaction" error
+      // Use explicit columns to avoid trigger issues (25006 error)
       const { data: facturasData, error: fError } = await supabase
         .from('facturas')
-        .select('*')
+        .select('id, numero, cliente_id, fecha, fecha_vencimiento, subtotal, descuento_total, iva, total, estado, estado_sin, cuf, cufd, punto_venta, codigo_control, observaciones, created_at, user_id')
         .eq('user_id', user.id)
         .order('fecha', { ascending: false });
 
@@ -99,7 +99,38 @@ export const useFacturas = () => {
       setFacturas(mapped);
     } catch (error) {
       console.error('Error fetching facturas:', error);
-      // Fallback localStorage
+      // Fallback: try simpler query without any computed fields
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: simpleData } = await supabase
+            .from('facturas')
+            .select('id, numero, cliente_id, fecha, total, estado, subtotal, iva, descuento_total, created_at')
+            .eq('user_id', user.id);
+          if (simpleData && simpleData.length > 0) {
+            const simpleMapped: Factura[] = simpleData.map((f: any) => ({
+              id: f.id,
+              numero: f.numero,
+              cliente: { id: f.cliente_id || '', nombre: 'Cliente', nit: '', email: '', telefono: '', direccion: '', activo: true, fechaCreacion: '' },
+              fecha: f.fecha,
+              fechaVencimiento: '',
+              items: [],
+              subtotal: f.subtotal || 0,
+              descuentoTotal: f.descuento_total || 0,
+              iva: f.iva || 0,
+              total: f.total || 0,
+              estado: f.estado as Factura['estado'],
+              estadoSIN: 'pendiente' as Factura['estadoSIN'],
+              cuf: '', cufd: '', puntoVenta: 0, codigoControl: '', observaciones: '',
+              fechaCreacion: f.created_at?.split('T')[0] || ''
+            }));
+            setFacturas(simpleMapped);
+            return;
+          }
+        }
+      } catch (retryError) {
+        console.error('Retry also failed:', retryError);
+      }
       const local = localStorage.getItem('facturas');
       if (local) setFacturas(JSON.parse(local));
     } finally {
