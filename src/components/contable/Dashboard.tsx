@@ -39,6 +39,24 @@ const Dashboard = () => {
   lastMonth.setMonth(lastMonth.getMonth() - 1);
   const lastMonthStr = lastMonth.toISOString().slice(0, 7);
 
+  // Debug: Log data state
+  useEffect(() => {
+    console.log('📊 [Dashboard] Estado datos:', {
+      facturas: facturas.length,
+      productos: productos.length,
+      clientes: clientes.length,
+      asientos: asientosReales.length,
+      facturasLoading,
+      productosLoading,
+      clientesLoading,
+      today,
+      thisMonth
+    });
+    if (facturas.length > 0) {
+      console.log('📊 [Dashboard] Facturas:', facturas.map(f => ({ num: f.numero, total: f.total, fecha: f.fecha, estado: f.estado })));
+    }
+  }, [facturas.length, productos.length, clientes.length, asientosReales.length, facturasLoading]);
+
   // Métricas calculadas desde datos de Supabase
   const ventasHoy = facturas.filter((f: any) => f.fecha === today && f.estado !== 'anulada').reduce((sum: number, f: any) => sum + f.total, 0);
   const ventasMes = facturas.filter((f: any) => f.fecha?.startsWith(thisMonth) && f.estado !== 'anulada').reduce((sum: number, f: any) => sum + f.total, 0);

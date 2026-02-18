@@ -78,7 +78,7 @@ const ComprasModule = () => {
 
   const handleSaveCompra = async (nuevaCompra: Compra) => {
     try {
-      const asientoCompra = generarAsientoCompra({
+      const asientoCompra = await generarAsientoCompra({
         numero: nuevaCompra.numero,
         total: nuevaCompra.total,
         subtotal: nuevaCompra.subtotal,
@@ -134,7 +134,7 @@ const ComprasModule = () => {
       return;
     }
 
-    const asientoPago = generarAsientoPagoCompra(compra);
+    const asientoPago = await generarAsientoPagoCompra(compra);
     if (!asientoPago) return;
 
     try {

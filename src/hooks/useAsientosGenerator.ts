@@ -9,7 +9,7 @@ export const useAsientosGenerator = () => {
   const { guardarAsiento } = useAsientos();
   const { obtenerProductos } = useProductosUnificado();
 
-  const generarAsientoInventario = (movimiento: MovimientoInventario): AsientoContable | null => {
+  const generarAsientoInventario = async (movimiento: MovimientoInventario): Promise<AsientoContable | null> => {
     try {
       const cuentas: CuentaAsiento[] = [];
       const fecha = new Date().toISOString().slice(0, 10);
@@ -17,8 +17,6 @@ export const useAsientosGenerator = () => {
       console.log("Generando asiento para movimiento (normativa boliviana):", movimiento);
       
       if (movimiento.tipo === 'entrada') {
-        // ENTRADA DE INVENTARIO según normativa boliviana
-        // Las entradas siempre incrementan el activo inventario
         cuentas.push({
           codigo: "1131",
           nombre: "Inventarios",
@@ -26,11 +24,9 @@ export const useAsientosGenerator = () => {
           haber: 0
         });
         
-        // Determinar la cuenta de contrapartida según el motivo específico
         if (movimiento.motivo?.toLowerCase().includes('anulación') || 
             movimiento.motivo?.toLowerCase().includes('devolución') ||
             movimiento.motivo?.toLowerCase().includes('devolucion')) {
-          // DEVOLUCIÓN DE VENTA - Se revierte el costo registrado previamente
           cuentas.push({
             codigo: "5111",
             nombre: "Costo de Productos Vendidos",
@@ -40,7 +36,6 @@ export const useAsientosGenerator = () => {
         } else if (movimiento.motivo?.toLowerCase().includes('compra') ||
                    movimiento.motivo?.toLowerCase().includes('proveedor') ||
                    movimiento.motivo?.toLowerCase().includes('adquisición')) {
-          // COMPRA NORMAL - Incrementa pasivo por pagar
           cuentas.push({
             codigo: "2111",
             nombre: "Cuentas por Pagar",
@@ -48,7 +43,6 @@ export const useAsientosGenerator = () => {
             haber: movimiento.valorMovimiento
           });
         } else if (movimiento.motivo?.toLowerCase().includes('ajuste positivo')) {
-          // AJUSTE POSITIVO - Se registra como ganancia por diferencia de inventario
           cuentas.push({
             codigo: "4211",
             nombre: "Otros Ingresos",
@@ -56,7 +50,6 @@ export const useAsientosGenerator = () => {
             haber: movimiento.valorMovimiento
           });
         } else {
-          // Por defecto, se considera compra
           cuentas.push({
             codigo: "2111",
             nombre: "Cuentas por Pagar",
@@ -65,9 +58,6 @@ export const useAsientosGenerator = () => {
           });
         }
       } else if (movimiento.tipo === 'salida') {
-        // SALIDA DE INVENTARIO - Análisis crítico según normativa boliviana
-        
-        // SIEMPRE se reduce el inventario en cualquier salida
         cuentas.push({
           codigo: "1131",
           nombre: "Inventarios",
@@ -75,11 +65,9 @@ export const useAsientosGenerator = () => {
           haber: movimiento.valorMovimiento
         });
         
-        // La cuenta de contrapartida es CRÍTICA según la normativa
         if (movimiento.motivo?.toLowerCase().includes('venta') || 
             movimiento.motivo?.toLowerCase().includes('factura') ||
             movimiento.motivo?.toLowerCase().includes('vendido')) {
-          // VENTA REAL - Va al costo de ventas para Estado de Resultados
           cuentas.push({
             codigo: "5111",
             nombre: "Costo de Productos Vendidos",
@@ -91,7 +79,6 @@ export const useAsientosGenerator = () => {
                    movimiento.motivo?.toLowerCase().includes('deterioro') ||
                    movimiento.motivo?.toLowerCase().includes('robo') ||
                    movimiento.motivo?.toLowerCase().includes('vencimiento')) {
-          // PÉRDIDA/DETERIORO - Va a pérdidas, NO al costo de ventas
           cuentas.push({
             codigo: "5322",
             nombre: "Pérdidas y Faltantes de Inventario",
@@ -101,7 +88,6 @@ export const useAsientosGenerator = () => {
         } else if (movimiento.motivo?.toLowerCase().includes('consumo interno') ||
                    movimiento.motivo?.toLowerCase().includes('uso interno') ||
                    movimiento.motivo?.toLowerCase().includes('muestra')) {
-          // USO INTERNO - Se registra como gasto operativo
           cuentas.push({
             codigo: "5211",
             nombre: "Gastos Operativos",
@@ -109,7 +95,6 @@ export const useAsientosGenerator = () => {
             haber: 0
           });
         } else if (movimiento.motivo?.toLowerCase().includes('ajuste negativo')) {
-          // AJUSTE NEGATIVO por diferencia de inventario
           cuentas.push({
             codigo: "5322",
             nombre: "Pérdidas y Faltantes de Inventario",
@@ -117,7 +102,6 @@ export const useAsientosGenerator = () => {
             haber: 0
           });
         } else {
-          // POR DEFECTO - Si no es claramente una venta, va a pérdidas
           console.warn("Motivo de salida no específico, registrando como pérdida:", movimiento.motivo);
           cuentas.push({
             codigo: "5322",
@@ -145,7 +129,7 @@ export const useAsientosGenerator = () => {
 
       console.log("Asiento generado:", asiento);
 
-      const resultado = guardarAsiento(asiento);
+      const resultado = await guardarAsiento(asiento);
       return resultado ? asiento : null;
     } catch (error) {
       console.error("Error al generar asiento de inventario:", error);
@@ -153,23 +137,15 @@ export const useAsientosGenerator = () => {
     }
   };
 
-  const generarAsientoVenta = (factura: any): AsientoContable | null => {
+  const generarAsientoVenta = async (factura: any): Promise<AsientoContable | null> => {
     const cuentas: CuentaAsiento[] = [];
     const fecha = new Date().toISOString().slice(0, 10);
     
-    // El total de la factura ya incluye IVA según normativa boliviana
     const totalConIVA = factura.total;
-    
-    // Calcular venta sin IVA (87% del total) - CÁLCULO EXACTO SEGÚN NORMATIVA BOLIVIANA
     const ventaSinIVA = Number((totalConIVA / 1.13).toFixed(2));
-    
-    // IVA Débito Fiscal (13% de la base) - SEGÚN LEY 843 Y DS 21530
     const ivaVenta = Number((totalConIVA - ventaSinIVA).toFixed(2));
-    
-    // IT - Impuesto a las Transacciones (3% sobre base imponible) - SEGÚN LEY 843 ART. 72
     const itVenta = Number((ventaSinIVA * 0.03).toFixed(2));
 
-    // DÉBITO: Cuentas por Cobrar por el total de la factura
     cuentas.push({
       codigo: "1121",
       nombre: "Cuentas por Cobrar Comerciales",
@@ -177,7 +153,6 @@ export const useAsientosGenerator = () => {
       haber: 0
     });
 
-    // CRÉDITO: Ventas (base imponible sin IVA)
     cuentas.push({
       codigo: "4111",
       nombre: "Ventas de Productos",
@@ -185,7 +160,6 @@ export const useAsientosGenerator = () => {
       haber: ventaSinIVA
     });
 
-    // CRÉDITO: IVA Débito Fiscal (13%)
     cuentas.push({
       codigo: "2113",
       nombre: "IVA Débito Fiscal",
@@ -205,12 +179,14 @@ export const useAsientosGenerator = () => {
       cuentas
     };
 
-    if (!guardarAsiento(asientoVenta)) {
+    const saved = await guardarAsiento(asientoVenta);
+    if (!saved) {
+      console.error('❌ Error guardando asiento de venta');
       return null;
     }
+    console.log('✅ Asiento de venta guardado:', asientoVenta.numero);
 
-    // ASIENTO SEPARADO PARA IT - Según normativa boliviana, el IT se registra como gasto
-    // y genera un pasivo tributario por pagar
+    // IT asiento
     const asientoIT: AsientoContable = {
       id: (Date.now() + 1).toString(),
       numero: `IT-${Date.now().toString().slice(-6)}`,
@@ -236,25 +212,20 @@ export const useAsientosGenerator = () => {
       ]
     };
 
-    guardarAsiento(asientoIT);
+    await guardarAsiento(asientoIT);
+    console.log('✅ Asiento IT guardado:', asientoIT.numero);
 
     return asientoVenta;
   };
 
-  const generarAsientoCompra = (compra: { numero: string, total: number, subtotal: number, iva: number }): AsientoContable | null => {
+  const generarAsientoCompra = async (compra: { numero: string, total: number, subtotal: number, iva: number }): Promise<AsientoContable | null> => {
     const cuentas: CuentaAsiento[] = [];
     const fecha = new Date().toISOString().slice(0, 10);
     
-    // CORREGIDO según normativa boliviana: Las compras se capitalizan en INVENTARIO
     const totalCompra = compra.total;
-    
-    // Base sin IVA (87% del total) - CÁLCULO EXACTO SEGÚN NORMATIVA BOLIVIANA
     const comprasValor = Number((totalCompra / 1.13).toFixed(2));
-    
-    // IVA Crédito Fiscal (13% del total) - CÁLCULO EXACTO SEGÚN NORMATIVA BOLIVIANA
     const ivaCreditoFiscal = Number((totalCompra - comprasValor).toFixed(2));
 
-    // CAMBIO CRÍTICO: Las compras van a INVENTARIO (1131), no a gastos (5121)
     cuentas.push({
       codigo: "1131", 
       nombre: "Inventarios",
@@ -288,11 +259,12 @@ export const useAsientosGenerator = () => {
       cuentas
     };
 
-    return guardarAsiento(asiento) ? asiento : null;
+    const saved = await guardarAsiento(asiento);
+    return saved ? asiento : null;
   };
 
-  const generarAsientoPagoCompra = (compra: Compra): AsientoContable | null => {
-    const totalPago = compra.subtotal + compra.iva; // Total contable = subtotal + IVA
+  const generarAsientoPagoCompra = async (compra: Compra): Promise<AsientoContable | null> => {
+    const totalPago = compra.subtotal + compra.iva;
     const asiento: AsientoContable = {
       id: Date.now().toString(),
       numero: `PGC-${compra.numero}`,
@@ -303,24 +275,15 @@ export const useAsientosGenerator = () => {
       haber: totalPago,
       estado: 'registrado',
       cuentas: [
-        {
-          codigo: "2111",
-          nombre: "Cuentas por Pagar",
-          debe: totalPago,
-          haber: 0
-        },
-        {
-          codigo: "1111",
-          nombre: "Caja y Bancos",
-          debe: 0,
-          haber: totalPago
-        }
+        { codigo: "2111", nombre: "Cuentas por Pagar", debe: totalPago, haber: 0 },
+        { codigo: "1111", nombre: "Caja y Bancos", debe: 0, haber: totalPago }
       ]
     };
-    return guardarAsiento(asiento) ? asiento : null;
+    const saved = await guardarAsiento(asiento);
+    return saved ? asiento : null;
   };
 
-  const generarAsientoPagoFactura = (factura: Factura): AsientoContable | null => {
+  const generarAsientoPagoFactura = async (factura: Factura): Promise<AsientoContable | null> => {
     const asiento: AsientoContable = {
       id: Date.now().toString(),
       numero: `PAG-${factura.numero}`,
@@ -331,29 +294,19 @@ export const useAsientosGenerator = () => {
       haber: factura.total,
       estado: 'registrado',
       cuentas: [
-        {
-          codigo: "1111",
-          nombre: "Caja y Bancos",
-          debe: factura.total,
-          haber: 0
-        },
-        {
-          codigo: "1121",
-          nombre: "Cuentas por Cobrar",
-          debe: 0,
-          haber: factura.total
-        }
+        { codigo: "1111", nombre: "Caja y Bancos", debe: factura.total, haber: 0 },
+        { codigo: "1121", nombre: "Cuentas por Cobrar", debe: 0, haber: factura.total }
       ]
     };
-    return guardarAsiento(asiento) ? asiento : null;
+    const saved = await guardarAsiento(asiento);
+    return saved ? asiento : null;
   };
 
-  const generarAsientoAnulacionFactura = (factura: Factura): AsientoContable[] | null => {
+  const generarAsientoAnulacionFactura = async (factura: Factura): Promise<AsientoContable[] | null> => {
     const ventaSinIVA = Number((factura.total / 1.13).toFixed(2));
     const ivaVenta = Number((factura.total - ventaSinIVA).toFixed(2));
     const itVenta = Number((ventaSinIVA * 0.03).toFixed(2));
     
-    // Reversión del asiento de venta
     const asientoVentaReversion: AsientoContable = {
       id: Date.now().toString(),
       numero: `ANV-${factura.numero}`,
@@ -364,31 +317,14 @@ export const useAsientosGenerator = () => {
       haber: factura.total,
       estado: 'registrado',
       cuentas: [
-        {
-          codigo: "4111",
-          nombre: "Ventas de Productos",
-          debe: ventaSinIVA,
-          haber: 0
-        },
-        {
-          codigo: "2113",
-          nombre: "IVA Débito Fiscal",
-          debe: ivaVenta,
-          haber: 0
-        },
-        {
-          codigo: "1121",
-          nombre: "Cuentas por Cobrar Comerciales",
-          debe: 0,
-          haber: factura.total
-        }
+        { codigo: "4111", nombre: "Ventas de Productos", debe: ventaSinIVA, haber: 0 },
+        { codigo: "2113", nombre: "IVA Débito Fiscal", debe: ivaVenta, haber: 0 },
+        { codigo: "1121", nombre: "Cuentas por Cobrar Comerciales", debe: 0, haber: factura.total }
       ]
     };
-    if (!guardarAsiento(asientoVentaReversion)) {
-      return null;
-    }
+    const savedReversion = await guardarAsiento(asientoVentaReversion);
+    if (!savedReversion) return null;
     
-    // Reversión del IT
     const asientoITReversion: AsientoContable = {
       id: (Date.now() + 1).toString(),
       numero: `ANV-IT-${factura.numero}`,
@@ -399,28 +335,15 @@ export const useAsientosGenerator = () => {
       haber: itVenta,
       estado: 'registrado',
       cuentas: [
-        {
-          codigo: "2114",
-          nombre: "IT por Pagar",
-          debe: itVenta,
-          haber: 0
-        },
-        {
-          codigo: "5401",
-          nombre: "IT Pagado",
-          debe: 0,
-          haber: itVenta
-        }
+        { codigo: "2114", nombre: "IT por Pagar", debe: itVenta, haber: 0 },
+        { codigo: "5401", nombre: "IT Pagado", debe: 0, haber: itVenta }
       ]
     };
-    guardarAsiento(asientoITReversion);
+    await guardarAsiento(asientoITReversion);
 
     const asientosGenerados: AsientoContable[] = [asientoVentaReversion, asientoITReversion];
-    let todoOk = true;
 
-    factura.items.forEach(item => {
-      if (!todoOk) return;
-
+    for (const item of factura.items) {
       const producto = obtenerProductos().find(p => p.id === item.productoId);
       if (producto && producto.costoUnitario > 0) {
         const valorMovimiento = item.cantidad * producto.costoUnitario;
@@ -440,18 +363,13 @@ export const useAsientosGenerator = () => {
           stockNuevo: producto.stockActual + item.cantidad,
           valorMovimiento,
         };
-        const asientoCosto = generarAsientoInventario(movimientoInventario);
+        const asientoCosto = await generarAsientoInventario(movimientoInventario);
         if (asientoCosto) {
           asientosGenerados.push(asientoCosto);
         } else {
-          console.error(`Error crítico: Falló la reversión del costo para el producto ${item.productoId} en la anulación de la factura ${factura.numero}. El sistema puede quedar en un estado inconsistente.`);
-          todoOk = false;
+          console.error(`Error crítico: Falló la reversión del costo para el producto ${item.productoId}`);
         }
       }
-    });
-
-    if (!todoOk) {
-      return asientosGenerados;
     }
 
     return asientosGenerados;

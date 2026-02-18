@@ -194,7 +194,7 @@ const FacturacionModule = () => {
             };
 
             // Generar asiento contable del movimiento de inventario
-            generarAsientoInventario(movimientoInventario);
+            await generarAsientoInventario(movimientoInventario);
 
             // Movimiento de inventario ya creado por actualizarStockProducto
             
@@ -203,7 +203,7 @@ const FacturacionModule = () => {
         }
 
         // 2. Generar asiento contable de venta
-        generarAsientoVenta(facturaValidada);
+        await generarAsientoVenta(facturaValidada);
         
         // 3. Guardar factura en Supabase
         await guardarFacturaDB(facturaValidada);
@@ -246,7 +246,7 @@ const FacturacionModule = () => {
         return;
       }
       const updatedInvoice = { ...invoiceToUpdate, estado: 'pagada' as const };
-      generarAsientoPagoFactura(updatedInvoice);
+      await generarAsientoPagoFactura(updatedInvoice);
       await actualizarEstadoFactura(invoiceId, 'pagada');
       toast({ title: "Factura Pagada", description: `La factura N° ${updatedInvoice.numero} se marcó como pagada.` });
     } else if (newStatus === 'anulada') {
@@ -255,7 +255,7 @@ const FacturacionModule = () => {
         return;
       }
       const updatedInvoice = { ...invoiceToUpdate, estado: 'anulada' as const };
-      generarAsientoAnulacionFactura(updatedInvoice);
+      await generarAsientoAnulacionFactura(updatedInvoice);
       await actualizarEstadoFactura(invoiceId, 'anulada');
       toast({ title: "Factura Anulada", description: `La factura N° ${updatedInvoice.numero} ha sido anulada.` });
     }

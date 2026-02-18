@@ -32,12 +32,12 @@ export type { Producto } from "@/hooks/useProductosUnificado";
 export type { Compra } from "@/components/contable/purchases/PurchasesData";
 
 export interface ContabilidadIntegrationHook {
-  generarAsientoInventario: (movimiento: MovimientoInventario) => AsientoContable | null;
-  generarAsientoVenta: (factura: any) => AsientoContable | null;
-  generarAsientoCompra: (compra: { numero: string, total: number, subtotal: number, iva: number }) => AsientoContable | null;
-  generarAsientoPagoCompra: (compra: Compra) => AsientoContable | null;
-  generarAsientoPagoFactura: (factura: Factura) => AsientoContable | null;
-  generarAsientoAnulacionFactura: (factura: Factura) => AsientoContable[] | null;
+  generarAsientoInventario: (movimiento: MovimientoInventario) => Promise<AsientoContable | null>;
+  generarAsientoVenta: (factura: any) => Promise<AsientoContable | null>;
+  generarAsientoCompra: (compra: { numero: string, total: number, subtotal: number, iva: number }) => Promise<AsientoContable | null>;
+  generarAsientoPagoCompra: (compra: Compra) => Promise<AsientoContable | null>;
+  generarAsientoPagoFactura: (factura: Factura) => Promise<AsientoContable | null>;
+  generarAsientoAnulacionFactura: (factura: Factura) => Promise<AsientoContable[] | null>;
   guardarAsiento: (asiento: AsientoContable) => Promise<boolean>;
   getAsientos: () => AsientoContable[];
   getLibroMayor: () => { [key: string]: { nombre: string, codigo: string, movimientos: any[], totalDebe: number, totalHaber: number } };

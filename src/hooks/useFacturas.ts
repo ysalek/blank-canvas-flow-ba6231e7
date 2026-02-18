@@ -12,16 +12,26 @@ export const useFacturas = () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setFacturas([]); return; }
+      if (!user) { 
+        console.log('📋 [Facturas] No hay usuario autenticado');
+        setFacturas([]); 
+        return; 
+      }
 
-      // Use explicit columns to avoid trigger issues (25006 error)
+      console.log('📋 [Facturas] Consultando facturas para user:', user.id);
+
       const { data: facturasData, error: fError } = await supabase
         .from('facturas')
         .select('id, numero, cliente_id, fecha, fecha_vencimiento, subtotal, descuento_total, iva, total, estado, estado_sin, cuf, cufd, punto_venta, codigo_control, observaciones, created_at, user_id')
         .eq('user_id', user.id)
         .order('fecha', { ascending: false });
 
-      if (fError) throw fError;
+      if (fError) {
+        console.error('❌ [Facturas] Error en query principal:', fError);
+        throw fError;
+      }
+
+      console.log('✅ [Facturas] Facturas encontradas:', facturasData?.length || 0);
 
       // Fetch related clients
       const clienteIds = [...new Set((facturasData || []).map((f: any) => f.cliente_id).filter(Boolean))];
@@ -43,8 +53,11 @@ export const useFacturas = () => {
           .select('*')
           .in('factura_id', facturaIds);
 
-        if (iError) throw iError;
-        itemsData = data || [];
+        if (iError) {
+          console.error('⚠️ [Facturas] Error cargando items:', iError);
+        } else {
+          itemsData = data || [];
+        }
       }
 
       const mapped: Factura[] = (facturasData || []).map((f: any) => {
@@ -96,43 +109,12 @@ export const useFacturas = () => {
         };
       });
 
+      console.log('✅ [Facturas] Mapped:', mapped.length, 'facturas. Totales:', mapped.map(f => ({ num: f.numero, total: f.total, estado: f.estado, fecha: f.fecha })));
       setFacturas(mapped);
     } catch (error) {
-      console.error('Error fetching facturas:', error);
-      // Fallback: try simpler query without any computed fields
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: simpleData } = await supabase
-            .from('facturas')
-            .select('id, numero, cliente_id, fecha, total, estado, subtotal, iva, descuento_total, created_at')
-            .eq('user_id', user.id);
-          if (simpleData && simpleData.length > 0) {
-            const simpleMapped: Factura[] = simpleData.map((f: any) => ({
-              id: f.id,
-              numero: f.numero,
-              cliente: { id: f.cliente_id || '', nombre: 'Cliente', nit: '', email: '', telefono: '', direccion: '', activo: true, fechaCreacion: '' },
-              fecha: f.fecha,
-              fechaVencimiento: '',
-              items: [],
-              subtotal: f.subtotal || 0,
-              descuentoTotal: f.descuento_total || 0,
-              iva: f.iva || 0,
-              total: f.total || 0,
-              estado: f.estado as Factura['estado'],
-              estadoSIN: 'pendiente' as Factura['estadoSIN'],
-              cuf: '', cufd: '', puntoVenta: 0, codigoControl: '', observaciones: '',
-              fechaCreacion: f.created_at?.split('T')[0] || ''
-            }));
-            setFacturas(simpleMapped);
-            return;
-          }
-        }
-      } catch (retryError) {
-        console.error('Retry also failed:', retryError);
-      }
-      const local = localStorage.getItem('facturas');
-      if (local) setFacturas(JSON.parse(local));
+      console.error('❌ [Facturas] Error general:', error);
+      // Don't fallback to localStorage - it masks real errors
+      setFacturas([]);
     } finally {
       setLoading(false);
     }
