@@ -14,17 +14,28 @@ export const useFacturas = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setFacturas([]); return; }
 
+      // Fetch facturas WITHOUT join to avoid 405 "read-only transaction" error
       const { data: facturasData, error: fError } = await supabase
         .from('facturas')
-        .select('*, clientes(*)')
+        .select('*')
         .eq('user_id', user.id)
         .order('fecha', { ascending: false });
 
       if (fError) throw fError;
 
-      // Obtener IDs de facturas del usuario para filtrar items
-      const facturaIds = (facturasData || []).map((f: any) => f.id);
+      // Fetch related clients
+      const clienteIds = [...new Set((facturasData || []).map((f: any) => f.cliente_id).filter(Boolean))];
+      let clientesMap: Record<string, any> = {};
+      if (clienteIds.length > 0) {
+        const { data: clientesData } = await supabase
+          .from('clientes')
+          .select('*')
+          .in('id', clienteIds);
+        (clientesData || []).forEach((c: any) => { clientesMap[c.id] = c; });
+      }
 
+      // Fetch related items
+      const facturaIds = (facturasData || []).map((f: any) => f.id);
       let itemsData: any[] = [];
       if (facturaIds.length > 0) {
         const { data, error: iError } = await supabase
@@ -37,15 +48,16 @@ export const useFacturas = () => {
       }
 
       const mapped: Factura[] = (facturasData || []).map((f: any) => {
-        const cliente: Cliente = f.clientes ? {
-          id: f.clientes.id,
-          nombre: f.clientes.nombre,
-          nit: f.clientes.nit,
-          email: f.clientes.email || '',
-          telefono: f.clientes.telefono || '',
-          direccion: f.clientes.direccion || '',
-          activo: f.clientes.activo ?? true,
-          fechaCreacion: f.clientes.created_at?.split('T')[0] || ''
+        const clienteData = f.cliente_id ? clientesMap[f.cliente_id] : null;
+        const cliente: Cliente = clienteData ? {
+          id: clienteData.id,
+          nombre: clienteData.nombre,
+          nit: clienteData.nit,
+          email: clienteData.email || '',
+          telefono: clienteData.telefono || '',
+          direccion: clienteData.direccion || '',
+          activo: clienteData.activo ?? true,
+          fechaCreacion: clienteData.created_at?.split('T')[0] || ''
         } : { id: '', nombre: 'Cliente eliminado', nit: '', email: '', telefono: '', direccion: '', activo: false, fechaCreacion: '' };
 
         const items: ItemFactura[] = (itemsData)
