@@ -8,8 +8,6 @@ import { useAsientos } from '@/hooks/useAsientos';
 import NotificationsIcon from './dashboard/NotificationsIcon';
 import EnhancedFinancialDashboard from './dashboard/EnhancedFinancialDashboard';
 import SystemHealth from './dashboard/SystemHealth';
-import { inicializarDatosDemo } from '@/utils/inicializarDatosDemo';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useProductosValidated } from '@/hooks/useProductosValidated';
 import { useClientesSupabase } from '@/hooks/useClientesSupabase';
@@ -23,7 +21,6 @@ const Dashboard = () => {
     day: 'numeric'
   }));
 
-  const [sistemaInicializado, setSistemaInicializado] = useState(false);
   const { toast } = useToast();
 
   const { obtenerBalanceGeneral } = useContabilidadIntegration();
@@ -35,22 +32,6 @@ const Dashboard = () => {
   const { productos, loading: productosLoading } = useProductosValidated();
   const { clientes, loading: clientesLoading } = useClientesSupabase();
   const { facturas, loading: facturasLoading } = useFacturas();
-
-  useEffect(() => {
-    const initSystem = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await inicializarDatosDemo(user.id);
-        }
-        setSistemaInicializado(true);
-      } catch (error) {
-        console.error('Error inicializando sistema:', error);
-        setSistemaInicializado(true);
-      }
-    };
-    initSystem();
-  }, []);
 
   const today = new Date().toISOString().slice(0, 10);
   const thisMonth = new Date().toISOString().slice(0, 7);
