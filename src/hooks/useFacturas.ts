@@ -22,11 +22,19 @@ export const useFacturas = () => {
 
       if (fError) throw fError;
 
-      const { data: itemsData, error: iError } = await supabase
-        .from('items_facturas')
-        .select('*');
+      // Obtener IDs de facturas del usuario para filtrar items
+      const facturaIds = (facturasData || []).map((f: any) => f.id);
 
-      if (iError) throw iError;
+      let itemsData: any[] = [];
+      if (facturaIds.length > 0) {
+        const { data, error: iError } = await supabase
+          .from('items_facturas')
+          .select('*')
+          .in('factura_id', facturaIds);
+
+        if (iError) throw iError;
+        itemsData = data || [];
+      }
 
       const mapped: Factura[] = (facturasData || []).map((f: any) => {
         const cliente: Cliente = f.clientes ? {
@@ -40,7 +48,7 @@ export const useFacturas = () => {
           fechaCreacion: f.clientes.created_at?.split('T')[0] || ''
         } : { id: '', nombre: 'Cliente eliminado', nit: '', email: '', telefono: '', direccion: '', activo: false, fechaCreacion: '' };
 
-        const items: ItemFactura[] = (itemsData || [])
+        const items: ItemFactura[] = (itemsData)
           .filter((item: any) => item.factura_id === f.id)
           .map((item: any) => ({
             id: item.id,
