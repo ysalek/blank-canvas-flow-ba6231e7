@@ -75,47 +75,6 @@ const BackupModule = () => {
     fetchCounts();
   }, [fetchCounts]);
 
-  // Delete child rows referencing parent IDs owned by this user
-  const deleteChildByParent = async (
-    childTable: string,
-    fkColumn: string,
-    parentTable: string,
-    userId: string
-  ): Promise<number> => {
-    const { data: parents } = await supabase
-      .from(parentTable as any)
-      .select("id")
-      .eq("user_id", userId);
-
-    if (!parents || parents.length === 0) return 0;
-
-    const parentIds = parents.map((p: any) => p.id);
-
-    const { error } = await supabase
-      .from(childTable as any)
-      .delete()
-      .in(fkColumn, parentIds);
-
-    if (error) throw new Error(`Error eliminando ${childTable}: ${error.message}`);
-
-    return parentIds.length;
-  };
-
-  const deleteTableRows = async (table: string, userId: string): Promise<number> => {
-    const { data } = await supabase
-      .from(table as any)
-      .select("id")
-      .eq("user_id", userId);
-    const count = data?.length ?? 0;
-    if (count === 0) return 0;
-    const { error } = await supabase
-      .from(table as any)
-      .delete()
-      .eq("user_id", userId);
-    if (error) throw new Error(`Error eliminando ${table}: ${error.message}`);
-    return count;
-  };
-
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -123,31 +82,22 @@ const BackupModule = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No autenticado");
 
-      let totalDeleted = 0;
       const tbl = deleteTarget.table;
 
-      if (tbl === "productos") {
-        totalDeleted += await deleteChildByParent("items_facturas", "producto_id", "productos", user.id);
-        totalDeleted += await deleteChildByParent("items_compras", "producto_id", "productos", user.id);
-        totalDeleted += await deleteChildByParent("movimientos_inventario", "producto_id", "productos", user.id);
-      } else if (tbl === "facturas") {
-        totalDeleted += await deleteChildByParent("items_facturas", "factura_id", "facturas", user.id);
-      } else if (tbl === "compras") {
-        totalDeleted += await deleteChildByParent("items_compras", "compra_id", "compras", user.id);
-      } else if (tbl === "asientos_contables") {
-        totalDeleted += await deleteChildByParent("cuentas_asientos", "asiento_id", "asientos_contables", user.id);
-      } else if (tbl === "clientes") {
-        totalDeleted += await deleteChildByParent("items_facturas", "factura_id", "facturas", user.id);
-        totalDeleted += await deleteTableRows("facturas", user.id);
-      } else if (tbl === "proveedores") {
-        totalDeleted += await deleteChildByParent("items_compras", "compra_id", "compras", user.id);
-        totalDeleted += await deleteTableRows("compras", user.id);
-      } else if (tbl === "cuentas_bancarias") {
-        totalDeleted += await deleteChildByParent("movimientos_bancarios", "cuenta_bancaria_id", "cuentas_bancarias", user.id);
-      }
+      // CASCADE DELETE handles child rows automatically
+      const { data } = await supabase
+        .from(tbl as any)
+        .select("id")
+        .eq("user_id", user.id);
+      const totalDeleted = data?.length ?? 0;
 
-      // Delete the target table itself
-      totalDeleted += await deleteTableRows(tbl, user.id);
+      if (totalDeleted > 0) {
+        const { error } = await supabase
+          .from(tbl as any)
+          .delete()
+          .eq("user_id", user.id);
+        if (error) throw new Error(`Error eliminando ${tbl}: ${error.message}`);
+      }
 
       toast({
         title: `${totalDeleted} registros eliminados`,
