@@ -30,19 +30,26 @@ export const SystemHealth: React.FC = () => {
   const checkSystemHealth = async () => {
     const metrics: HealthMetric[] = [];
 
-    // Database Health - Using Supabase
+    // Database Health - Using Supabase (filtered by user_id)
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id;
+
       const { count: asientosCount } = await supabase
         .from('asientos_contables')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId || '');
       
       const { count: productosCount } = await supabase
         .from('productos')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId || '');
       
+      // Use explicit columns to avoid trigger issues
       const { count: facturasCount } = await supabase
         .from('facturas')
-        .select('*', { count: 'exact', head: true });
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId || '');
 
       const totalRecords = (asientosCount || 0) + (productosCount || 0) + (facturasCount || 0);
       const dbUsage = totalRecords > 0 ? Math.min(100, (totalRecords / 5000) * 100) : 5; // Asumiendo 5000 como máximo
@@ -95,7 +102,7 @@ export const SystemHealth: React.FC = () => {
     try {
       const { count: configCount } = await supabase
         .from('configuracion_tributaria')
-        .select('*', { count: 'exact', head: true });
+        .select('id', { count: 'exact', head: true });
       
       const { count: userRolesCount } = await supabase
         .from('user_roles')

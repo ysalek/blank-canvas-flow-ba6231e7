@@ -41,11 +41,8 @@ const OnboardingWizard = ({ onComplete }: OnboardingWizardProps) => {
         }).eq('id', user.id);
       }
 
-      if (loadDemoData) {
-        // Import and run demo data initialization
-        const { inicializarDatosDemo } = await import('@/utils/inicializarDatosDemo');
-        if (user?.id) await inicializarDatosDemo(user.id);
-      }
+      // Demo data initialization removed - each user starts with clean data
+      // Only Plan de Cuentas is initialized automatically
 
       localStorage.setItem('onboarding_complete', 'true');
       toast({ title: '¡Configuración completa!', description: 'Su sistema está listo para usar.' });
