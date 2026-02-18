@@ -91,14 +91,14 @@ const BackupModule = () => {
 
     const parentIds = parents.map((p: any) => p.id);
 
-    const { error, count } = await supabase
+    const { error } = await supabase
       .from(childTable as any)
-      .delete({ count: 'exact' })
+      .delete()
       .in(fkColumn, parentIds);
 
     if (error) throw new Error(`Error eliminando ${childTable}: ${error.message}`);
 
-    return count || 0;
+    return parentIds.length;
   };
 
   const deleteTableRows = async (table: string, userId: string): Promise<number> => {
