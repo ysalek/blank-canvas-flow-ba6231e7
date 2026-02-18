@@ -189,12 +189,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
+    console.log('🚪 Iniciando logout...');
+    // Limpiar estado PRIMERO para feedback inmediato
+    setIsAuthenticated(false);
+    setUser(null);
+    setSession(null);
+    
     try {
       await supabase.auth.signOut();
-    } finally {
-      setIsAuthenticated(false);
-      setUser(null);
+      console.log('✅ Logout exitoso');
+    } catch (error) {
+      console.error('❌ Error en signOut:', error);
     }
+    
+    // Forzar limpieza de storage y recarga
+    localStorage.removeItem('sb-mfhgekyriwabgksreszy-auth-token');
+    window.location.href = '/';
   };
 
   const hasPermission = (permission: string) => {
