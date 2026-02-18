@@ -20,21 +20,45 @@ export const useFacturas = () => {
 
       console.log('📋 [Facturas] Consultando facturas para user:', user.id);
 
-      const { data: facturasData, error: fError } = await supabase
-        .from('facturas')
-        .select('id, numero, cliente_id, fecha, fecha_vencimiento, subtotal, descuento_total, iva, total, estado, estado_sin, cuf, cufd, punto_venta, codigo_control, observaciones, created_at, user_id')
-        .eq('user_id', user.id)
-        .order('fecha', { ascending: false });
-
-      if (fError) {
-        console.error('❌ [Facturas] Error en query principal:', fError);
-        throw fError;
+      // WORKAROUND: La tabla facturas tiene un trigger que hace INSERT durante SELECT,
+      // causando error 25006 "read-only transaction". Usamos fetch directo con header
+      // Prefer: tx=read-write para forzar transacción de lectura-escritura.
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.log('📋 [Facturas] No hay sesión activa');
+        setFacturas([]);
+        return;
       }
+
+      const supabaseUrl = 'https://mfhgekyriwabgksreszy.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1maGdla3lyaXdhYmdrc3Jlc3p5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5MjEwMjUsImV4cCI6MjA3MDQ5NzAyNX0.zUwsImMyg8vZNeGhZouhFAL6ZDvcjH5vXVOOWXNRbG8';
+      
+      const columns = 'id,numero,cliente_id,fecha,fecha_vencimiento,subtotal,descuento_total,iva,total,estado,estado_sin,cuf,cufd,punto_venta,codigo_control,observaciones,created_at,user_id';
+      const url = `${supabaseUrl}/rest/v1/facturas?select=${columns}&user_id=eq.${user.id}&order=fecha.desc`;
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${session.access_token}`,
+          'Accept': 'application/json',
+          'Prefer': 'tx=read-write'
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [Facturas] Error HTTP:', response.status, errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const facturasData = await response.json();
+      console.log('✅ [Facturas] Facturas encontradas:', facturasData?.length || 0);
 
       console.log('✅ [Facturas] Facturas encontradas:', facturasData?.length || 0);
 
       // Fetch related clients
-      const clienteIds = [...new Set((facturasData || []).map((f: any) => f.cliente_id).filter(Boolean))];
+      const clienteIds: string[] = [...new Set((facturasData || []).map((f: any) => f.cliente_id).filter(Boolean))] as string[];
       let clientesMap: Record<string, any> = {};
       if (clienteIds.length > 0) {
         const { data: clientesData } = await supabase
