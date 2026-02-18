@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users, CheckCircle, AlertTriangle, Activity, Target, BarChart3 } from 'lucide-react';
 import { useContabilidadIntegration } from '@/hooks/useContabilidadIntegration';
+import { useAsientos } from '@/hooks/useAsientos';
 import NotificationsIcon from './dashboard/NotificationsIcon';
 import EnhancedFinancialDashboard from './dashboard/EnhancedFinancialDashboard';
 import SystemHealth from './dashboard/SystemHealth';
@@ -27,6 +28,8 @@ const Dashboard = () => {
 
   const { obtenerBalanceGeneral } = useContabilidadIntegration();
   const balance = obtenerBalanceGeneral();
+  const { getAsientos } = useAsientos();
+  const asientosReales = getAsientos();
 
   // Datos reales desde Supabase
   const { productos, loading: productosLoading } = useProductosValidated();
@@ -325,7 +328,7 @@ const Dashboard = () => {
         {/* Análisis Financiero */}
         <div>
           <h2 className="text-xl font-semibold mb-4 text-foreground">Análisis Financiero</h2>
-          <EnhancedFinancialDashboard facturas={facturas} asientos={[]} productos={productos.map(p => ({
+          <EnhancedFinancialDashboard facturas={facturas} asientos={asientosReales} productos={productos.map(p => ({
             id: String(p.id),
             codigo: String(p.codigo || ''),
             nombre: String(p.nombre || ''),
