@@ -541,7 +541,7 @@ const FormularioCompra = ({
     return { subtotal, iva, total };
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!proveedorId || items.some(i => !i.productoId || i.cantidad <= 0 || i.costoUnitario <= 0)) {
       toast({
         title: "Datos incompletos",
@@ -556,7 +556,7 @@ const FormularioCompra = ({
     const numero = `COMP-${(ultimoNumero + 1).toString().padStart(4, '0')}`;
 
     // Generar asiento contable
-    const asiento = generarAsientoCompra({
+    const asiento = await generarAsientoCompra({
       numero,
       total,
       subtotal,
