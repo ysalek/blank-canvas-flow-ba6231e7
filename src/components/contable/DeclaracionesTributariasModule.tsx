@@ -267,12 +267,87 @@ const DeclaracionesTributariasModule = () => {
         </div>
       )}
 
-      <Tabs defaultValue="declaraciones" className="w-full">
+      <Tabs defaultValue="calendario-nit" className="w-full">
         <TabsList>
+          <TabsTrigger value="calendario-nit">Calendario por NIT</TabsTrigger>
           <TabsTrigger value="declaraciones">Declaraciones</TabsTrigger>
           <TabsTrigger value="periodos">Períodos Fiscales</TabsTrigger>
           <TabsTrigger value="calculadora">Calculadora</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="calendario-nit">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                Calendario Tributario 2026 - Vencimientos por NIT
+              </CardTitle>
+              <CardDescription>
+                Las fechas de vencimiento mensuales se determinan según el último dígito de su NIT.
+                Aplica para IVA (F.200), IT (F.400), RC-IVA (F.110) y otros impuestos mensuales.
+                Si el vencimiento cae en sábado, domingo o feriado, se traslada al siguiente día hábil.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Último dígito NIT</TableHead>
+                    <TableHead>Día de vencimiento</TableHead>
+                    <TableHead>Formularios aplicables</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[
+                    { digito: '0', dia: '13', formularios: 'F.200, F.400, F.110, F.610' },
+                    { digito: '1', dia: '14', formularios: 'F.200, F.400, F.110, F.610' },
+                    { digito: '2', dia: '15', formularios: 'F.200, F.400, F.110, F.610' },
+                    { digito: '3', dia: '16', formularios: 'F.200, F.400, F.110, F.610' },
+                    { digito: '4', dia: '17', formularios: 'F.200, F.400, F.110, F.610' },
+                    { digito: '5', dia: '18', formularios: 'F.200, F.400, F.110, F.610' },
+                    { digito: '6', dia: '19', formularios: 'F.200, F.400, F.110, F.610' },
+                    { digito: '7', dia: '20', formularios: 'F.200, F.400, F.110, F.610' },
+                    { digito: '8', dia: '21', formularios: 'F.200, F.400, F.110, F.610' },
+                    { digito: '9', dia: '22', formularios: 'F.200, F.400, F.110, F.610' },
+                  ].map(row => (
+                    <TableRow key={row.digito}>
+                      <TableCell className="font-bold text-lg">{row.digito}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className="text-base">Día {row.dia}</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{row.formularios}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-blue-800">IUE - Impuesto Anual</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-blue-700 space-y-1">
+                    <p><strong>Comercio y servicios:</strong> hasta abril (120 días cierre 31/12)</p>
+                    <p><strong>Industriales y petroleras:</strong> hasta julio (cierre 31/03)</p>
+                    <p><strong>Agropecuarios y gomeros:</strong> hasta octubre (cierre 30/06)</p>
+                    <p><strong>Minería:</strong> hasta enero (cierre 30/09)</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-orange-200 bg-orange-50">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm text-orange-800">Plazos Especiales 2026</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-orange-700 space-y-1">
+                    <p><strong>Homologación RNC:</strong> hasta 27/02/2026</p>
+                    <p><strong>Facturación en línea (Gr. 9-12):</strong> hasta 31/03/2026</p>
+                    <p><strong>Estados Financieros (F.605/601):</strong> hasta 29/04/2026</p>
+                    <p><strong>Beneficiario Final:</strong> hasta 29/04/2026</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="declaraciones">
           <Card>
