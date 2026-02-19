@@ -175,8 +175,8 @@ const CumplimientoNormativo2025 = () => {
     <div className="space-y-8 animate-fade-in">
       {/* Enhanced Header */}
       <EnhancedHeader
-        title="Cumplimiento Normativo 2025"
-        subtitle="Seguimiento integral de normativas tributarias bolivianas vigentes y actualizaciones del SIN"
+        title="Cumplimiento Normativo 2025-2026"
+        subtitle="Seguimiento integral de normativas tributarias bolivianas vigentes - SIAT en Línea obligatorio desde mayo 2025"
         badge={{
           text: `${normativasVigentes} Normativas Vigentes`,
           variant: "default"
@@ -247,34 +247,50 @@ const CumplimientoNormativo2025 = () => {
       {/* Alertas Importantes */}
       <Section title="Alertas Normativas Críticas">
         <div className="grid gap-4">
+          <Alert className="border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              <strong>RND 102500000036:</strong> Grupos 9º al 12º deben migrar a facturación en línea 
+              antes del <strong>31 de marzo de 2026</strong>. Obligatorio desde el 1 de abril de 2026.
+            </AlertDescription>
+          </Alert>
+
+          <Alert className="border-orange-200 bg-orange-50">
+            <AlertCircle className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="text-orange-800">
+              <strong>RND 102500000042:</strong> Homologación de productos con actividades económicas del RNC. 
+              Plazo límite: <strong>27 de febrero de 2026</strong>.
+            </AlertDescription>
+          </Alert>
+
           <Alert className="border-blue-200 bg-blue-50">
             <AlertCircle className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-800">
-              <strong>RND 102500000018:</strong> Nuevo Clasificador de Actividades Económicas (CAEB-SIN) 
-              vigente desde mayo 2025. Verifique que su código de actividad esté actualizado.
+              <strong>RND 102500000016:</strong> Todas las DDJJ deben presentarse mediante SIAT en Línea 
+              desde mayo 2025. Formularios electrónicos obligatorios.
             </AlertDescription>
           </Alert>
           
           <Alert className="border-green-200 bg-green-50">
             <CheckCircle className="h-4 w-4 text-green-600" />
             <AlertDescription className="text-green-800">
-              <strong>RND 102500000002:</strong> Beneficio IVA Tasa Cero disponible para sectores 
-              agropecuario, industrial, construcción y minería durante 2025.
+              <strong>DS 5503 (RND 102500000052):</strong> Incentivos tributarios vigentes: Hecho en Bolivia, 
+              Depreciación Acelerada y Aportes patronales como pago a cuenta del IVA.
             </AlertDescription>
           </Alert>
 
           <Alert className="border-purple-200 bg-purple-50">
             <AlertCircle className="h-4 w-4 text-purple-600" />
             <AlertDescription className="text-purple-800">
-              <strong>RND 102500000017:</strong> Registro Nacional de Contribuyentes (RNC) 
-              sustituye al PBD-11. Migración automática en progreso.
+              <strong>Indicadores 2026:</strong> UFV ≈ Bs 3.05 | TC USD = Bs 6.96 | 
+              ISAE = Bs 464 | IEHD máx = Bs 10.40
             </AlertDescription>
           </Alert>
         </div>
       </Section>
 
       {/* Listado de Normativas */}
-      <Section title="Normativas Tributarias 2025">
+      <Section title="Normativas Tributarias 2025-2026">
         <Tabs value={filtroCategoria} onValueChange={setFiltroCategoria} className="w-full">
           <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="all">Todas</TabsTrigger>

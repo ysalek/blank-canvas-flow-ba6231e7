@@ -210,7 +210,7 @@ const FacturacionElectronicaModule = () => {
           <div>
             <h2 className="text-2xl font-bold">Facturación Electrónica</h2>
             <p className="text-slate-600">
-              Sistema de facturación electrónica SIN - Normativa 2025
+              Sistema de facturación electrónica SIN - SIAT v2.0 - Normativa 2026
             </p>
           </div>
         </div>
@@ -355,7 +355,7 @@ const FacturacionElectronicaModule = () => {
             <CardHeader>
               <CardTitle>Nueva Factura Electrónica</CardTitle>
               <CardDescription>
-                Crear nueva factura electrónica según normativa 2025
+                Crear nueva factura electrónica según normativa 2026 - Facturación en Línea
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -406,7 +406,7 @@ const FacturacionElectronicaModule = () => {
             <CardHeader>
               <CardTitle>Sectores Especiales</CardTitle>
               <CardDescription>
-                Sectores con tratamiento tributario especial según RND 2024-2025
+                Sectores con tratamiento tributario especial según RND 2025-2026 (incluye DS 5503)
               </CardDescription>
             </CardHeader>
             <CardContent>

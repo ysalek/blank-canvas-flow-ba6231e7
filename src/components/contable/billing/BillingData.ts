@@ -178,14 +178,16 @@ export const simularValidacionSIN = (factura: Factura): Promise<Factura> => {
   });
 };
 
-// Normativa actualizada 2025 - IVA 13%
-// Sectores especiales según nuevas RND 2024-2025
+// Normativa actualizada 2026 - IVA 13%
+// Sectores especiales según RNDs 2025-2026 y DS 5503
 export const sectoresEspeciales = {
   biodiesel: { codigo: 54, tasa: 0 }, // Tasa cero según Ley 1613
   combustibleNoSubvencionado: { codigo: 55, tasa: 13 },
   serviciosPublicos: { codigo: 1, tasa: 0 },
   exportaciones: { codigo: 2, tasa: 0 },
-  medicamentos: { codigo: 3, tasa: 0 }
+  medicamentos: { codigo: 3, tasa: 0 },
+  bienesCapital: { codigo: 56, tasa: 0 }, // IVA Tasa Cero - RND 102500000002 (agropecuario, industrial, construcción, minería)
+  energiaElectrica: { codigo: 57, tasa: 0 } // Generación energía eléctrica
 };
 
 // Cálculo de IVA actualizado con sectores especiales
@@ -218,14 +220,20 @@ export const calcularTotal = (subtotalConDescuento: number): number => {
   return subtotalConDescuento;
 };
 
-// Nuevos códigos de actividad económica actualizados 2025
+// Códigos de actividad económica CAEB-SIN actualizados 2026 (RND 102500000018)
 export const actividadesEconomicas = [
-  { codigo: "620100", descripcion: "Programación informática", ivaExento: false },
-  { codigo: "620200", descripcion: "Consultoría informática", ivaExento: false },
+  { codigo: "620100", descripcion: "Programación informática y actividades relacionadas", ivaExento: false },
+  { codigo: "620200", descripcion: "Consultoría informática y gestión de instalaciones", ivaExento: false },
+  { codigo: "631100", descripcion: "Procesamiento de datos y hospedaje", ivaExento: false },
   { codigo: "851000", descripcion: "Educación preprimaria", ivaExento: true },
   { codigo: "861000", descripcion: "Actividades de hospitales", ivaExento: true },
   { codigo: "192000", descripcion: "Fabricación de productos de refinación del petróleo", ivaExento: false },
   { codigo: "351100", descripcion: "Generación de energía eléctrica", ivaExento: true },
+  { codigo: "461000", descripcion: "Venta al por mayor a comisión o por contrata", ivaExento: false },
+  { codigo: "471100", descripcion: "Venta al por menor en comercios no especializados", ivaExento: false },
+  { codigo: "692000", descripcion: "Contabilidad, auditoría y consultoría fiscal", ivaExento: false },
+  { codigo: "702000", descripcion: "Consultoría de gestión", ivaExento: false },
+  { codigo: "561010", descripcion: "Actividades de restaurantes", ivaExento: false },
 ];
 
 // Validación de NIT actualizada según normativa 2025

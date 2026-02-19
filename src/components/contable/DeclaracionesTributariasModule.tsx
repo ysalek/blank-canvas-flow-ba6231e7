@@ -36,19 +36,20 @@ interface PeriodoFiscal {
 }
 
 const tiposDeclaracion = [
-  { value: 'iva', label: 'IVA Mensual', formulario: 'Formulario 200', vencimiento: 20 },
-  { value: 'it', label: 'IT Mensual', formulario: 'Formulario 401', vencimiento: 20 },
-  { value: 'iue', label: 'IUE Trimestral', formulario: 'Formulario 600', vencimiento: 120 },
-  { value: 'rc_iva', label: 'RC-IVA Mensual', formulario: 'Formulario 110', vencimiento: 20 },
-  { value: 'rc_iva_profesionales', label: 'RC-IVA Profesionales', formulario: 'Formulario 110 Especializado', vencimiento: 20 },
-  { value: 'formulario_500', label: 'Formulario 500', formulario: 'IUE Anual', vencimiento: 31 },
-  { value: 'formulario_750', label: 'Formulario 750', formulario: 'Régimen Simplificado', vencimiento: 20 },
-  { value: 'declaracion_iva_digital', label: 'Declaración IVA Digital', formulario: 'Sistema Digital SIN', vencimiento: 20 },
-  { value: 'sectores_especiales', label: 'Sectores Especiales', formulario: 'Biocombustibles/Energía', vencimiento: 25 },
-  { value: 'estados_financieros', label: 'Estados Financieros', formulario: 'Presentación Anual prórroga', vencimiento: 21 },
-  { value: 'bancarizacion', label: 'Control Bancarización', formulario: 'RND-102400000021', vencimiento: 31 },
-  { value: 'facilidades_pago', label: 'Facilidades de Pago', formulario: 'Solicitud 2025', vencimiento: 60 },
-  { value: 'arrepentimiento_eficaz', label: 'Arrepentimiento Eficaz', formulario: 'Regularización Voluntaria', vencimiento: 30 }
+  { value: 'iva', label: 'IVA Mensual', formulario: 'Formulario 200 v.3 (SIAT en Línea)', vencimiento: 20 },
+  { value: 'it', label: 'IT Mensual', formulario: 'Formulario 400 (SIAT en Línea)', vencimiento: 20 },
+  { value: 'iue', label: 'IUE Anual', formulario: 'Formulario 500 (SIAT en Línea)', vencimiento: 120 },
+  { value: 'rc_iva', label: 'RC-IVA Dependientes', formulario: 'Formulario 110 (SIAT en Línea)', vencimiento: 20 },
+  { value: 'rc_iva_profesionales', label: 'RC-IVA Independientes', formulario: 'Formulario 610 (SIAT en Línea)', vencimiento: 20 },
+  { value: 'formulario_605', label: 'Estados Financieros IUE', formulario: 'Formulario 605 (SIAT en Línea)', vencimiento: 120 },
+  { value: 'formulario_750', label: 'Régimen Simplificado', formulario: 'Formulario 750 (SIAT en Línea)', vencimiento: 20 },
+  { value: 'iva_tasa_cero', label: 'IVA Tasa Cero', formulario: 'RND 102500000002 - Ley 1613', vencimiento: 20 },
+  { value: 'sectores_especiales', label: 'Sectores Especiales ICE', formulario: 'Formularios 650/651/652 (CEP)', vencimiento: 25 },
+  { value: 'estados_financieros', label: 'Memoria Anual + Dictámenes', formulario: 'Formulario 601/605 (Cierre 31/12)', vencimiento: 120 },
+  { value: 'bancarizacion', label: 'Control Bancarización', formulario: 'RND 102400000021 - Bs 50.000+', vencimiento: 31 },
+  { value: 'facilidades_pago', label: 'Facilidades de Pago', formulario: 'RND 102500000019 - Hasta 30 meses', vencimiento: 60 },
+  { value: 'ds_5503', label: 'Incentivos DS 5503', formulario: 'Hecho en Bolivia / Deprec. Acelerada', vencimiento: 30 },
+  { value: 'beneficiario_final', label: 'Beneficiarios Finales', formulario: 'RND 102500000005 - Personas Jurídicas', vencimiento: 120 }
 ];
 
 const DeclaracionesTributariasModule = () => {
@@ -149,8 +150,8 @@ const DeclaracionesTributariasModule = () => {
     let interes = 0;
     
     if (diasRetraso > 0) {
-      // Multas actualizadas según normativa 2025 - Ley 1448
-      const ufv = 2.61; // UFV actualizado 2025
+      // Multas actualizadas según normativa 2026 - Ley 1448
+      const ufv = 3.05; // UFV actualizado enero 2026
       
       switch (tipoDeclaracion) {
         case 'iva':
@@ -185,8 +186,8 @@ const DeclaracionesTributariasModule = () => {
           multa = (montoImpuesto * 0.05) + (diasRetraso * 30 * ufv);
       }
       
-      // Interés actualizado: Tasa preferencial 2025 - 4.8% anual (0.0132% diario)
-      interes = montoImpuesto * 0.000132 * diasRetraso;
+      // Interés actualizado: Tasa BCB 2026 - 6% anual (0.0164% diario)
+      interes = montoImpuesto * 0.000164 * diasRetraso;
     }
     
     return { multa, interes };
@@ -204,7 +205,7 @@ const DeclaracionesTributariasModule = () => {
           <div>
             <h2 className="text-2xl font-bold">Declaraciones Tributarias</h2>
             <p className="text-slate-600">
-              Gestión de obligaciones tributarias en Bolivia
+              Gestión de obligaciones tributarias 2026 - SIAT en Línea (RND 102500000016)
             </p>
           </div>
         </div>
