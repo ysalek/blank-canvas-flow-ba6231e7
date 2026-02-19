@@ -9,7 +9,7 @@ const CumplimientoNormativoModule = () => {
     <div className="space-y-6">
       <Tabs defaultValue="normativas" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="normativas">Normativas 2025</TabsTrigger>
+          <TabsTrigger value="normativas">Normativas 2025-2026</TabsTrigger>
           <TabsTrigger value="seguimiento">Seguimiento</TabsTrigger>
           <TabsTrigger value="alertas">Alertas</TabsTrigger>
           <TabsTrigger value="reportes">Reportes</TabsTrigger>

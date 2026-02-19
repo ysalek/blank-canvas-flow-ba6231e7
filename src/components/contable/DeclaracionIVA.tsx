@@ -46,7 +46,7 @@ const DeclaracionIVA = ({ onBack }: DeclaracionIVAProps) => {
             </Button>
             <h2 className="text-2xl font-bold">Declaración de IVA</h2>
           </div>
-          <p className="text-slate-600">Genera los datos para el Formulario 200 - IVA.</p>
+          <p className="text-slate-600">Genera los datos para el Formulario 200 v.3 - SIAT en Línea (RND 102500000016)</p>
         </div>
       </div>
       
