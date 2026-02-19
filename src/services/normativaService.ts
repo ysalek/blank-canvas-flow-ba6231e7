@@ -309,7 +309,7 @@ class NormativaService {
       {
         codigo: 'DS-5503',
         titulo: 'Decreto Supremo 5503 - Reactivación Económica',
-        descripcion: 'Incentivos tributarios: Hecho en Bolivia, Depreciación Acelerada, Aportes patronales como pago a cuenta IVA. Vigente desde 17/12/2025.',
+        descripcion: 'Medidas excepcionales: Incentivo Hecho en Bolivia (Art.27), Depreciación Acelerada (Art.28), Aportes patronales como pago a cuenta IVA (Art.30), libre negociación salarial, incremento SMN. Vigente desde 17/12/2025.',
         fechaVigencia: '2025-12-17',
         fechaActualizacion: '2025-12-17',
         categoria: 'tributaria',
@@ -328,10 +328,10 @@ class NormativaService {
       },
       {
         codigo: 'SALARIO-MINIMO-2026',
-        titulo: 'Salario Mínimo Nacional 2026',
-        descripcion: 'SMN actualizado para gestión 2026. Pendiente de confirmación mediante DS.',
-        fechaVigencia: '2026-05-01',
-        fechaActualizacion: '2026-01-01',
+        titulo: 'Salario Mínimo Nacional 2026 - DS 5503',
+        descripcion: 'DS 5503 Art. 25: SMN incrementado a Bs 2.500 (estimado). Libre negociación salarial entre empleadores y trabajadores. Incremento mínimo 3% sobre salario básico.',
+        fechaVigencia: '2026-01-01',
+        fechaActualizacion: '2025-12-17',
         categoria: 'laboral',
         estado: 'vigente',
         organismo: 'Ministerio_Trabajo'
