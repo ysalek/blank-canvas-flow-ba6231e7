@@ -344,15 +344,15 @@ const ConciliacionBancaria = () => {
           {selectedBank && (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">Bs. {saldoLibros.toFixed(2)}</div>
+                <div className="text-2xl font-bold text-primary">Bs. {saldoLibros.toFixed(2)}</div>
                 <div className="text-sm text-muted-foreground">Saldo en Libros</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">Bs. {saldoBanco.toFixed(2)}</div>
+                <div className="text-2xl font-bold text-success">Bs. {saldoBanco.toFixed(2)}</div>
                 <div className="text-sm text-muted-foreground">Saldo Banco</div>
               </div>
               <div className="text-center">
-                <div className={`text-2xl font-bold ${Math.abs(saldoLibros - saldoBanco) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>
+                <div className={`text-2xl font-bold ${Math.abs(saldoLibros - saldoBanco) < 0.01 ? 'text-success' : 'text-destructive'}`}>
                   Bs. {(saldoLibros - saldoBanco).toFixed(2)}
                 </div>
                 <div className="text-sm text-muted-foreground">Diferencia</div>
@@ -377,9 +377,9 @@ const ConciliacionBancaria = () => {
 
           {/* Ajustes Contables Pendientes */}
           {ajustesContables.length > 0 && (
-            <Card className="border-orange-200 bg-orange-50">
+             <Card className="border-warning/30 bg-warning/5">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-orange-700">
+                <CardTitle className="flex items-center gap-2 text-warning">
                   <Calculator className="w-5 h-5" />
                   Ajustes Contables Requeridos ({ajustesContables.length})
                 </CardTitle>
@@ -390,7 +390,7 @@ const ConciliacionBancaria = () => {
               <CardContent>
                 <div className="space-y-3">
                   {ajustesContables.map((ajuste, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-white rounded border">
+                    <div key={index} className="flex items-center justify-between p-3 bg-card rounded border border-border/60">
                       <div className="flex-1">
                         <div className="font-medium">{ajuste.descripcion}</div>
                         <div className="text-sm text-muted-foreground">
@@ -562,7 +562,7 @@ const ConciliacionBancaria = () => {
                 </Table>
               ) : (
                 <div className="text-center py-8">
-                  <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-4" />
+                  <CheckCircle className="w-12 h-12 mx-auto text-success mb-4" />
                   <h3 className="text-lg font-semibold mb-2">¡Cuenta Conciliada!</h3>
                   <p className="text-muted-foreground">
                     No se encontraron diferencias entre los registros bancarios y contables.
