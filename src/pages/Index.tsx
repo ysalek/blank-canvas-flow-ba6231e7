@@ -53,6 +53,10 @@ const FacturacionElectronicaModule = lazy(() => import('@/components/contable/fa
 const RetencionesModule = lazy(() => import('@/components/contable/retenciones/RetencionesModule'));
 const BackupModule = lazy(() => import('@/components/contable/BackupModule'));
 const UserManagement = lazy(() => import('@/components/contable/users/UserManagement'));
+const NotasCreditoDebitoModule = lazy(() => import('@/components/contable/notas/NotasCreditoDebitoModule'));
+const LibroComprasVentasModule = lazy(() => import('@/components/contable/libros/LibroComprasVentasModule'));
+const ConciliacionBancaria = lazy(() => import('@/components/contable/bancario/ConciliacionBancaria'));
+const ProveedoresModule = lazy(() => import('@/components/contable/proveedores/ProveedoresModule'));
 
 // Admin components
 const AdminDashboard = lazy(() => import('@/components/admin/AdminDashboard'));
@@ -168,6 +172,10 @@ const Index = () => {
       'retenciones': <RetencionesModule />,
       'backup': <BackupModule />,
       'usuarios': <UserManagement />,
+      'notas-credito-debito': <NotasCreditoDebitoModule />,
+      'libro-compras-ventas': <LibroComprasVentasModule />,
+      'conciliacion-bancaria': <ConciliacionBancaria />,
+      'proveedores': <ProveedoresModule />,
     };
 
     if (proModules[currentView]) {
@@ -240,6 +248,10 @@ const Index = () => {
       'backup': 'Backup',
       'tutorial': 'Tutorial',
       'usuarios': 'Usuarios',
+      'notas-credito-debito': 'Notas de Crédito/Débito',
+      'libro-compras-ventas': 'Libro Compras/Ventas IVA',
+      'conciliacion-bancaria': 'Conciliación Bancaria',
+      'proveedores': 'Proveedores',
     };
     return titles[currentView] || 'Sistema Contable';
   };
