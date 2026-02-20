@@ -48,7 +48,7 @@ const tiposDeclaracion = [
   { value: 'estados_financieros', label: 'Memoria Anual + Dictámenes', formulario: 'Formulario 601/605 (Cierre 31/12)', vencimiento: 120 },
   { value: 'bancarizacion', label: 'Control Bancarización', formulario: 'RND 102400000021 - Bs 50.000+', vencimiento: 31 },
   { value: 'facilidades_pago', label: 'Facilidades de Pago', formulario: 'RND 102500000019 - Hasta 30 meses', vencimiento: 60 },
-  { value: 'ds_5503', label: 'Incentivos DS 5503', formulario: 'Hecho en Bolivia / Deprec. Acelerada', vencimiento: 30 },
+  { value: 'ds_5516', label: 'DS 5516 (reemplaza DS 5503)', formulario: 'Abroga DS 5503 - Incentivos sin efecto', vencimiento: 30 },
   { value: 'beneficiario_final', label: 'Beneficiarios Finales', formulario: 'RND 102500000005 - Personas Jurídicas', vencimiento: 120 }
 ];
 
