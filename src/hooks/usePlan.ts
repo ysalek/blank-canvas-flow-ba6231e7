@@ -1,45 +1,63 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 
-export type PlanType = 'basic' | 'pro';
+export type PlanType = 'basic' | 'pro' | 'enterprise';
 
 export interface PlanFeatures {
   maxTransactionsPerMonth: number;
   maxUsers: number;
+  maxEmpresas: number;
   modules: string[];
 }
+
+const BASIC_MODULES = [
+  'dashboard', 'plan-cuentas', 'diario', 'mayor', 'balance-comprobacion',
+  'comprobantes-integrados', 'facturacion', 'productos', 'inventario',
+  'clientes', 'configuracion', 'tutorial',
+];
+
+const PRO_MODULES = [
+  ...BASIC_MODULES,
+  'balance-general', 'estado-resultados', 'punto-venta', 'credit-sales',
+  'compras', 'kardex', 'activos-fijos', 'bancos', 'flujo-caja',
+  'cuentas-cobrar-pagar', 'declaraciones-tributarias', 'cumplimiento-normativo',
+  'nomina', 'empleados', 'reportes', 'analisis-financiero',
+  'presupuestos', 'centros-costo', 'facturacion-electronica', 'retenciones',
+  'backup', 'usuarios', 'proveedores', 'conciliacion-bancaria',
+  'notas-credito-debito', 'libro-compras-ventas',
+];
+
+const ENTERPRISE_MODULES = [
+  ...PRO_MODULES,
+  'auditoria-avanzada', 'analisis-inteligente', 'rentabilidad',
+  'multi-empresa', 'api-siat', 'soporte-prioritario',
+];
 
 const PLAN_FEATURES: Record<PlanType, PlanFeatures> = {
   basic: {
     maxTransactionsPerMonth: 100,
     maxUsers: 1,
-    modules: [
-      'dashboard', 'plan-cuentas', 'diario', 'mayor', 'balance-comprobacion',
-      'comprobantes-integrados', 'facturacion', 'productos', 'inventario',
-      'clientes', 'configuracion', 'tutorial',
-    ],
+    maxEmpresas: 1,
+    modules: BASIC_MODULES,
   },
   pro: {
     maxTransactionsPerMonth: Infinity,
     maxUsers: 5,
-    modules: [
-      'dashboard', 'plan-cuentas', 'diario', 'mayor', 'balance-comprobacion',
-      'comprobantes-integrados', 'facturacion', 'productos', 'inventario',
-      'clientes', 'configuracion', 'tutorial',
-      'balance-general', 'estado-resultados', 'punto-venta', 'credit-sales',
-      'compras', 'kardex', 'activos-fijos', 'bancos', 'flujo-caja',
-      'cuentas-cobrar-pagar', 'declaraciones-tributarias', 'cumplimiento-normativo',
-      'auditoria-avanzada', 'plan-cuentas-2025', 'nomina', 'empleados',
-      'reportes', 'analisis-financiero', 'analisis-inteligente', 'rentabilidad',
-      'presupuestos', 'centros-costo', 'facturacion-electronica', 'retenciones',
-      'backup', 'usuarios',
-    ],
+    maxEmpresas: 1,
+    modules: PRO_MODULES,
+  },
+  enterprise: {
+    maxTransactionsPerMonth: Infinity,
+    maxUsers: 50,
+    maxEmpresas: 10,
+    modules: ENTERPRISE_MODULES,
   },
 };
 
 export const PLAN_PRICES = {
-  basic: { monthly: 0, label: 'Gratuito' },
-  pro: { monthly: 29, label: '$29/mes' },
+  basic: { monthly: 0, label: 'Gratuito', labelBs: 'Gratis' },
+  pro: { monthly: 29, monthlyBs: 199, label: '$29/mes', labelBs: 'Bs 199/mes' },
+  enterprise: { monthly: 99, monthlyBs: 699, label: '$99/mes', labelBs: 'Bs 699/mes' },
 };
 
 export const usePlan = () => {
@@ -57,17 +75,26 @@ export const usePlan = () => {
   const features = PLAN_FEATURES[currentPlan];
 
   const hasAccess = (moduleId: string): boolean => {
-    if (isAdmin) return true; // Admin bypass
+    if (isAdmin) return true;
     return features.modules.includes(moduleId);
   };
 
   const isProFeature = (moduleId: string): boolean => {
-    return !PLAN_FEATURES.basic.modules.includes(moduleId);
+    return !BASIC_MODULES.includes(moduleId);
   };
 
-  const upgradeToPro = () => {
-    setCurrentPlan('pro');
+  const isEnterpriseFeature = (moduleId: string): boolean => {
+    return ENTERPRISE_MODULES.includes(moduleId) && !PRO_MODULES.includes(moduleId);
   };
+
+  const getRequiredPlan = (moduleId: string): PlanType => {
+    if (BASIC_MODULES.includes(moduleId)) return 'basic';
+    if (PRO_MODULES.includes(moduleId)) return 'pro';
+    return 'enterprise';
+  };
+
+  const upgradeToPro = () => setCurrentPlan('pro');
+  const upgradeToEnterprise = () => setCurrentPlan('enterprise');
 
   const transactionCount = (): number => {
     const key = `txn_count_${new Date().toISOString().slice(0, 7)}`;
@@ -76,7 +103,7 @@ export const usePlan = () => {
 
   const canCreateTransaction = (): boolean => {
     if (isAdmin) return true;
-    if (currentPlan === 'pro') return true;
+    if (currentPlan !== 'basic') return true;
     return transactionCount() < features.maxTransactionsPerMonth;
   };
 
@@ -92,8 +119,11 @@ export const usePlan = () => {
     features,
     hasAccess,
     isProFeature,
+    isEnterpriseFeature,
+    getRequiredPlan,
     isAdmin,
     upgradeToPro,
+    upgradeToEnterprise,
     canCreateTransaction,
     incrementTransactionCount,
     transactionCount,

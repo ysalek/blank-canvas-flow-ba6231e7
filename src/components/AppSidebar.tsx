@@ -5,7 +5,8 @@ import {
   BookOpen, BookOpenCheck, Building2, Settings, HelpCircle, CreditCard,
   Factory, Archive, ClipboardList, Target, PiggyBank, UserCheck, Receipt,
   Home, Download, DollarSign, Shield, Brain, Zap, FileBarChart, FileCheck,
-  TestTube, Lock, Activity, LayoutDashboard,
+  TestTube, Lock, Activity, LayoutDashboard, Truck, ArrowLeftRight,
+  FileOutput, Crown, FileMinus,
 } from 'lucide-react';
 import {
   Sidebar, SidebarContent, useSidebar,
@@ -40,7 +41,9 @@ const menuItems = [
       { title: 'Facturación', url: '/?view=facturacion', icon: Receipt, plan: 'basic' as const },
       { title: 'Punto de Venta', url: '/?view=punto-venta', icon: CreditCard, plan: 'pro' as const },
       { title: 'Ventas a Crédito', url: '/?view=credit-sales', icon: DollarSign, plan: 'pro' as const },
+      { title: 'Notas Crédito/Débito', url: '/?view=notas-credito-debito', icon: FileMinus, plan: 'pro' as const },
       { title: 'Compras', url: '/?view=compras', icon: ShoppingCart, plan: 'pro' as const },
+      { title: 'Proveedores', url: '/?view=proveedores', icon: Truck, plan: 'pro' as const },
       { title: 'Clientes', url: '/?view=clientes', icon: Users, plan: 'basic' as const },
     ]
   },
@@ -57,8 +60,15 @@ const menuItems = [
     group: 'Finanzas',
     items: [
       { title: 'Bancos', url: '/?view=bancos', icon: Building2, plan: 'pro' as const },
+      { title: 'Conciliación Bancaria', url: '/?view=conciliacion-bancaria', icon: ArrowLeftRight, plan: 'pro' as const },
       { title: 'Flujo de Caja', url: '/?view=flujo-caja', icon: PiggyBank, plan: 'pro' as const },
       { title: 'Cuentas CxC/CxP', url: '/?view=cuentas-cobrar-pagar', icon: CreditCard, plan: 'pro' as const },
+    ]
+  },
+  {
+    group: 'Impuestos SIN',
+    items: [
+      { title: 'Libro Compras/Ventas', url: '/?view=libro-compras-ventas', icon: FileOutput, plan: 'pro' as const },
       { title: 'Declaraciones IVA', url: '/?view=declaraciones-tributarias', icon: FileText, plan: 'pro' as const },
       { title: 'Cumplimiento', url: '/?view=cumplimiento-normativo', icon: Shield, plan: 'pro' as const },
       { title: 'Retenciones', url: '/?view=retenciones', icon: Receipt, plan: 'pro' as const },
@@ -84,9 +94,9 @@ const menuItems = [
     items: [
       { title: 'Reportes', url: '/?view=reportes', icon: FileBarChart, plan: 'pro' as const },
       { title: 'Análisis Financiero', url: '/?view=analisis-financiero', icon: TrendingUp, plan: 'pro' as const },
-      { title: 'Análisis IA', url: '/?view=analisis-inteligente', icon: Brain, plan: 'pro' as const },
-      { title: 'Rentabilidad', url: '/?view=rentabilidad', icon: TrendingUp, plan: 'pro' as const },
-      { title: 'Auditoría', url: '/?view=auditoria-avanzada', icon: TestTube, plan: 'pro' as const },
+      { title: 'Análisis IA', url: '/?view=analisis-inteligente', icon: Brain, plan: 'enterprise' as const },
+      { title: 'Rentabilidad', url: '/?view=rentabilidad', icon: TrendingUp, plan: 'enterprise' as const },
+      { title: 'Auditoría', url: '/?view=auditoria-avanzada', icon: TestTube, plan: 'enterprise' as const },
     ]
   },
   {
@@ -153,7 +163,7 @@ const AppSidebar = () => {
               <div>
                 <h1 className="font-bold text-lg text-foreground tracking-tight">ContaBolivia</h1>
                 <p className="text-xs text-muted-foreground">
-                  {isAdmin ? '⚡ Administrador' : currentPlan === 'pro' ? 'Plan Profesional' : 'Plan Gratuito'}
+                  {isAdmin ? '⚡ Administrador' : currentPlan === 'enterprise' ? '👑 Enterprise' : currentPlan === 'pro' ? 'Plan Profesional' : 'Plan Gratuito'}
                 </p>
               </div>
             </div>
@@ -199,7 +209,9 @@ const AppSidebar = () => {
             )}
             <div className="space-y-0.5">
               {group.items.map((item, itemIndex) => {
-                const locked = item.plan === 'pro' && !isAdmin && currentPlan !== 'pro';
+                const planHierarchy = { basic: 0, pro: 1, enterprise: 2 };
+                const locked = !isAdmin && planHierarchy[item.plan] > planHierarchy[currentPlan];
+                const isEnterprise = item.plan === 'enterprise';
                 return (
                   <button
                     key={itemIndex}
@@ -216,7 +228,12 @@ const AppSidebar = () => {
                         {locked && (
                           <Lock className="w-3.5 h-3.5 text-muted-foreground/50" />
                         )}
-                        {item.plan === 'pro' && !locked && !isAdmin && (
+                        {isEnterprise && !locked && !isAdmin && (
+                          <Badge className="text-[10px] px-1.5 py-0 font-medium bg-amber-600 text-white">
+                            <Crown className="w-2.5 h-2.5 mr-0.5" />
+                          </Badge>
+                        )}
+                        {item.plan === 'pro' && !isEnterprise && !locked && !isAdmin && (
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-medium">
                             Pro
                           </Badge>
@@ -231,14 +248,18 @@ const AppSidebar = () => {
         ))}
 
         {/* Plan upgrade CTA */}
-        {!isCollapsed && !isAdmin && currentPlan === 'basic' && (
+        {!isCollapsed && !isAdmin && (currentPlan === 'basic' || currentPlan === 'pro') && (
           <div className="mt-auto pt-4 px-3 border-t border-border/60">
             <button
               onClick={() => window.dispatchEvent(new Event('open-upgrade-modal'))}
               className="w-full p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/15 text-center hover:from-primary/15 hover:to-primary/10 transition-all duration-300"
             >
-              <p className="text-sm font-semibold text-primary">Actualizar a Pro</p>
-              <p className="text-xs text-muted-foreground mt-0.5">$29/mes • Todo ilimitado</p>
+              <p className="text-sm font-semibold text-primary">
+                {currentPlan === 'basic' ? 'Actualizar a Pro' : 'Actualizar a Enterprise'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {currentPlan === 'basic' ? 'Bs 199/mes • Funciones avanzadas' : 'Bs 699/mes • Todo ilimitado'}
+              </p>
             </button>
           </div>
         )}
