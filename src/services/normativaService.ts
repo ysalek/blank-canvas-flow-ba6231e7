@@ -1,5 +1,5 @@
 // Servicio para cumplimiento de normativas contables y tributarias bolivianas
-// Actualizado a octubre 2025 según RND vigentes del SIN
+// Actualizado a febrero 2026 según RND vigentes del SIN y DS 5516
 export interface NormativaVigente {
   codigo: string;
   titulo: string;
@@ -31,7 +31,7 @@ class NormativaService {
     this.inicializarRequisitos();
   }
 
-  // Normativas actualizadas hasta enero 2026 según RND vigentes del SIN
+  // Normativas actualizadas hasta febrero 2026 según RND vigentes del SIN y DS 5516
   private inicializarNormativas(): void {
     this.normativas = [
       // === RNDs DICIEMBRE 2025 - NUEVAS ===
@@ -47,12 +47,12 @@ class NormativaService {
       },
       {
         codigo: 'RND-102500000052',
-        titulo: 'Incentivos Tributarios DS 5503 - Reactivación Económica',
-        descripcion: 'Reglamenta los incentivos tributarios del DS 5503: Incentivo Hecho en Bolivia (Art. 27), Depreciación Acelerada (Art. 28) y Aportes patronales como pago a cuenta del IVA (Art. 30).',
+        titulo: 'Incentivos Tributarios DS 5503 - SIN EFECTO (DS 5503 abrogado por DS 5516)',
+        descripcion: 'Reglamentaba incentivos del DS 5503: Hecho en Bolivia, Depreciación Acelerada y Aportes patronales IVA. DS 5503 fue abrogado por DS 5516 el 13/01/2026, dejando sin efecto estos incentivos.',
         fechaVigencia: '2025-12-17',
-        fechaActualizacion: '2025-12-30',
+        fechaActualizacion: '2026-01-13',
         categoria: 'tributaria',
-        estado: 'vigente',
+        estado: 'derogada',
         organismo: 'SIN'
       },
       {
@@ -307,13 +307,33 @@ class NormativaService {
         organismo: 'SIN'
       },
       {
-        codigo: 'DS-5503',
-        titulo: 'Decreto Supremo 5503 - Reactivación Económica',
-        descripcion: 'Medidas excepcionales: Incentivo Hecho en Bolivia (Art.27), Depreciación Acelerada (Art.28), Aportes patronales como pago a cuenta IVA (Art.30), libre negociación salarial, incremento SMN. Vigente desde 17/12/2025.',
-        fechaVigencia: '2025-12-17',
-        fechaActualizacion: '2025-12-17',
+        codigo: 'DS-5516',
+        titulo: 'Decreto Supremo 5516 - Reemplaza DS 5503',
+        descripcion: 'Publicado 13/01/2026. Abroga DS 5503. Mantiene eliminación subvención combustibles y bonos sociales. Diferimiento de créditos (6 meses). Los incentivos tributarios de DS 5503 (Hecho en Bolivia, Depreciación Acelerada, Aportes patronales IVA) quedan sin efecto.',
+        fechaVigencia: '2026-01-13',
+        fechaActualizacion: '2026-01-13',
         categoria: 'tributaria',
         estado: 'vigente',
+        organismo: 'Ministerio_Economia'
+      },
+      {
+        codigo: 'DS-5518',
+        titulo: 'Decreto Supremo 5518 - Modificaciones tributarias',
+        descripcion: 'Publicado 13/01/2026. Modificaciones complementarias al régimen tributario vigente.',
+        fechaVigencia: '2026-01-13',
+        fechaActualizacion: '2026-01-13',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'Ministerio_Economia'
+      },
+      {
+        codigo: 'DS-5503',
+        titulo: 'Decreto Supremo 5503 - ABROGADO por DS 5516',
+        descripcion: 'ABROGADO el 13/01/2026 por DS 5516. Los incentivos tributarios (Hecho en Bolivia, Depreciación Acelerada, Aportes patronales IVA) ya no están vigentes.',
+        fechaVigencia: '2025-12-17',
+        fechaActualizacion: '2026-01-13',
+        categoria: 'tributaria',
+        estado: 'derogada',
         organismo: 'Ministerio_Economia'
       },
       {
@@ -328,10 +348,10 @@ class NormativaService {
       },
       {
         codigo: 'SALARIO-MINIMO-2026',
-        titulo: 'Salario Mínimo Nacional 2026 - DS 5503',
-        descripcion: 'DS 5503 Art. 25: SMN incrementado a Bs 2.500 (estimado). Libre negociación salarial entre empleadores y trabajadores. Incremento mínimo 3% sobre salario básico.',
+        titulo: 'Salario Mínimo Nacional 2026 - DS 5516',
+        descripcion: 'DS 5516 (reemplaza DS 5503): SMN estimado Bs 2.500. Disposiciones de libre negociación salarial. DS 5503 abrogado.',
         fechaVigencia: '2026-01-01',
-        fechaActualizacion: '2025-12-17',
+        fechaActualizacion: '2026-01-13',
         categoria: 'laboral',
         estado: 'vigente',
         organismo: 'Ministerio_Trabajo'

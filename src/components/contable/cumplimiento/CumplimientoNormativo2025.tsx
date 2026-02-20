@@ -271,11 +271,20 @@ const CumplimientoNormativo2025 = () => {
             </AlertDescription>
           </Alert>
           
-          <Alert className="border-green-200 bg-green-50">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800">
-              <strong>DS 5503 (RND 102500000052):</strong> Incentivos tributarios vigentes: Hecho en Bolivia, 
-              Depreciación Acelerada y Aportes patronales como pago a cuenta del IVA.
+          <Alert className="border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              <strong>DS 5516 (13/01/2026):</strong> ABROGA DS 5503. Los incentivos tributarios 
+              (Hecho en Bolivia, Depreciación Acelerada, Aportes patronales IVA) quedan <strong>sin efecto</strong>. 
+              DS 5516 mantiene eliminación de subvención a combustibles y bonos sociales.
+            </AlertDescription>
+          </Alert>
+
+          <Alert className="border-yellow-200 bg-yellow-50">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-800">
+              <strong>RND 102500000041:</strong> Anulación extraordinaria de documentos fiscales fuera de plazo 
+              mediante nota escrita ante la AT. Regularización de facturas duplicadas anteriores a octubre 2025.
             </AlertDescription>
           </Alert>
 
