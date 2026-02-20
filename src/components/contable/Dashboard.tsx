@@ -1,34 +1,31 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users, CheckCircle, AlertTriangle, Activity, Target, BarChart3 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import {
+  TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Users,
+  CheckCircle, AlertTriangle, Activity, Target, BarChart3, ArrowUpRight,
+  Calendar, Clock, Receipt, CreditCard, FileText, PiggyBank
+} from 'lucide-react';
 import { useContabilidadIntegration } from '@/hooks/useContabilidadIntegration';
 import { useAsientos } from '@/hooks/useAsientos';
 import NotificationsIcon from './dashboard/NotificationsIcon';
 import EnhancedFinancialDashboard from './dashboard/EnhancedFinancialDashboard';
 import SystemHealth from './dashboard/SystemHealth';
-import { useToast } from '@/hooks/use-toast';
 import { useProductosValidated } from '@/hooks/useProductosValidated';
 import { useClientesSupabase } from '@/hooks/useClientesSupabase';
 import { useFacturas } from '@/hooks/useFacturas';
 
 const Dashboard = () => {
-  const [fechaActual] = useState(new Date().toLocaleDateString('es-BO', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  }));
-
-  const { toast } = useToast();
+  const fechaActual = useMemo(() => new Date().toLocaleDateString('es-BO', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  }), []);
 
   const { obtenerBalanceGeneral } = useContabilidadIntegration();
   const balance = obtenerBalanceGeneral();
   const { getAsientos } = useAsientos();
   const asientosReales = getAsientos();
-
-  // Datos reales desde Supabase
   const { productos, loading: productosLoading } = useProductosValidated();
   const { clientes, loading: clientesLoading } = useClientesSupabase();
   const { facturas, loading: facturasLoading } = useFacturas();
@@ -39,318 +36,306 @@ const Dashboard = () => {
   lastMonth.setMonth(lastMonth.getMonth() - 1);
   const lastMonthStr = lastMonth.toISOString().slice(0, 7);
 
-  // Debug: Log data state
-  useEffect(() => {
-    console.log('📊 [Dashboard] Estado datos:', {
-      facturas: facturas.length,
-      productos: productos.length,
-      clientes: clientes.length,
-      asientos: asientosReales.length,
-      facturasLoading,
-      productosLoading,
-      clientesLoading,
-      today,
-      thisMonth
-    });
-    if (facturas.length > 0) {
-      console.log('📊 [Dashboard] Facturas:', facturas.map(f => ({ num: f.numero, total: f.total, fecha: f.fecha, estado: f.estado })));
-    }
-  }, [facturas.length, productos.length, clientes.length, asientosReales.length, facturasLoading]);
+  const metrics = useMemo(() => {
+    const ventasHoy = facturas.filter(f => f.fecha === today && f.estado !== 'anulada').reduce((s, f) => s + f.total, 0);
+    const ventasMes = facturas.filter(f => f.fecha?.startsWith(thisMonth) && f.estado !== 'anulada').reduce((s, f) => s + f.total, 0);
+    const ventasMesAnterior = facturas.filter(f => f.fecha?.startsWith(lastMonthStr) && f.estado !== 'anulada').reduce((s, f) => s + f.total, 0);
+    const crecimiento = ventasMesAnterior > 0 ? ((ventasMes - ventasMesAnterior) / ventasMesAnterior * 100) : 0;
+    const clientesActivos = clientes.filter(c => c.activo !== false).length;
+    const clientesNuevos = clientes.filter(c => c.fechaCreacion?.startsWith(thisMonth)).length;
+    const facturasDelMes = facturas.filter(f => f.fecha?.startsWith(thisMonth) && f.estado !== 'anulada');
+    const ticket = facturasDelMes.length > 0 ? ventasMes / facturasDelMes.length : 0;
+    const valorInv = productos.reduce((s, p) => s + (Number(p.stock_actual || 0) * Number(p.costo_unitario || 0)), 0);
+    const stockBajo = productos.filter(p => Number(p.stock_actual || 0) <= Number(p.stock_minimo || 0) && Number(p.stock_actual || 0) > 0).length;
+    const pendientes = facturas.filter(f => f.estado === 'enviada').length;
+    const cobranza = facturas.length > 0 ? ((facturas.length - pendientes) / facturas.length * 100) : 100;
+    const rotacion = ventasMes > 0 && valorInv > 0 ? (ventasMes / valorInv * 12) : 0;
+    return { ventasHoy, ventasMes, crecimiento, clientesActivos, clientesNuevos, ticket, valorInv, stockBajo, pendientes, cobranza, rotacion, facturasDelMes: facturasDelMes.length };
+  }, [facturas, clientes, productos, today, thisMonth, lastMonthStr]);
 
-  // Métricas calculadas desde datos de Supabase
-  const ventasHoy = facturas.filter((f: any) => f.fecha === today && f.estado !== 'anulada').reduce((sum: number, f: any) => sum + f.total, 0);
-  const ventasMes = facturas.filter((f: any) => f.fecha?.startsWith(thisMonth) && f.estado !== 'anulada').reduce((sum: number, f: any) => sum + f.total, 0);
-  const ventasMesAnterior = facturas.filter((f: any) => f.fecha?.startsWith(lastMonthStr) && f.estado !== 'anulada').reduce((sum: number, f: any) => sum + f.total, 0);
-  const crecimientoVentas = ventasMesAnterior > 0 ? ((ventasMes - ventasMesAnterior) / ventasMesAnterior * 100) : 0;
+  const navigateTo = (view: string) => {
+    window.history.pushState({}, '', `/?view=${view}`);
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
 
-  const totalIngresos = ventasMes;
-  const totalGastos = 0; // TODO: calcular desde compras
-  const margenBruto = ventasMes > 0 ? ((ventasMes - totalGastos) / ventasMes * 100) : 0;
-  const ebitda = totalIngresos - totalGastos;
-  const roiMensual = totalGastos > 0 ? (ebitda / totalGastos * 100) : 0;
-
-  const clientesActivosMes = clientes.filter((c: any) => c.activo !== false).length;
-  const clientesNuevosMes = clientes.filter((c: any) => c.fechaCreacion && c.fechaCreacion.startsWith(thisMonth)).length;
-  const ticketPromedio = facturas.length > 0 ? ventasMes / Math.max(facturas.filter((f: any) => f.fecha?.startsWith(thisMonth) && f.estado !== 'anulada').length, 1) : 0;
-
-  const valorInventario = productos.reduce((sum: number, p: any) => sum + (Number(p.stock_actual || 0) * Number(p.costo_unitario || 0)), 0);
-  const productosStockBajo = productos.filter((p: any) => Number(p.stock_actual || 0) <= Number(p.stock_minimo || 0) && Number(p.stock_actual || 0) > 0).length;
-  const rotacionInventario = ventasMes > 0 && valorInventario > 0 ? (ventasMes / valorInventario * 12) : 0;
-
-  const facturasPendientes = facturas.filter((f: any) => f.estado === 'enviada').length;
-  const eficienciaCobranza = facturasPendientes > 0 ? ((facturas.length - facturasPendientes) / facturas.length * 100) : 100;
+  const isLoading = facturasLoading || productosLoading || clientesLoading;
+  const balanceCuadrado = Math.abs(balance.activos - (balance.pasivos + balance.patrimonio)) <= 0.01;
 
   return (
-    <div className="min-h-screen bg-gradient-subtle pb-12">
-      <div className="bg-gradient-primary px-8 py-6 mb-8">
+    <div className="space-y-6 pb-12">
+      {/* Header con resumen */}
+      <div className="bg-gradient-primary rounded-2xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
-              <Activity className="w-8 h-8" />
-              Dashboard Empresarial
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <Activity className="w-7 h-7" /> Dashboard Empresarial
             </h1>
-            <p className="text-white/90 text-sm">{fechaActual}</p>
+            <p className="text-white/80 text-sm mt-1 capitalize">{fechaActual}</p>
           </div>
-          <div className="flex items-center gap-4">
-            <Badge 
-              variant={balance.activos === (balance.pasivos + balance.patrimonio) ? "default" : "destructive"}
-              className="text-sm px-4 py-2 bg-white/20 backdrop-blur border-white/30"
-            >
-              {balance.activos === (balance.pasivos + balance.patrimonio) ? (
-                <><CheckCircle className="w-4 h-4 mr-2" /> Balance Cuadrado</>
-              ) : (
-                <><AlertTriangle className="w-4 h-4 mr-2" /> Verificar Balance</>
-              )}
+          <div className="flex items-center gap-3">
+            <Badge className={`text-sm px-3 py-1.5 ${balanceCuadrado ? 'bg-white/20 border-white/30' : 'bg-destructive border-destructive'}`}>
+              {balanceCuadrado
+                ? <><CheckCircle className="w-4 h-4 mr-1.5" /> Balance Cuadrado</>
+                : <><AlertTriangle className="w-4 h-4 mr-1.5" /> Verificar Balance</>
+              }
             </Badge>
             <NotificationsIcon />
           </div>
         </div>
+
+        {/* Mini-metrics en el header */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
+          {[
+            { label: 'Ventas hoy', value: `Bs ${metrics.ventasHoy.toLocaleString()}`, icon: DollarSign },
+            { label: 'Facturas del mes', value: metrics.facturasDelMes.toString(), icon: Receipt },
+            { label: 'Clientes activos', value: metrics.clientesActivos.toString(), icon: Users },
+            { label: 'Productos', value: productos.length.toString(), icon: Package },
+          ].map((m, i) => (
+            <div key={i} className="bg-white/10 backdrop-blur-sm rounded-xl p-3">
+              <div className="flex items-center gap-2 text-white/70 text-xs mb-1">
+                <m.icon className="w-3.5 h-3.5" /> {m.label}
+              </div>
+              <div className="text-lg font-bold">{isLoading ? '...' : m.value}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="px-8 space-y-8">
-        {/* Métricas principales */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4 text-foreground">Métricas Principales</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="card-modern hover:shadow-glow transition-smooth">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 rounded-lg bg-success/10">
-                    <DollarSign className="w-6 h-6 text-success" />
-                  </div>
-                  {crecimientoVentas !== 0 && (
-                    <Badge variant={crecimientoVentas > 0 ? "default" : "destructive"} className="text-xs">
-                      {crecimientoVentas > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-                      {Math.abs(crecimientoVentas).toFixed(1)}%
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-2xl font-bold text-foreground mb-1">Bs. {ventasMes.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">Ingresos del Mes</p>
-              </CardContent>
-            </Card>
-
-            <Card className="card-modern hover:shadow-glow transition-smooth">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 rounded-lg bg-primary/10">
-                    <BarChart3 className="w-6 h-6 text-primary" />
-                  </div>
-                  <Badge variant={ebitda > 0 ? "default" : "destructive"} className="text-xs">
-                    {ebitda > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-                    {margenBruto.toFixed(1)}%
-                  </Badge>
-                </div>
-                <p className="text-2xl font-bold text-foreground mb-1">Bs. {ebitda.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">EBITDA</p>
-              </CardContent>
-            </Card>
-
-            <Card className="card-modern hover:shadow-glow transition-smooth">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 rounded-lg bg-warning/10">
-                    <Users className="w-6 h-6 text-warning" />
-                  </div>
-                  {clientesNuevosMes > 0 && (
-                    <Badge variant="default" className="text-xs">+{clientesNuevosMes} nuevos</Badge>
-                  )}
-                </div>
-                <p className="text-2xl font-bold text-foreground mb-1">{clientesActivosMes}</p>
-                <p className="text-sm text-muted-foreground">Clientes Activos</p>
-              </CardContent>
-            </Card>
-
-            <Card className="card-modern hover:shadow-glow transition-smooth">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="p-3 rounded-lg bg-accent/10">
-                    <Package className="w-6 h-6 text-primary" />
-                  </div>
-                  {productosStockBajo > 0 && (
-                    <Badge variant="destructive" className="text-xs">
-                      <AlertTriangle className="w-3 h-3 mr-1" />{productosStockBajo}
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-2xl font-bold text-foreground mb-1">Bs. {valorInventario.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">Valor Inventario</p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Indicadores Secundarios */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Card className="card-modern">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-primary" />
-                Rendimiento Comercial
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Ticket Promedio</span>
-                <span className="text-lg font-bold">Bs. {ticketPromedio.toFixed(0)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Ventas Hoy</span>
-                <span className="text-lg font-bold text-success">Bs. {ventasHoy.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">ROI Mensual</span>
-                <Badge variant={roiMensual > 15 ? "default" : "destructive"}>
-                  {roiMensual.toFixed(1)}%
+      {/* KPIs principales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="card-modern group hover:shadow-glow transition-smooth cursor-pointer" onClick={() => navigateTo('facturacion')}>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2.5 rounded-xl bg-success/10"><DollarSign className="w-5 h-5 text-success" /></div>
+              {metrics.crecimiento !== 0 && (
+                <Badge variant={metrics.crecimiento > 0 ? "default" : "destructive"} className="text-xs">
+                  {metrics.crecimiento > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
+                  {Math.abs(metrics.crecimiento).toFixed(1)}%
                 </Badge>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-modern">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Package className="w-5 h-5 text-primary" />
-                Control de Inventario
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Rotación Anual</span>
-                <span className="text-lg font-bold">{rotacionInventario.toFixed(1)}x</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Productos Activos</span>
-                <span className="text-lg font-bold">{productos.filter((p: any) => Number(p.stock_actual || 0) > 0).length}/{productos.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Stock Bajo</span>
-                {productosStockBajo > 0 ? (
-                  <Badge variant="destructive">{productosStockBajo} productos</Badge>
-                ) : (
-                  <Badge variant="default">Óptimo</Badge>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-modern">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <Target className="w-5 h-5 text-primary" />
-                Eficiencia Operativa
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Cobranza</span>
-                <Badge variant={eficienciaCobranza > 90 ? "default" : "destructive"}>
-                  {eficienciaCobranza.toFixed(0)}%
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Pendientes</span>
-                <span className="text-lg font-bold text-warning">{facturasPendientes}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Tiempo Cobro</span>
-                <span className="text-lg font-bold">30 días</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Alertas */}
-        {(Math.abs(balance.activos - (balance.pasivos + balance.patrimonio)) > 0.01 || 
-          productosStockBajo > 0 || facturasPendientes > 0 || roiMensual > 20) && (
-          <div>
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Alertas y Notificaciones</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Math.abs(balance.activos - (balance.pasivos + balance.patrimonio)) > 0.01 && (
-                <Card className="border-l-4 border-l-destructive bg-destructive/5">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
-                      <div>
-                        <p className="font-semibold text-destructive mb-1">Balance Descuadrado</p>
-                        <p className="text-sm text-muted-foreground">
-                          Diferencia: {Math.abs(balance.activos - (balance.pasivos + balance.patrimonio)).toFixed(2)} Bs.
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              {productosStockBajo > 0 && (
-                <Card className="border-l-4 border-l-warning bg-warning/5">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <Package className="w-5 h-5 text-warning mt-0.5" />
-                      <div>
-                        <p className="font-semibold text-warning mb-1">Stock Bajo</p>
-                        <p className="text-sm text-muted-foreground">{productosStockBajo} productos necesitan reposición</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              {facturasPendientes > 0 && (
-                <Card className="border-l-4 border-l-warning bg-warning/5">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-warning mt-0.5" />
-                      <div>
-                        <p className="font-semibold text-warning mb-1">Cuentas por Cobrar</p>
-                        <p className="text-sm text-muted-foreground">{facturasPendientes} facturas pendientes de cobro</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              {Math.abs(balance.activos - (balance.pasivos + balance.patrimonio)) <= 0.01 && (
-                <Card className="border-l-4 border-l-success bg-success/5">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <CheckCircle className="w-5 h-5 text-success mt-0.5" />
-                      <div>
-                        <p className="font-semibold text-success mb-1">Sistema Integrado</p>
-                        <p className="text-sm text-muted-foreground">Balance cuadrado • Inventario sincronizado</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
               )}
             </div>
+            <p className="text-2xl font-bold text-foreground">Bs {metrics.ventasMes.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Ingresos del Mes</p>
+            <div className="flex items-center gap-1 text-xs text-primary mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              Ver facturación <ArrowUpRight className="w-3 h-3" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-modern group hover:shadow-glow transition-smooth cursor-pointer" onClick={() => navigateTo('balance-general')}>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2.5 rounded-xl bg-primary/10"><BarChart3 className="w-5 h-5 text-primary" /></div>
+              <Badge variant="outline" className="text-xs">{balanceCuadrado ? 'OK' : 'Revisar'}</Badge>
+            </div>
+            <p className="text-2xl font-bold text-foreground">Bs {balance.activos.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Total Activos</p>
+            <div className="flex items-center gap-1 text-xs text-primary mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              Ver balance <ArrowUpRight className="w-3 h-3" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-modern group hover:shadow-glow transition-smooth cursor-pointer" onClick={() => navigateTo('clientes')}>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2.5 rounded-xl bg-warning/10"><Users className="w-5 h-5 text-warning" /></div>
+              {metrics.clientesNuevos > 0 && <Badge className="text-xs">+{metrics.clientesNuevos}</Badge>}
+            </div>
+            <p className="text-2xl font-bold text-foreground">{metrics.clientesActivos}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Clientes Activos</p>
+            <div className="flex items-center gap-1 text-xs text-primary mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              Ver clientes <ArrowUpRight className="w-3 h-3" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-modern group hover:shadow-glow transition-smooth cursor-pointer" onClick={() => navigateTo('inventario')}>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2.5 rounded-xl bg-accent"><Package className="w-5 h-5 text-accent-foreground" /></div>
+              {metrics.stockBajo > 0 && <Badge variant="destructive" className="text-xs"><AlertTriangle className="w-3 h-3 mr-1" />{metrics.stockBajo}</Badge>}
+            </div>
+            <p className="text-2xl font-bold text-foreground">Bs {metrics.valorInv.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Valor Inventario</p>
+            <div className="flex items-center gap-1 text-xs text-primary mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              Ver inventario <ArrowUpRight className="w-3 h-3" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Accesos rápidos */}
+      <div>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Accesos Rápidos</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {[
+            { label: 'Nueva Factura', icon: Receipt, view: 'facturacion', color: 'bg-success/10 text-success' },
+            { label: 'Punto de Venta', icon: CreditCard, view: 'punto-venta', color: 'bg-primary/10 text-primary' },
+            { label: 'Libro Diario', icon: FileText, view: 'diario', color: 'bg-accent text-accent-foreground' },
+            { label: 'Compras', icon: ShoppingCart, view: 'compras', color: 'bg-warning/10 text-warning' },
+            { label: 'Cuentas CxC', icon: PiggyBank, view: 'cuentas-cobrar-pagar', color: 'bg-destructive/10 text-destructive' },
+            { label: 'Reportes', icon: BarChart3, view: 'reportes', color: 'bg-primary/10 text-primary' },
+          ].map((item, i) => (
+            <button
+              key={i}
+              onClick={() => navigateTo(item.view)}
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border/60 bg-card hover:bg-accent/50 hover:shadow-sm transition-all duration-200"
+            >
+              <div className={`p-2.5 rounded-lg ${item.color}`}>
+                <item.icon className="w-5 h-5" />
+              </div>
+              <span className="text-xs font-medium text-foreground">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Indicadores secundarios */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="card-modern">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4 text-primary" /> Rendimiento Comercial
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Ticket Promedio</span>
+              <span className="font-bold">Bs {metrics.ticket.toFixed(0)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Ventas Hoy</span>
+              <span className="font-bold text-success">Bs {metrics.ventasHoy.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Facturas este mes</span>
+              <span className="font-bold">{metrics.facturasDelMes}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-modern">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Package className="w-4 h-4 text-primary" /> Control de Inventario
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Rotación Anual</span>
+              <span className="font-bold">{metrics.rotacion.toFixed(1)}x</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Productos con Stock</span>
+              <span className="font-bold">{productos.filter(p => Number(p.stock_actual || 0) > 0).length}/{productos.length}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Stock Bajo</span>
+              {metrics.stockBajo > 0
+                ? <Badge variant="destructive" className="text-xs">{metrics.stockBajo} productos</Badge>
+                : <Badge className="text-xs">Óptimo</Badge>
+              }
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-modern">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Target className="w-4 h-4 text-primary" /> Eficiencia Operativa
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm text-muted-foreground">Cobranza</span>
+                <span className="text-sm font-bold">{metrics.cobranza.toFixed(0)}%</span>
+              </div>
+              <Progress value={metrics.cobranza} className="h-2" />
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Facturas pendientes</span>
+              <span className="font-bold text-warning">{metrics.pendientes}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Balance</span>
+              <Badge variant={balanceCuadrado ? "default" : "destructive"} className="text-xs">
+                {balanceCuadrado ? 'Cuadrado' : 'Descuadrado'}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Alertas */}
+      {(metrics.stockBajo > 0 || metrics.pendientes > 0 || !balanceCuadrado) && (
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Alertas</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {!balanceCuadrado && (
+              <Card className="border-l-4 border-l-destructive bg-destructive/5">
+                <CardContent className="p-4 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold text-destructive text-sm">Balance Descuadrado</p>
+                    <p className="text-xs text-muted-foreground">Diferencia: Bs {Math.abs(balance.activos - (balance.pasivos + balance.patrimonio)).toFixed(2)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {metrics.stockBajo > 0 && (
+              <Card className="border-l-4 border-l-warning bg-warning/5 cursor-pointer" onClick={() => navigateTo('inventario')}>
+                <CardContent className="p-4 flex items-start gap-3">
+                  <Package className="w-5 h-5 text-warning mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold text-warning text-sm">Stock Bajo</p>
+                    <p className="text-xs text-muted-foreground">{metrics.stockBajo} productos necesitan reposición</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {metrics.pendientes > 0 && (
+              <Card className="border-l-4 border-l-warning bg-warning/5 cursor-pointer" onClick={() => navigateTo('cuentas-cobrar-pagar')}>
+                <CardContent className="p-4 flex items-start gap-3">
+                  <Receipt className="w-5 h-5 text-warning mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold text-warning text-sm">Cuentas por Cobrar</p>
+                    <p className="text-xs text-muted-foreground">{metrics.pendientes} facturas pendientes</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
-        )}
-
-        {/* Análisis Financiero */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4 text-foreground">Análisis Financiero</h2>
-          <EnhancedFinancialDashboard facturas={facturas} asientos={asientosReales} productos={productos.map(p => ({
-            id: String(p.id),
-            codigo: String(p.codigo || ''),
-            nombre: String(p.nombre || ''),
-            descripcion: String(p.descripcion || ''),
-            categoria: String(p.categoria_id || 'General'),
-            unidadMedida: String(p.unidad_medida || 'PZA'),
-            precioVenta: Number(p.precio_venta || 0),
-            precioCompra: Number(p.precio_compra || 0),
-            costoUnitario: Number(p.costo_unitario || 0),
-            stockActual: Number(p.stock_actual || 0),
-            stockMinimo: Number(p.stock_minimo || 0),
-            codigoSIN: String(p.codigo_sin || '00000000'),
-            activo: Boolean(p.activo),
-            fechaCreacion: p.created_at?.split('T')[0] || '',
-            fechaActualizacion: p.updated_at?.split('T')[0] || ''
-          }))} />
         </div>
+      )}
 
-        {/* Monitoreo del Sistema */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4 text-foreground">Monitoreo del Sistema</h2>
-          <SystemHealth />
-        </div>
+      {/* Análisis Financiero */}
+      <div>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Análisis Financiero</h2>
+        <EnhancedFinancialDashboard facturas={facturas} asientos={asientosReales} productos={productos.map(p => ({
+          id: String(p.id),
+          codigo: String(p.codigo || ''),
+          nombre: String(p.nombre || ''),
+          descripcion: String(p.descripcion || ''),
+          categoria: String(p.categoria_id || 'General'),
+          unidadMedida: String(p.unidad_medida || 'PZA'),
+          precioVenta: Number(p.precio_venta || 0),
+          precioCompra: Number(p.precio_compra || 0),
+          costoUnitario: Number(p.costo_unitario || 0),
+          stockActual: Number(p.stock_actual || 0),
+          stockMinimo: Number(p.stock_minimo || 0),
+          codigoSIN: String(p.codigo_sin || '00000000'),
+          activo: Boolean(p.activo),
+          fechaCreacion: p.created_at?.split('T')[0] || '',
+          fechaActualizacion: p.updated_at?.split('T')[0] || ''
+        }))} />
+      </div>
+
+      {/* Monitoreo */}
+      <div>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Monitoreo del Sistema</h2>
+        <SystemHealth />
       </div>
     </div>
   );

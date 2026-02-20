@@ -139,6 +139,24 @@ const EnhancedPOSModule = () => {
     }
   }, [activeTab]);
 
+  // Atajos de teclado
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // F2 - Buscar producto
+      if (e.key === 'F2') { e.preventDefault(); inputRef.current?.focus(); }
+      // F4 - Procesar venta
+      if (e.key === 'F4' && carrito.length > 0) { e.preventDefault(); procesarVenta(false); }
+      // F5 - Limpiar venta
+      if (e.key === 'F5') { e.preventDefault(); limpiarVenta(); }
+      // F7 - Código de barras
+      if (e.key === 'F7') { e.preventDefault(); setActiveTab('barras'); }
+      // Escape - Cerrar modales
+      if (e.key === 'Escape') { setShowTicket(false); setShowNuevoCliente(false); }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [carrito.length]);
+
   const [clientesPredefinidos, setClientesPredefinidos] = useState<Cliente[]>([
     { id: "1", nombre: "Cliente General", nit: "0", telefono: "", email: "", direccion: "" },
     { id: "2", nombre: "María González", nit: "1234567020", telefono: "70123456", email: "maria@email.com", direccion: "Av. Principal 123" },
@@ -394,49 +412,40 @@ const EnhancedPOSModule = () => {
   const cantidadVentas = ventasHoy.length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header mejorado */}
-      <div className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-gradient-subtle">
+      {/* Header */}
+      <div className="bg-card shadow-sm border-b border-border/60">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">Punto de Venta</h1>
-              <p className="text-slate-600">Sistema POS profesional integrado</p>
+              <h1 className="text-2xl font-bold text-foreground">Punto de Venta</h1>
+              <p className="text-muted-foreground text-sm">F2: Buscar · F4: Cobrar · F5: Limpiar · F7: Código barras</p>
             </div>
             <div className="flex items-center gap-4">
               <div className="grid grid-cols-2 gap-4 text-right">
                 <div>
-                  <p className="text-sm text-slate-600">Ventas del día</p>
-                  <p className="text-lg font-bold text-green-600">
-                    Bs. {ventasDelDia.toFixed(2)}
-                  </p>
+                  <p className="text-sm text-muted-foreground">Ventas del día</p>
+                  <p className="text-lg font-bold text-success">Bs. {ventasDelDia.toFixed(2)}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-600">Clientes atendidos</p>
-                  <p className="text-lg font-bold text-blue-600">
-                    {cantidadVentas} personas
-                  </p>
+                  <p className="text-sm text-muted-foreground">Clientes atendidos</p>
+                  <p className="text-lg font-bold text-primary">{cantidadVentas} personas</p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-600">Productos vendidos</p>
-                  <p className="text-lg font-bold text-purple-600">
+                  <p className="text-sm text-muted-foreground">Productos vendidos</p>
+                  <p className="text-lg font-bold text-accent-foreground">
                     {ventasHoy.reduce((sum, venta) => sum + venta.items.reduce((itemSum, item) => itemSum + item.cantidad, 0), 0)} unidades
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-slate-600">Cajero 1</p>
-                  <p className="text-lg font-bold text-orange-600">
-                    {cantidadVentas} ventas
-                  </p>
+                  <p className="text-sm text-muted-foreground">Cajero 1</p>
+                  <p className="text-lg font-bold text-warning">{cantidadVentas} ventas</p>
                 </div>
               </div>
               <Separator orientation="vertical" className="h-8" />
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={limpiarVenta}>
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Limpiar
-                </Button>
-              </div>
+              <Button variant="outline" onClick={limpiarVenta}>
+                <RotateCcw className="w-4 h-4 mr-2" /> Limpiar (F5)
+              </Button>
             </div>
           </div>
         </div>
@@ -557,7 +566,7 @@ const EnhancedPOSModule = () => {
                           </div>
                           <div>
                             <h4 className="font-medium text-sm line-clamp-2">{producto.nombre}</h4>
-                            <p className="text-xs text-slate-500">{producto.codigo}</p>
+                            <p className="text-xs text-muted-foreground">{producto.codigo}</p>
                           </div>
                           <div className="space-y-1">
                             <div className="flex items-center justify-between">
@@ -579,7 +588,7 @@ const EnhancedPOSModule = () => {
                 </div>
                 
                 {productosFiltrados.length === 0 && (
-                  <div className="text-center py-12 text-slate-500">
+                  <div className="text-center py-12 text-muted-foreground">
                     <Search className="w-16 h-16 mx-auto mb-4 opacity-50" />
                     <p className="text-lg">No se encontraron productos</p>
                     <p className="text-sm">Intenta con otros términos de búsqueda</p>
@@ -625,7 +634,7 @@ const EnhancedPOSModule = () => {
                   </Button>
                 </div>
                 {cliente && cliente.id !== "1" && (
-                  <div className="text-xs text-slate-600 space-y-1">
+                  <div className="text-xs text-muted-foreground space-y-1">
                     <p><strong>NIT:</strong> {cliente.nit}</p>
                     {cliente.telefono && <p><strong>Tel:</strong> {cliente.telefono}</p>}
                     {cliente.email && <p><strong>Email:</strong> {cliente.email}</p>}
@@ -645,11 +654,11 @@ const EnhancedPOSModule = () => {
               <CardContent>
                 <div className="space-y-2 max-h-64 overflow-y-auto">
                   {carrito.map((item) => (
-                    <div key={item.id} className="bg-slate-50 rounded-lg p-3 space-y-2">
+                    <div key={item.id} className="bg-muted/50 rounded-lg p-3 space-y-2">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm truncate">{item.producto.nombre}</p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-muted-foreground">
                             Bs. {item.precioUnitario.toFixed(2)} c/u
                           </p>
                         </div>
@@ -657,7 +666,7 @@ const EnhancedPOSModule = () => {
                           size="sm"
                           variant="ghost"
                           onClick={() => eliminarDelCarrito(item.id)}
-                          className="text-red-500 hover:text-red-700 h-6 w-6 p-0"
+                          className="text-destructive hover:text-destructive/80 h-6 w-6 p-0"
                         >
                           <Trash2 className="w-3 h-3" />
                         </Button>
@@ -691,7 +700,7 @@ const EnhancedPOSModule = () => {
                   ))}
                   
                   {carrito.length === 0 && (
-                    <div className="text-center py-8 text-slate-500">
+                    <div className="text-center py-8 text-muted-foreground">
                       <ShoppingBag className="w-12 h-12 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">Carrito vacío</p>
                     </div>
@@ -714,7 +723,7 @@ const EnhancedPOSModule = () => {
                     <span>Subtotal:</span>
                     <span>Bs. {calcularSubtotal().toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-red-600">
+                  <div className="flex justify-between text-destructive">
                     <span>Descuentos:</span>
                     <span>-Bs. {calcularDescuentos().toFixed(2)}</span>
                   </div>
@@ -770,7 +779,7 @@ const EnhancedPOSModule = () => {
                         className="text-lg h-12"
                       />
                       {montoRecibido > calcularTotal() && (
-                        <p className="text-sm text-green-600 mt-1 font-medium">
+                        <p className="text-sm text-success mt-1 font-medium">
                           Cambio: Bs. {(montoRecibido - calcularTotal()).toFixed(2)}
                         </p>
                       )}
@@ -785,7 +794,7 @@ const EnhancedPOSModule = () => {
                     disabled={carrito.length === 0}
                   >
                     <Receipt className="w-5 h-5 mr-2" />
-                    Procesar Venta
+                    Cobrar (F4)
                   </Button>
                   <Button 
                     onClick={() => procesarVenta(true)} 
@@ -905,7 +914,7 @@ const EnhancedPOSModule = () => {
                       <span>Bs. {item.subtotal.toFixed(2)}</span>
                     </div>
                     {item.descuento > 0 && (
-                      <div className="flex justify-between text-xs text-red-600">
+                      <div className="flex justify-between text-xs text-destructive">
                         <span>Descuento:</span>
                         <span>-Bs. {item.descuento.toFixed(2)}</span>
                       </div>
@@ -919,7 +928,7 @@ const EnhancedPOSModule = () => {
                   <span>Subtotal:</span>
                   <span>Bs. {ultimaVenta.subtotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-red-600">
+                <div className="flex justify-between text-destructive">
                   <span>Descuentos:</span>
                   <span>-Bs. {ultimaVenta.descuentoTotal.toFixed(2)}</span>
                 </div>
