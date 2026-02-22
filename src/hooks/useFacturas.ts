@@ -20,17 +20,31 @@ export const useFacturas = () => {
 
       console.log('📋 [Facturas] Consultando facturas para user:', user.id);
 
-      // Usar columnas explícitas para evitar triggers problemáticos
-      const { data: facturasData, error: facturasError } = await supabase
-        .from('facturas')
-        .select('id,numero,cliente_id,fecha,fecha_vencimiento,subtotal,descuento_total,iva,total,estado,estado_sin,cuf,cufd,punto_venta,codigo_control,observaciones,created_at,user_id')
-        .eq('user_id', user.id)
-        .order('fecha', { ascending: false });
+      // Usar fetch directo con Prefer: tx=read-write para evitar error 25006 por triggers
+      const SUPABASE_URL = "https://mfhgekyriwabgksreszy.supabase.co";
+      const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1maGdla3lyaXdhYmdrc3Jlc3p5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5MjEwMjUsImV4cCI6MjA3MDQ5NzAyNX0.zUwsImMyg8vZNeGhZouhFAL6ZDvcjH5vXVOOWXNRbG8";
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || SUPABASE_KEY;
+      
+      const facturasRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/facturas?select=id,numero,cliente_id,fecha,fecha_vencimiento,subtotal,descuento_total,iva,total,estado,estado_sin,cuf,cufd,punto_venta,codigo_control,observaciones,created_at,user_id&user_id=eq.${user.id}&order=fecha.desc`,
+        {
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${accessToken}`,
+            'Accept': 'application/json',
+            'Prefer': 'tx=read-write'
+          }
+        }
+      );
 
-      if (facturasError) {
-        console.error('❌ [Facturas] Error:', facturasError);
-        throw facturasError;
+      if (!facturasRes.ok) {
+        const errBody = await facturasRes.text();
+        console.error('❌ [Facturas] Error fetch:', facturasRes.status, errBody);
+        throw new Error(`Facturas fetch failed: ${facturasRes.status}`);
       }
+
+      const facturasData = await facturasRes.json();
 
       console.log('✅ [Facturas] Facturas encontradas:', facturasData?.length || 0);
 
