@@ -12,7 +12,7 @@ import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Calculator, FileText, AlertTriangle, Receipt, Download, Plus, CheckCircle, Banknote } from "lucide-react";
 import { AsientoContable } from '../diary/DiaryData';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 
 interface Retencion {
   id: string;

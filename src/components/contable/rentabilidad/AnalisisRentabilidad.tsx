@@ -19,7 +19,7 @@ import {
   Calendar
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 
 interface ProductoRentabilidad {
   id: string;

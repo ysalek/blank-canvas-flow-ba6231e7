@@ -12,7 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 
 const BalanceGeneralModule = () => {
   const [fechaInicio, setFechaInicio] = useState<Date>(new Date(new Date().getFullYear(), 0, 1));
