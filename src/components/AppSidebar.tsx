@@ -6,7 +6,7 @@ import {
   Factory, Archive, ClipboardList, Target, PiggyBank, UserCheck, Receipt,
   Home, Download, DollarSign, Shield, Brain, Zap, FileBarChart, FileCheck,
   TestTube, Lock, Activity, LayoutDashboard, Truck, ArrowLeftRight,
-  FileOutput, Crown, FileMinus,
+  FileOutput, Crown, FileMinus, Smartphone,
 } from 'lucide-react';
 import {
   Sidebar, SidebarContent, useSidebar,
@@ -116,6 +116,7 @@ const adminMenuItems = [
       { title: 'Panel Admin', url: '/?view=admin-dashboard', icon: LayoutDashboard },
       { title: 'Gestión Usuarios', url: '/?view=admin-users', icon: Users },
       { title: 'Suscripciones', url: '/?view=admin-subscriptions', icon: CreditCard },
+      { title: 'Pagos Bolivia', url: '/?view=admin-payments', icon: Smartphone },
       { title: 'Logs Actividad', url: '/?view=admin-logs', icon: Activity },
     ]
   }

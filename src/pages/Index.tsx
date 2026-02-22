@@ -63,6 +63,7 @@ const AdminDashboard = lazy(() => import('@/components/admin/AdminDashboard'));
 const UsersManagementAdmin = lazy(() => import('@/components/admin/UsersManagement'));
 const SubscriptionsManager = lazy(() => import('@/components/admin/SubscriptionsManager'));
 const ActivityLogs = lazy(() => import('@/components/admin/ActivityLogs'));
+const PaymentRequestsManager = lazy(() => import('@/components/admin/PaymentRequestsManager'));
 const Index = () => {
   const { hasPermission, user, logout } = useAuth();
   const [openNotifications, setOpenNotifications] = useState(false);
@@ -142,6 +143,7 @@ const Index = () => {
       case 'admin-users': return <UsersManagementAdmin />;
       case 'admin-subscriptions': return <SubscriptionsManager />;
       case 'admin-logs': return <ActivityLogs />;
+      case 'admin-payments': return <PaymentRequestsManager />;
     }
 
     // Pro-gated modules
@@ -211,6 +213,7 @@ const Index = () => {
       'admin-users': 'Gestión de Usuarios',
       'admin-subscriptions': 'Suscripciones',
       'admin-logs': 'Logs de Actividad',
+      'admin-payments': 'Pagos Bolivia',
       'diario': 'Libro Diario',
       'mayor': 'Libro Mayor',
       'balance-comprobacion': 'Balance de Comprobación',
