@@ -374,39 +374,29 @@ const InventarioModule = () => {
     <div className="space-y-8">
       {/* Enhanced Header */}
       <EnhancedHeader
-        title="Control de Inventario Avanzado"
-        subtitle="Sistema integrado de gestión de inventario con valuación por promedio ponderado e integración contable automática"
+        title="Inventario"
+        subtitle="Stock, movimientos y valuación contable"
         badge={{
-          text: `${productosInventario.length} Productos Activos`,
+          text: `${productosInventario.length} productos`,
           variant: "default"
         }}
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleDownloadFormat}>
-              <FileDown className="w-4 h-4 mr-2" />
-              Formato Excel
+          <div className="flex gap-2 flex-wrap">
+            <Button size="sm" variant="outline" onClick={handleDownloadFormat}>
+              <FileDown className="w-4 h-4 mr-1.5" />
+              Excel
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={handleImportClick}
-              disabled={importing}
-            >
-              <FileUp className="w-4 h-4 mr-2" />
-              {importing ? `Importando... (${importProgress.current}/${importProgress.total})` : 'Importar Datos'}
+            <Button size="sm" variant="outline" onClick={handleImportClick} disabled={importing}>
+              <FileUp className="w-4 h-4 mr-1.5" />
+              {importing ? `${importProgress.current}/${importProgress.total}` : 'Importar'}
             </Button>
-            <Button
-              className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 shadow-lg"
-              onClick={() => setShowMovementDialog({ open: true, tipo: 'entrada' })}
-            >
-              <Package className="w-4 h-4 mr-2" />
-              Entrada Stock
+            <Button size="sm" onClick={() => setShowMovementDialog({ open: true, tipo: 'entrada' })}>
+              <Package className="w-4 h-4 mr-1.5" />
+              Entrada
             </Button>
-            <Button
-              className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 shadow-lg"
-              onClick={() => setShowMovementDialog({ open: true, tipo: 'salida' })}
-            >
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Salida Stock
+            <Button size="sm" variant="secondary" onClick={() => setShowMovementDialog({ open: true, tipo: 'salida' })}>
+              <TrendingUp className="w-4 h-4 mr-1.5" />
+              Salida
             </Button>
           </div>
         }
@@ -422,8 +412,8 @@ const InventarioModule = () => {
 
       {/* Enhanced Metrics Grid */}
       <Section 
-        title="Métricas de Inventario" 
-        subtitle="Indicadores clave del estado actual del inventario"
+        title="Resumen" 
+        subtitle=""
       >
         <MetricGrid columns={4}>
           <EnhancedMetricCard
@@ -467,12 +457,12 @@ const InventarioModule = () => {
 
       {/* Enhanced Tabs Section */}
       <Section 
-        title="Gestión Detallada de Inventario"
-        subtitle="Control completo de productos, movimientos y análisis de stock"
+        title="Detalle"
+        subtitle=""
       >
         <ChartContainer
-          title="Panel de Control de Inventario"
-          subtitle="Administración integral con análisis y alertas automáticas"
+          title=""
+          subtitle=""
         >
           <Tabs defaultValue="productos" className="w-full">
             <TabsList className="grid w-full grid-cols-5">

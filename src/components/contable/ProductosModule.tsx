@@ -133,32 +133,21 @@ const ProductosModule = () => {
     <div className="space-y-8 animate-fade-in">
       {/* Enhanced Header */}
       <EnhancedHeader
-        title="Catálogo de Productos Avanzado"
-        subtitle="Administra tu inventario de productos y servicios con control integral de precios y stock"
+        title="Productos"
+        subtitle="Catálogo, precios y control de stock"
         badge={{
-          text: `${productosActivos} Productos Activos`,
+          text: `${productosActivos} activos`,
           variant: "default"
         }}
         actions={
           <div className="flex gap-2">
-            <Button 
-              variant="outline"
-              onClick={() => {
-                console.log('🔄 Manual refresh clicked');
-                refetch();
-              }}
-            >
-              Actualizar Datos
+            <Button size="sm" variant="outline" onClick={() => refetch()}>
+              <RefreshCw className="w-4 h-4 mr-1.5" />
+              Actualizar
             </Button>
-            <Button 
-              className="bg-gradient-to-r from-primary to-primary/80 shadow-lg hover:shadow-xl"
-              onClick={() => {
-                setEditingProducto(null);
-                setShowForm(true);
-              }}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Producto
+            <Button size="sm" onClick={() => { setEditingProducto(null); setShowForm(true); }}>
+              <Plus className="w-4 h-4 mr-1.5" />
+              Nuevo
             </Button>
           </div>
         }
@@ -166,8 +155,8 @@ const ProductosModule = () => {
 
       {/* Enhanced Metrics Section */}
       <Section 
-        title="Métricas de Productos" 
-        subtitle="Indicadores clave del catálogo y rendimiento comercial"
+        title="Resumen" 
+        subtitle=""
       >
         <MetricGrid columns={4}>
           <EnhancedMetricCard
@@ -211,8 +200,8 @@ const ProductosModule = () => {
 
       {/* Enhanced Products List */}
       <Section 
-        title="Catálogo Completo de Productos"
-        subtitle="Gestión avanzada con búsqueda inteligente y controles rápidos"
+        title="Catálogo"
+        subtitle=""
       >
         <Card className="card-gradient">
           <CardHeader>

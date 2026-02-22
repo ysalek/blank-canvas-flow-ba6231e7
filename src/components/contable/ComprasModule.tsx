@@ -186,12 +186,12 @@ const ComprasModule = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Gestión de Compras</h2>
-          <p className="text-muted-foreground">Control de compras y proveedores con integración contable.</p>
+          <h2 className="text-lg font-semibold text-foreground">Compras</h2>
+          <p className="text-sm text-muted-foreground">Órdenes de compra y proveedores</p>
         </div>
-        <Button onClick={() => setShowNewCompraForm(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Nueva Compra
+        <Button size="sm" onClick={() => setShowNewCompraForm(true)}>
+          <Plus className="w-4 h-4 mr-1.5" />
+          Nueva
         </Button>
       </div>
 

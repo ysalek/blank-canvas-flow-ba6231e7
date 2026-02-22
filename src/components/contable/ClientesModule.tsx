@@ -138,27 +138,24 @@ const ClientesModule = () => {
     <div className="space-y-8">
       {/* Enhanced Header */}
       <EnhancedHeader
-        title="Centro de Relaciones Comerciales"
-        subtitle="Gestión integral de clientes con historial comercial y análisis de comportamiento"
+        title="Clientes"
+        subtitle="Gestión de contactos y directorio comercial"
         badge={{
-          text: `${clientesActivos} Clientes Activos`,
+          text: `${clientesActivos} activos`,
           variant: "default"
         }}
         actions={
-          <Button 
-            className="bg-gradient-to-r from-primary to-primary/80 shadow-lg hover:shadow-xl"
-            onClick={() => setShowForm(true)}
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Nuevo Cliente
+          <Button size="sm" onClick={() => setShowForm(true)}>
+            <Plus className="w-4 h-4 mr-1.5" />
+            Nuevo
           </Button>
         }
       />
 
       {/* Enhanced Metrics Section */}
       <Section 
-        title="Métricas de Clientes" 
-        subtitle="Indicadores clave de la base de clientes y actividad comercial"
+        title="Resumen" 
+        subtitle=""
       >
         <MetricGrid columns={3}>
           <EnhancedMetricCard
@@ -193,8 +190,8 @@ const ClientesModule = () => {
 
       {/* Enhanced Client List */}
       <Section 
-        title="Directorio de Clientes"
-        subtitle="Base de datos completa con información de contacto y estado comercial"
+        title="Directorio"
+        subtitle=""
       >
         <Card className="card-gradient">
           <CardHeader>
