@@ -20,20 +20,34 @@ export const useSupabasePlanCuentas = () => {
   const { toast } = useToast();
 
   const fetchPlanCuentas = async () => {
+    setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setPlanCuentas([]); setLoading(false); return; }
+      if (!user) { 
+        console.log('📋 [PlanCuentas] No hay usuario autenticado');
+        setPlanCuentas([]); 
+        setLoading(false); 
+        return; 
+      }
+
+      console.log('📋 [PlanCuentas] Consultando para user:', user.id);
 
       const { data, error } = await supabase
         .from('plan_cuentas')
-        .select('*')
+        .select('id,codigo,nombre,tipo,naturaleza,nivel,cuenta_padre,saldo,activa,user_id')
         .eq('user_id', user.id)
         .order('codigo', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [PlanCuentas] Error:', error);
+        throw error;
+      }
+      
+      console.log('✅ [PlanCuentas] Cuentas encontradas:', data?.length || 0);
       setPlanCuentas(data || []);
     } catch (error) {
-      console.error('Error fetching plan cuentas:', error);
+      console.error('❌ [PlanCuentas] Error general:', error);
+      setPlanCuentas([]);
       toast({ title: "Error", description: "No se pudo cargar el plan de cuentas", variant: "destructive" });
     } finally {
       setLoading(false);
