@@ -324,16 +324,16 @@ const FacturacionModule = () => {
     // Verificar que hay productos disponibles antes de mostrar el formulario
     if (productos.length === 0) {
       return (
-        <div className="flex items-center justify-center min-h-[400px]">
+         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-yellow-100 flex items-center justify-center">
-              <Package className="w-8 h-8 text-yellow-600" />
+            <div className="w-16 h-16 mx-auto rounded-full bg-warning/10 flex items-center justify-center">
+              <Package className="w-8 h-8 text-warning" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">No hay productos disponibles</h3>
-              <p className="text-gray-600 max-w-sm mx-auto">
-                Necesitas tener productos registrados en el sistema antes de crear facturas. 
-                Por favor, dirígete al módulo de Productos para agregar productos.
+              <h3 className="text-lg font-semibold text-foreground">No hay productos disponibles</h3>
+              <p className="text-muted-foreground max-w-sm mx-auto">
+                Necesitas tener productos registrados antes de crear facturas. 
+                Dirígete al módulo de Productos para agregar productos.
               </p>
             </div>
             <Button onClick={() => setShowNewInvoice(false)} variant="outline">
@@ -399,94 +399,73 @@ const FacturacionModule = () => {
   const facturasHoy = facturas.filter(f => f.fecha === new Date().toISOString().slice(0, 10)).length;
 
   return (
-    <div className="space-y-8">
-      {/* Enhanced Header */}
+    <div className="space-y-6">
+      {/* Header compacto */}
       <EnhancedHeader
-        title="Facturación Electrónica Integrada"
-        subtitle="Sistema completo de facturación con integración SIN, control contable e inventario automático"
+        title="Facturación"
+        subtitle="Emisión, control y seguimiento de facturas"
         badge={{
-          text: `${facturas.length} Facturas Registradas`,
-          variant: "default"
+          text: `${facturas.length} facturas`,
+          variant: "secondary"
         }}
         actions={
           <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" onClick={() => setShowAccountingHistory(true)}>
-              <FileText className="w-4 h-4 mr-2" />
-              Historial Contable
+            <Button size="sm" variant="outline" onClick={() => setShowAccountingHistory(true)}>
+              <FileText className="w-4 h-4 mr-1.5" />
+              Asientos
             </Button>
-            <Button variant="outline" onClick={() => setShowDeclaracionIVA(true)}>
-              <BarChart className="w-4 h-4 mr-2" />
-              Declaración IVA
+            <Button size="sm" variant="outline" onClick={() => setShowDeclaracionIVA(true)}>
+              <BarChart className="w-4 h-4 mr-1.5" />
+              IVA
             </Button>
             <Button 
-              className="bg-gradient-to-r from-primary to-primary/80 shadow-lg hover:shadow-xl"
+              size="sm"
               onClick={() => setShowNewInvoice(true)}
             >
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-4 h-4 mr-1.5" />
               Nueva Factura
             </Button>
           </div>
         }
       />
 
-      {/* Enhanced Metrics Section */}
-      <Section 
-        title="Métricas de Facturación" 
-        subtitle="Indicadores clave del rendimiento comercial y financiero"
-      >
-        <MetricGrid columns={4}>
-          <EnhancedMetricCard
-            title="Total Facturas"
-            value={facturas.length}
-            subtitle="Facturas registradas"
-            icon={FileText}
-            variant="default"
-            trend="up"
-            trendValue={`${facturasHoy} hoy`}
-          />
-          <EnhancedMetricCard
-            title="Ingresos del Mes"
-            value={`Bs. ${ingresosMes.toLocaleString()}`}
-            subtitle="Facturas pagadas"
-            icon={DollarSign}
-            variant="success"
-            trend="up"
-            trendValue={`${facturasPagadas} pagadas`}
-          />
-          <EnhancedMetricCard
-            title="Facturas Pendientes"
-            value={facturasEnviadas}
-            subtitle="Esperando pago"
-            icon={AlertCircle}
-            variant={facturasEnviadas > 0 ? "warning" : "success"}
-            trend={facturasEnviadas > 0 ? "down" : "up"}
-            trendValue="Por cobrar"
-          />
-          <EnhancedMetricCard
-            title="Tasa de Éxito SIN"
-            value={`${facturas.length > 0 ? (((facturas.length - facturasRechazadas) / facturas.length) * 100).toFixed(1) : 0}%`}
-            subtitle={`${facturasRechazadas} rechazadas`}
-            icon={CheckCircle}
-            variant={facturasRechazadas === 0 ? "success" : "warning"}
-            trend={facturasRechazadas === 0 ? "up" : "down"}
-            trendValue="Integración SIN"
-          />
-        </MetricGrid>
-      </Section>
+      {/* KPIs en línea compacta */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card">
+          <div className="p-2 rounded-lg bg-primary/10"><FileText className="w-4 h-4 text-primary" /></div>
+          <div>
+            <p className="text-xl font-bold">{facturas.length}</p>
+            <p className="text-xs text-muted-foreground">Total</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card">
+          <div className="p-2 rounded-lg bg-success/10"><DollarSign className="w-4 h-4 text-success" /></div>
+          <div>
+            <p className="text-xl font-bold">Bs {ingresosMes.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">Cobrado</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card">
+          <div className="p-2 rounded-lg bg-warning/10"><AlertCircle className="w-4 h-4 text-warning" /></div>
+          <div>
+            <p className="text-xl font-bold">{facturasEnviadas}</p>
+            <p className="text-xs text-muted-foreground">Pendientes</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card">
+          <div className="p-2 rounded-lg bg-success/10"><CheckCircle className="w-4 h-4 text-success" /></div>
+          <div>
+            <p className="text-xl font-bold">{facturas.length > 0 ? (((facturas.length - facturasRechazadas) / facturas.length) * 100).toFixed(0) : 100}%</p>
+            <p className="text-xs text-muted-foreground">Éxito SIN</p>
+          </div>
+        </div>
+      </div>
 
-      {/* Enhanced Invoice Summary */}
-      <Section 
-        title="Resumen Ejecutivo de Facturación"
-        subtitle="Vista consolidada del estado actual de todas las facturas"
-      >
-        <InvoiceSummary facturas={facturas} />
-      </Section>
+      {/* Resumen */}
+      <InvoiceSummary facturas={facturas} />
 
-      {/* Enhanced Invoice List */}
-      <Section 
-        title="Gestión de Facturas"
-        subtitle="Lista completa con controles de estado y acciones rápidas"
-      >
+      {/* Lista de Facturas */}
+      <Section title="Facturas" subtitle="Lista con acciones rápidas">
         <InvoiceList 
           facturas={facturas} 
           onShowDetails={handleShowDetails}
