@@ -108,20 +108,9 @@ export const useReportesContables = (productos?: any[]) => {
 
   const getTrialBalanceData = (filtros?: { fechaInicio?: string, fechaFin?: string, cuentaInicio?: string, cuentaFin?: string }): { details: TrialBalanceDetail[], totals: TrialBalanceTotals } => {
     const asientos = getAsientos();
-    
-    // Obtener comprobantes para verificar estado de anulación
-    const comprobantesIntegrados = JSON.parse(localStorage.getItem('comprobantes_integrados') || '[]');
-    
+
     const filteredAsientos = asientos.filter(asiento => {
       if (asiento.estado !== 'registrado') return false;
-      
-      // Excluir asientos de comprobantes anulados (excepto los asientos de reversión)
-      if (asiento.comprobanteId && asiento.origen !== 'anulacion_comprobante') {
-        const comprobante = comprobantesIntegrados.find((c: any) => c.id === asiento.comprobanteId);
-        if (comprobante && comprobante.estado === 'anulado') {
-          return false; // Excluir el asiento original del comprobante anulado
-        }
-      }
       
       // Filtro por fechas
       if (filtros?.fechaInicio || filtros?.fechaFin) {
