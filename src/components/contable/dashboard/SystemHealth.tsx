@@ -130,16 +130,20 @@ export const SystemHealth: React.FC = () => {
       });
     }
 
-    // Performance (usar navegación timing si está disponible)
-    let performanceScore = 85; // valor por defecto
+    // Performance - usar Navigation Timing API para medir tiempo de carga real
+    let performanceScore = 85;
     let performanceDescription = 'Rendimiento estimado';
     
     try {
-      if ('navigation' in performance && performance.navigation) {
-        // Usar tiempo de carga de la página como métrica base
-        const loadTime = Date.now() - performance.timeOrigin;
-        performanceScore = Math.max(0, Math.min(100, 100 - Math.floor(loadTime / 1000)));
-        performanceDescription = `Tiempo de respuesta: ${Math.round(loadTime)}ms`;
+      const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+      if (navEntries.length > 0) {
+        const nav = navEntries[0];
+        const pageLoadTime = nav.loadEventEnd - nav.startTime;
+        // Score: <2s = 95, <5s = 80, <10s = 60, >10s = 40
+        if (pageLoadTime > 0) {
+          performanceScore = pageLoadTime < 2000 ? 95 : pageLoadTime < 5000 ? 80 : pageLoadTime < 10000 ? 60 : 40;
+          performanceDescription = `Carga inicial: ${(pageLoadTime / 1000).toFixed(1)}s`;
+        }
       }
     } catch (error) {
       console.log('Métricas de rendimiento no disponibles');
@@ -241,7 +245,7 @@ export const SystemHealth: React.FC = () => {
 
   useEffect(() => {
     checkSystemHealth();
-    const interval = setInterval(checkSystemHealth, 30000); // Check every 30 seconds
+    const interval = setInterval(checkSystemHealth, 120000); // Check every 2 minutes
     return () => clearInterval(interval);
   }, []);
 
