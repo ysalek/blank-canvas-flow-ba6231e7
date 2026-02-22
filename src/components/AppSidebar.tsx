@@ -28,11 +28,11 @@ const menuItems = [
     items: [
       { title: 'Plan de Cuentas', url: '/?view=plan-cuentas', icon: BookOpen, plan: 'basic' as const },
       { title: 'Comprobantes', url: '/?view=comprobantes-integrados', icon: FileCheck, plan: 'basic' as const },
-      { title: 'Libro Diario', url: '/?view=diario', icon: FileText, plan: 'basic' as const },
-      { title: 'Libro Mayor', url: '/?view=mayor', icon: BookOpenCheck, plan: 'basic' as const },
-      { title: 'Balance Comprobación', url: '/?view=balance-comprobacion', icon: Scale, plan: 'basic' as const },
+      { title: 'Diario', url: '/?view=diario', icon: FileText, plan: 'basic' as const },
+      { title: 'Mayor', url: '/?view=mayor', icon: BookOpenCheck, plan: 'basic' as const },
+      { title: 'Balance Comprob.', url: '/?view=balance-comprobacion', icon: Scale, plan: 'basic' as const },
       { title: 'Balance General', url: '/?view=balance-general', icon: FileBarChart, plan: 'pro' as const },
-      { title: 'Estado de Resultados', url: '/?view=estado-resultados', icon: TrendingUp, plan: 'pro' as const },
+      { title: 'Resultados', url: '/?view=estado-resultados', icon: TrendingUp, plan: 'pro' as const },
     ]
   },
   {
@@ -40,8 +40,8 @@ const menuItems = [
     items: [
       { title: 'Facturación', url: '/?view=facturacion', icon: Receipt, plan: 'basic' as const },
       { title: 'Punto de Venta', url: '/?view=punto-venta', icon: CreditCard, plan: 'pro' as const },
-      { title: 'Ventas a Crédito', url: '/?view=credit-sales', icon: DollarSign, plan: 'pro' as const },
-      { title: 'Notas Crédito/Débito', url: '/?view=notas-credito-debito', icon: FileMinus, plan: 'pro' as const },
+      { title: 'Ventas Crédito', url: '/?view=credit-sales', icon: DollarSign, plan: 'pro' as const },
+      { title: 'Notas C/D', url: '/?view=notas-credito-debito', icon: FileMinus, plan: 'pro' as const },
       { title: 'Compras', url: '/?view=compras', icon: ShoppingCart, plan: 'pro' as const },
       { title: 'Proveedores', url: '/?view=proveedores', icon: Truck, plan: 'pro' as const },
       { title: 'Clientes', url: '/?view=clientes', icon: Users, plan: 'basic' as const },
@@ -60,16 +60,16 @@ const menuItems = [
     group: 'Finanzas',
     items: [
       { title: 'Bancos', url: '/?view=bancos', icon: Building2, plan: 'pro' as const },
-      { title: 'Conciliación Bancaria', url: '/?view=conciliacion-bancaria', icon: ArrowLeftRight, plan: 'pro' as const },
-      { title: 'Flujo de Caja', url: '/?view=flujo-caja', icon: PiggyBank, plan: 'pro' as const },
-      { title: 'Cuentas CxC/CxP', url: '/?view=cuentas-cobrar-pagar', icon: CreditCard, plan: 'pro' as const },
+      { title: 'Conciliación', url: '/?view=conciliacion-bancaria', icon: ArrowLeftRight, plan: 'pro' as const },
+      { title: 'Flujo Caja', url: '/?view=flujo-caja', icon: PiggyBank, plan: 'pro' as const },
+      { title: 'CxC / CxP', url: '/?view=cuentas-cobrar-pagar', icon: CreditCard, plan: 'pro' as const },
     ]
   },
   {
     group: 'Impuestos SIN',
     items: [
-      { title: 'Libro Compras/Ventas', url: '/?view=libro-compras-ventas', icon: FileOutput, plan: 'pro' as const },
-      { title: 'Declaraciones IVA', url: '/?view=declaraciones-tributarias', icon: FileText, plan: 'pro' as const },
+      { title: 'Libro C/V', url: '/?view=libro-compras-ventas', icon: FileOutput, plan: 'pro' as const },
+      { title: 'IVA', url: '/?view=declaraciones-tributarias', icon: FileText, plan: 'pro' as const },
       { title: 'Cumplimiento', url: '/?view=cumplimiento-normativo', icon: Shield, plan: 'pro' as const },
       { title: 'Retenciones', url: '/?view=retenciones', icon: Receipt, plan: 'pro' as const },
       { title: 'Fact. Electrónica', url: '/?view=facturacion-electronica', icon: Zap, plan: 'pro' as const },
@@ -79,7 +79,7 @@ const menuItems = [
     group: 'Planificación',
     items: [
       { title: 'Presupuestos', url: '/?view=presupuestos', icon: Target, plan: 'pro' as const },
-      { title: 'Centros de Costo', url: '/?view=centros-costo', icon: Factory, plan: 'pro' as const },
+      { title: 'Centros Costo', url: '/?view=centros-costo', icon: Factory, plan: 'pro' as const },
     ]
   },
   {
@@ -93,8 +93,8 @@ const menuItems = [
     group: 'Reportes',
     items: [
       { title: 'Reportes', url: '/?view=reportes', icon: FileBarChart, plan: 'pro' as const },
-      { title: 'Análisis Financiero', url: '/?view=analisis-financiero', icon: TrendingUp, plan: 'pro' as const },
-      { title: 'Análisis IA', url: '/?view=analisis-inteligente', icon: Brain, plan: 'enterprise' as const },
+      { title: 'Análisis', url: '/?view=analisis-financiero', icon: TrendingUp, plan: 'pro' as const },
+      { title: 'IA', url: '/?view=analisis-inteligente', icon: Brain, plan: 'enterprise' as const },
       { title: 'Rentabilidad', url: '/?view=rentabilidad', icon: TrendingUp, plan: 'enterprise' as const },
       { title: 'Auditoría', url: '/?view=auditoria-avanzada', icon: TestTube, plan: 'enterprise' as const },
     ]

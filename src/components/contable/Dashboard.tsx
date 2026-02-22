@@ -64,40 +64,19 @@ const Dashboard = () => {
   return (
     <div className="space-y-6 pb-12">
       {/* Header con resumen */}
-      <div className="bg-gradient-primary rounded-2xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Activity className="w-7 h-7" /> Dashboard Empresarial
-            </h1>
-            <p className="text-white/80 text-sm mt-1 capitalize">{fechaActual}</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Badge className={`text-sm px-3 py-1.5 ${balanceCuadrado ? 'bg-white/20 border-white/30' : 'bg-destructive border-destructive'}`}>
-              {balanceCuadrado
-                ? <><CheckCircle className="w-4 h-4 mr-1.5" /> Balance Cuadrado</>
-                : <><AlertTriangle className="w-4 h-4 mr-1.5" /> Verificar Balance</>
-              }
-            </Badge>
-            <NotificationsIcon />
-          </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
+          <p className="text-sm text-muted-foreground capitalize">{fechaActual}</p>
         </div>
-
-        {/* Mini-metrics en el header */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
-          {[
-            { label: 'Ventas hoy', value: `Bs ${metrics.ventasHoy.toLocaleString()}`, icon: DollarSign },
-            { label: 'Facturas del mes', value: metrics.facturasDelMes.toString(), icon: Receipt },
-            { label: 'Clientes activos', value: metrics.clientesActivos.toString(), icon: Users },
-            { label: 'Productos', value: productos.length.toString(), icon: Package },
-          ].map((m, i) => (
-            <div key={i} className="bg-white/10 backdrop-blur-sm rounded-xl p-3">
-              <div className="flex items-center gap-2 text-white/70 text-xs mb-1">
-                <m.icon className="w-3.5 h-3.5" /> {m.label}
-              </div>
-              <div className="text-lg font-bold">{isLoading ? '...' : m.value}</div>
-            </div>
-          ))}
+        <div className="flex items-center gap-2">
+          <Badge variant={balanceCuadrado ? "default" : "destructive"} className="text-xs">
+            {balanceCuadrado
+              ? <><CheckCircle className="w-3.5 h-3.5 mr-1" /> Cuadrado</>
+              : <><AlertTriangle className="w-3.5 h-3.5 mr-1" /> Descuadrado</>
+            }
+          </Badge>
+          <NotificationsIcon />
         </div>
       </div>
 
@@ -167,7 +146,7 @@ const Dashboard = () => {
 
       {/* Accesos rápidos */}
       <div>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Accesos Rápidos</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Acceso Rápido</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {[
             { label: 'Nueva Factura', icon: Receipt, view: 'facturacion', color: 'bg-success/10 text-success' },
@@ -312,7 +291,7 @@ const Dashboard = () => {
 
       {/* Análisis Financiero */}
       <div>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Análisis Financiero</h2>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Análisis</h2>
         <EnhancedFinancialDashboard facturas={facturas} asientos={asientosReales} productos={productos.map(p => ({
           id: String(p.id),
           codigo: String(p.codigo || ''),
