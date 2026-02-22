@@ -12,6 +12,7 @@ import { usePlan, PLAN_PRICES } from '@/hooks/usePlan';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { usePaymentConfig } from '@/hooks/usePaymentConfig';
 
 interface PlanUpgradeModalProps {
   open: boolean;
@@ -43,14 +44,6 @@ const features = [
   { name: 'Backup automático', basic: false, pro: true, enterprise: true },
 ];
 
-const TIGO_MONEY_NUMBER = '78912345';
-const BANK_ACCOUNT = {
-  banco: 'Banco Mercantil Santa Cruz',
-  titular: 'ContaBolivia SRL',
-  nroCuenta: '4010-123456-001',
-  moneda: 'Bolivianos (BOB)',
-};
-
 type Step = 'plans' | 'payment';
 type PaymentMethod = 'tigo_money' | 'qr_banco';
 
@@ -66,6 +59,7 @@ const renderCell = (value: boolean | string) => {
 const PlanUpgradeModal = ({ open, onOpenChange }: PlanUpgradeModalProps) => {
   const { currentPlan } = usePlan();
   const { user } = useAuth();
+  const { config, loading: configLoading, isConfigured } = usePaymentConfig();
   const [step, setStep] = useState<Step>('plans');
   const [selectedPlan, setSelectedPlan] = useState<'pro' | 'enterprise'>('pro');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
@@ -112,8 +106,6 @@ const PlanUpgradeModal = ({ open, onOpenChange }: PlanUpgradeModalProps) => {
 
     setSubmitting(true);
     try {
-      // Save payment request in a generic way using the existing subscribers table
-      // We'll store a payment_request as a note on the subscriber record
       const { data: existingSub } = await supabase
         .from('subscribers')
         .select('id')
@@ -125,7 +117,6 @@ const PlanUpgradeModal = ({ open, onOpenChange }: PlanUpgradeModalProps) => {
           .from('subscribers')
           .update({
             updated_at: new Date().toISOString(),
-            // Store payment info in stripe_customer_id field temporarily as a JSON string
             stripe_customer_id: JSON.stringify({
               type: 'payment_request',
               method: paymentMethod,
@@ -154,6 +145,10 @@ const PlanUpgradeModal = ({ open, onOpenChange }: PlanUpgradeModalProps) => {
   };
 
   const planPrice = PLAN_PRICES[selectedPlan];
+
+  // Determine which payment methods are available based on config
+  const hasTigoMoney = config.tigo_money_number !== '';
+  const hasBankAccount = config.banco_cuenta !== '';
 
   if (submitted) {
     return (
@@ -283,44 +278,50 @@ const PlanUpgradeModal = ({ open, onOpenChange }: PlanUpgradeModalProps) => {
               </div>
             </DialogHeader>
 
-            {/* Payment Method Selection */}
-            {!paymentMethod ? (
+            {configLoading ? (
+              <div className="py-8 text-center text-muted-foreground">Cargando métodos de pago...</div>
+            ) : !isConfigured ? (
+              <div className="py-8 text-center text-muted-foreground">
+                <p className="font-medium">Métodos de pago no configurados</p>
+                <p className="text-sm mt-1">El administrador aún no ha configurado los datos de pago. Intente más tarde.</p>
+              </div>
+            ) : !paymentMethod ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                <Card 
-                  className="cursor-pointer hover:border-primary hover:shadow-md transition-all group"
-                  onClick={() => setPaymentMethod('tigo_money')}
-                >
-                  <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-                    <div className="w-14 h-14 rounded-2xl bg-[hsl(210,80%,50%)]/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <Smartphone className="w-7 h-7 text-[hsl(210,80%,50%)]" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg">Tigo Money</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Pago inmediato desde su celular Tigo
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="text-xs">Transferencia móvil</Badge>
-                  </CardContent>
-                </Card>
+                {hasTigoMoney && (
+                  <Card 
+                    className="cursor-pointer hover:border-primary hover:shadow-md transition-all group"
+                    onClick={() => setPaymentMethod('tigo_money')}
+                  >
+                    <CardContent className="p-6 flex flex-col items-center text-center gap-3">
+                      <div className="w-14 h-14 rounded-2xl bg-[hsl(210,80%,50%)]/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Smartphone className="w-7 h-7 text-[hsl(210,80%,50%)]" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg">Tigo Money</h3>
+                        <p className="text-sm text-muted-foreground mt-1">Pago inmediato desde su celular Tigo</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">Transferencia móvil</Badge>
+                    </CardContent>
+                  </Card>
+                )}
 
-                <Card 
-                  className="cursor-pointer hover:border-primary hover:shadow-md transition-all group"
-                  onClick={() => setPaymentMethod('qr_banco')}
-                >
-                  <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-                    <div className="w-14 h-14 rounded-2xl bg-success/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <QrCode className="w-7 h-7 text-success" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg">QR Simple</h3>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Escanee con su app bancaria
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="text-xs">Cualquier banco</Badge>
-                  </CardContent>
-                </Card>
+                {hasBankAccount && (
+                  <Card 
+                    className="cursor-pointer hover:border-primary hover:shadow-md transition-all group"
+                    onClick={() => setPaymentMethod('qr_banco')}
+                  >
+                    <CardContent className="p-6 flex flex-col items-center text-center gap-3">
+                      <div className="w-14 h-14 rounded-2xl bg-success/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <QrCode className="w-7 h-7 text-success" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg">QR Simple</h3>
+                        <p className="text-sm text-muted-foreground mt-1">Escanee con su app bancaria</p>
+                      </div>
+                      <Badge variant="outline" className="text-xs">Cualquier banco</Badge>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             ) : (
               <div className="space-y-5 mt-4">
@@ -343,22 +344,20 @@ const PlanUpgradeModal = ({ open, onOpenChange }: PlanUpgradeModalProps) => {
                         <div className="bg-card rounded-lg p-3 border space-y-2">
                           <p className="font-medium">Enviar a este número:</p>
                           <div className="flex items-center gap-2">
-                            <code className="text-lg font-bold font-mono text-primary">{TIGO_MONEY_NUMBER}</code>
+                            <code className="text-lg font-bold font-mono text-primary">{config.tigo_money_number}</code>
                             <Button 
-                              size="icon" 
-                              variant="ghost" 
-                              className="h-7 w-7"
-                              onClick={() => copyToClipboard(TIGO_MONEY_NUMBER, 'Número')}
+                              size="icon" variant="ghost" className="h-7 w-7"
+                              onClick={() => copyToClipboard(config.tigo_money_number, 'Número')}
                             >
                               {copied === 'Número' ? <CheckCircle className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
                             </Button>
                           </div>
-                          <p className="text-muted-foreground">Titular: <span className="font-medium text-foreground">ContaBolivia SRL</span></p>
+                          <p className="text-muted-foreground">Titular: <span className="font-medium text-foreground">{config.tigo_money_titular}</span></p>
                         </div>
                         <ol className="space-y-1.5 text-muted-foreground list-decimal list-inside">
                           <li>Marque <span className="font-mono font-medium text-foreground">*555#</span> desde su celular Tigo</li>
                           <li>Seleccione "Enviar dinero"</li>
-                          <li>Ingrese el número: <span className="font-medium text-foreground">{TIGO_MONEY_NUMBER}</span></li>
+                          <li>Ingrese el número: <span className="font-medium text-foreground">{config.tigo_money_number}</span></li>
                           <li>Monto: <span className="font-bold text-foreground">Bs {planPrice.monthlyBs}</span></li>
                           <li>Confirme con su PIN de Tigo Money</li>
                           <li>Anote el <span className="font-medium text-foreground">número de transacción</span> que recibe por SMS</li>
@@ -371,17 +370,15 @@ const PlanUpgradeModal = ({ open, onOpenChange }: PlanUpgradeModalProps) => {
                           <div className="space-y-1.5">
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Banco:</span>
-                              <span className="font-medium">{BANK_ACCOUNT.banco}</span>
+                              <span className="font-medium">{config.banco_nombre}</span>
                             </div>
                             <div className="flex justify-between items-center">
                               <span className="text-muted-foreground">Cuenta:</span>
                               <div className="flex items-center gap-1">
-                                <span className="font-mono font-medium">{BANK_ACCOUNT.nroCuenta}</span>
+                                <span className="font-mono font-medium">{config.banco_cuenta}</span>
                                 <Button 
-                                  size="icon" 
-                                  variant="ghost" 
-                                  className="h-6 w-6"
-                                  onClick={() => copyToClipboard(BANK_ACCOUNT.nroCuenta, 'Cuenta')}
+                                  size="icon" variant="ghost" className="h-6 w-6"
+                                  onClick={() => copyToClipboard(config.banco_cuenta, 'Cuenta')}
                                 >
                                   {copied === 'Cuenta' ? <CheckCircle className="w-3 h-3 text-success" /> : <Copy className="w-3 h-3" />}
                                 </Button>
@@ -389,11 +386,11 @@ const PlanUpgradeModal = ({ open, onOpenChange }: PlanUpgradeModalProps) => {
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Titular:</span>
-                              <span className="font-medium">{BANK_ACCOUNT.titular}</span>
+                              <span className="font-medium">{config.banco_titular}</span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-muted-foreground">Moneda:</span>
-                              <span className="font-medium">{BANK_ACCOUNT.moneda}</span>
+                              <span className="font-medium">{config.banco_moneda}</span>
                             </div>
                           </div>
                         </div>

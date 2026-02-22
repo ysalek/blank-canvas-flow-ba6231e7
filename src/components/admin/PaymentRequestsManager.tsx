@@ -1,14 +1,17 @@
-
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Smartphone, QrCode, CheckCircle, XCircle, Clock, RefreshCw, Eye, DollarSign } from 'lucide-react';
+import { Smartphone, QrCode, CheckCircle, XCircle, Clock, RefreshCw, Eye, DollarSign, Settings, Save } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { PLAN_PRICES } from '@/hooks/usePlan';
+import { usePaymentConfig, PaymentConfig } from '@/hooks/usePaymentConfig';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface PaymentRequest {
   subscriberId: string;
@@ -28,7 +31,11 @@ const PaymentRequestsManager = () => {
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const { config, loading: configLoading, saveConfig, isConfigured } = usePaymentConfig();
+  const [editConfig, setEditConfig] = useState<PaymentConfig>(config);
+  const [savingConfig, setSavingConfig] = useState(false);
 
+  useEffect(() => { setEditConfig(config); }, [config]);
   useEffect(() => { loadRequests(); }, []);
 
   const loadRequests = async () => {
@@ -38,6 +45,7 @@ const PaymentRequestsManager = () => {
         .from('subscribers')
         .select('id, email, stripe_customer_id, subscription_tier, subscribed')
         .not('stripe_customer_id', 'is', null)
+        .neq('email', '__payment_config__')
         .order('updated_at', { ascending: false });
 
       const parsed: PaymentRequest[] = [];
@@ -59,9 +67,7 @@ const PaymentRequestsManager = () => {
               });
             }
           }
-        } catch {
-          // Not a payment request JSON, skip
-        }
+        } catch { /* skip */ }
       }
       setRequests(parsed);
     } catch (error) {
@@ -122,6 +128,17 @@ const PaymentRequestsManager = () => {
     }
   };
 
+  const handleSaveConfig = async () => {
+    setSavingConfig(true);
+    try {
+      await saveConfig(editConfig);
+      toast({ title: 'Configuración guardada', description: 'Los datos de pago se actualizaron correctamente' });
+    } catch (error) {
+      toast({ title: 'Error', description: 'No se pudo guardar la configuración', variant: 'destructive' });
+    }
+    setSavingConfig(false);
+  };
+
   const pendingCount = requests.filter(r => r.status === 'pending').length;
   const approvedCount = requests.filter(r => r.status === 'approved').length;
 
@@ -134,7 +151,7 @@ const PaymentRequestsManager = () => {
           </div>
           <div>
             <h2 className="text-2xl font-bold">Pagos Bolivia</h2>
-            <p className="text-sm text-muted-foreground">Verificación de pagos Tigo Money y QR Bancario</p>
+            <p className="text-sm text-muted-foreground">Configuración y verificación de pagos</p>
           </div>
         </div>
         <Button variant="outline" size="sm" onClick={loadRequests} className="gap-2">
@@ -142,119 +159,230 @@ const PaymentRequestsManager = () => {
         </Button>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+      {!isConfigured && !configLoading && (
+        <Card className="border-warning/50 bg-warning/5">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Settings className="w-5 h-5 text-warning" />
               <div>
-                <p className="text-xs text-muted-foreground">Pendientes</p>
-                <p className="text-2xl font-bold">{pendingCount}</p>
+                <p className="font-medium">Configure sus datos de pago</p>
+                <p className="text-sm text-muted-foreground">Debe configurar al menos un método de pago (Tigo Money o cuenta bancaria) para que los clientes puedan realizar pagos.</p>
               </div>
-              <div className="p-2 rounded-full bg-warning/10"><Clock className="w-5 h-5 text-warning" /></div>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Aprobados</p>
-                <p className="text-2xl font-bold">{approvedCount}</p>
-              </div>
-              <div className="p-2 rounded-full bg-success/10"><CheckCircle className="w-5 h-5 text-success" /></div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Total Solicitudes</p>
-                <p className="text-2xl font-bold">{requests.length}</p>
-              </div>
-              <div className="p-2 rounded-full bg-primary/10"><DollarSign className="w-5 h-5 text-primary" /></div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      )}
 
-      {/* Requests Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Solicitudes de Pago</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="p-6 space-y-3">
-              {[1, 2, 3].map(i => <div key={i} className="h-12 bg-muted rounded animate-pulse" />)}
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Método</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Referencia</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {requests.map((req, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {new Date(req.date).toLocaleDateString('es-BO')}
-                    </TableCell>
-                    <TableCell className="font-medium text-sm">{req.email}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs gap-1">
-                        {req.method === 'tigo_money' ? (
-                          <><Smartphone className="w-3 h-3" /> Tigo Money</>
-                        ) : (
-                          <><QrCode className="w-3 h-3" /> QR Banco</>
-                        )}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={req.plan === 'enterprise' ? 'default' : 'secondary'} className="text-xs">
-                        {req.plan === 'pro' ? 'Pro' : 'Enterprise'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{req.ref}</TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant={req.status === 'approved' ? 'default' : req.status === 'rejected' ? 'destructive' : 'outline'}
-                        className="text-xs"
-                      >
-                        {req.status === 'approved' ? 'Aprobado' : req.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        onClick={() => { setSelectedRequest(req); setDetailOpen(true); }}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {requests.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      No hay solicitudes de pago
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <Tabs defaultValue={!isConfigured ? 'config' : 'requests'}>
+        <TabsList>
+          <TabsTrigger value="config" className="gap-2">
+            <Settings className="w-4 h-4" /> Configuración
+          </TabsTrigger>
+          <TabsTrigger value="requests" className="gap-2">
+            <DollarSign className="w-4 h-4" /> Solicitudes
+            {pendingCount > 0 && (
+              <Badge variant="destructive" className="text-[10px] px-1.5 py-0 ml-1">{pendingCount}</Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="config" className="space-y-4 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Tigo Money Config */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Smartphone className="w-5 h-5 text-[hsl(210,80%,50%)]" />
+                  Tigo Money
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Número Tigo Money</Label>
+                  <Input
+                    placeholder="Ej: 78912345"
+                    value={editConfig.tigo_money_number}
+                    onChange={(e) => setEditConfig(prev => ({ ...prev, tigo_money_number: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nombre del titular</Label>
+                  <Input
+                    placeholder="Ej: ContaBolivia SRL"
+                    value={editConfig.tigo_money_titular}
+                    onChange={(e) => setEditConfig(prev => ({ ...prev, tigo_money_titular: e.target.value }))}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Bank Account Config */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <QrCode className="w-5 h-5 text-success" />
+                  Cuenta Bancaria / QR
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Nombre del banco</Label>
+                  <Input
+                    placeholder="Ej: Banco Mercantil Santa Cruz"
+                    value={editConfig.banco_nombre}
+                    onChange={(e) => setEditConfig(prev => ({ ...prev, banco_nombre: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Titular de la cuenta</Label>
+                  <Input
+                    placeholder="Ej: ContaBolivia SRL"
+                    value={editConfig.banco_titular}
+                    onChange={(e) => setEditConfig(prev => ({ ...prev, banco_titular: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Número de cuenta</Label>
+                  <Input
+                    placeholder="Ej: 4010-123456-001"
+                    value={editConfig.banco_cuenta}
+                    onChange={(e) => setEditConfig(prev => ({ ...prev, banco_cuenta: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Moneda</Label>
+                  <Input
+                    placeholder="Ej: Bolivianos (BOB)"
+                    value={editConfig.banco_moneda}
+                    onChange={(e) => setEditConfig(prev => ({ ...prev, banco_moneda: e.target.value }))}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Button onClick={handleSaveConfig} disabled={savingConfig} className="gap-2">
+            <Save className="w-4 h-4" />
+            {savingConfig ? 'Guardando...' : 'Guardar configuración'}
+          </Button>
+        </TabsContent>
+
+        <TabsContent value="requests" className="space-y-4 mt-4">
+          {/* KPIs */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Pendientes</p>
+                    <p className="text-2xl font-bold">{pendingCount}</p>
+                  </div>
+                  <div className="p-2 rounded-full bg-warning/10"><Clock className="w-5 h-5 text-warning" /></div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Aprobados</p>
+                    <p className="text-2xl font-bold">{approvedCount}</p>
+                  </div>
+                  <div className="p-2 rounded-full bg-success/10"><CheckCircle className="w-5 h-5 text-success" /></div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total</p>
+                    <p className="text-2xl font-bold">{requests.length}</p>
+                  </div>
+                  <div className="p-2 rounded-full bg-primary/10"><DollarSign className="w-5 h-5 text-primary" /></div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Requests Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Solicitudes de Pago</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="p-6 space-y-3">
+                  {[1, 2, 3].map(i => <div key={i} className="h-12 bg-muted rounded animate-pulse" />)}
+                </div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Método</TableHead>
+                      <TableHead>Plan</TableHead>
+                      <TableHead>Referencia</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {requests.map((req, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {new Date(req.date).toLocaleDateString('es-BO')}
+                        </TableCell>
+                        <TableCell className="font-medium text-sm">{req.email}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs gap-1">
+                            {req.method === 'tigo_money' ? (
+                              <><Smartphone className="w-3 h-3" /> Tigo Money</>
+                            ) : (
+                              <><QrCode className="w-3 h-3" /> QR Banco</>
+                            )}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={req.plan === 'enterprise' ? 'default' : 'secondary'} className="text-xs">
+                            {req.plan === 'pro' ? 'Pro' : 'Enterprise'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{req.ref}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant={req.status === 'approved' ? 'default' : req.status === 'rejected' ? 'destructive' : 'outline'}
+                            className="text-xs"
+                          >
+                            {req.status === 'approved' ? 'Aprobado' : req.status === 'rejected' ? 'Rechazado' : 'Pendiente'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button 
+                            size="sm" 
+                            variant="ghost" 
+                            onClick={() => { setSelectedRequest(req); setDetailOpen(true); }}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {requests.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          No hay solicitudes de pago
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Detail Dialog */}
       {selectedRequest && (
