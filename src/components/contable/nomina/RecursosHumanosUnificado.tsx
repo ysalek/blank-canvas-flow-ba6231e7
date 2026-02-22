@@ -22,7 +22,7 @@ import {
   UserCheck,
   Banknote
 } from "lucide-react";
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 
 interface Empleado {
   id: string;

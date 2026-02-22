@@ -13,7 +13,7 @@ import { useInventarioBolivia } from "@/hooks/useInventarioBolivia";
 import { useSupabaseProductos } from "@/hooks/useSupabaseProductos";
 import { useSupabaseMovimientos } from "@/hooks/useSupabaseMovimientos";
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 import { EnhancedHeader, MetricGrid, EnhancedMetricCard, Section, ChartContainer } from "./dashboard/EnhancedLayout";
 import ProductListTab from "./inventory/ProductListTab";
 import MovementListTab from "./inventory/MovementListTab";

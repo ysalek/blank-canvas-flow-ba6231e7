@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Download, Edit, Filter } from "lucide-react";
 import { useContabilidadIntegration } from '@/hooks/useContabilidadIntegration';
 import { useReportesContables } from '@/hooks/useReportesContables';
-import * as XLSX from 'xlsx';
+import * as XLSX from '@e965/xlsx';
 
 const GeneralLedgerView = () => {
     const { getLibroMayor } = useContabilidadIntegration();
