@@ -193,10 +193,10 @@ const PlanCuentasModule = () => {
         <div className="flex items-center gap-3">
           <FolderTree className="w-6 h-6 text-primary" />
           <div>
-            <h2 className="text-2xl font-bold">Plan de Cuentas</h2>
-            <p className="text-slate-600">
-              Gestión del catálogo de cuentas contables
-            </p>
+           <h2 className="text-xl font-bold">Plan de Cuentas</h2>
+           <p className="text-sm text-muted-foreground">
+             Catálogo de cuentas contables
+           </p>
           </div>
         </div>
         <Dialog open={showNewCuenta} onOpenChange={setShowNewCuenta}>

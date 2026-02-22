@@ -25,27 +25,26 @@ export const EnhancedHeader = ({
   className 
 }: EnhancedLayoutProps) => {
   return (
-    <div className={cn("flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8", className)}>
-      <div className="space-y-2">
-        <div className="flex items-center gap-3">
-          <h1 className="text-4xl font-bold text-gradient bg-gradient-to-r from-primary to-primary/70">
+    <div className={cn("flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-border/60", className)}>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2.5">
+          <h1 className="text-xl font-bold text-foreground truncate">
             {title}
           </h1>
           {badge && (
-            <Badge variant={badge.variant || 'default'} className="px-3 py-1">
-              <Sparkles className="w-4 h-4 mr-1" />
+            <Badge variant={badge.variant || 'secondary'} className="text-xs px-2 py-0.5 shrink-0">
               {badge.text}
             </Badge>
           )}
         </div>
         {subtitle && (
-          <p className="text-lg text-muted-foreground max-w-2xl">
+          <p className="text-sm text-muted-foreground mt-0.5 truncate">
             {subtitle}
           </p>
         )}
       </div>
       {actions && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {actions}
         </div>
       )}
@@ -160,11 +159,11 @@ interface SectionProps {
 
 export const Section = ({ title, subtitle, children, className }: SectionProps) => {
   return (
-    <div className={cn("space-y-6", className)}>
-      <div className="space-y-2">
-        <h2 className="text-2xl font-semibold tracking-tight">{title}</h2>
+    <div className={cn("space-y-4", className)}>
+      <div>
+        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{title}</h2>
         {subtitle && (
-          <p className="text-muted-foreground">{subtitle}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
         )}
       </div>
       {children}
