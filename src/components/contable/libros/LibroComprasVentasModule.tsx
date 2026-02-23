@@ -89,7 +89,7 @@ const LibroComprasVentasModule = () => {
   const exportarExcel = () => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      import('xlsx').then(XLSX => {
+      import('@e965/xlsx').then(XLSX => {
         const wsData = [
           ['LIBRO DE VENTAS IVA', '', '', '', '', '', '', '', '', '', '', ''],
           [`Periodo: ${MESES[mesSeleccionado]} ${anioSeleccionado}`, '', '', '', '', '', '', '', '', '', '', ''],
