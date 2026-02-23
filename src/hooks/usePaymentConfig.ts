@@ -32,7 +32,7 @@ export const usePaymentConfig = () => {
         .from('subscribers')
         .select('stripe_customer_id')
         .eq('email', CONFIG_EMAIL)
-        .single();
+        .maybeSingle();
 
       if (data?.stripe_customer_id) {
         try {
@@ -58,7 +58,7 @@ export const usePaymentConfig = () => {
       .from('subscribers')
       .select('id')
       .eq('email', CONFIG_EMAIL)
-      .single();
+      .maybeSingle();
 
     if (existing) {
       await supabase
