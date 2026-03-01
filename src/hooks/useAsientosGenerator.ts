@@ -3,11 +3,11 @@ import { MovimientoInventario } from "@/components/contable/inventory/InventoryD
 import { Factura } from "@/components/contable/billing/BillingData";
 import { Compra } from "@/components/contable/purchases/PurchasesData";
 import { useAsientos } from "./useAsientos";
-import { useProductosUnificado } from "./useProductosUnificado";
+import { useProductosValidated } from "./useProductosValidated";
 
 export const useAsientosGenerator = () => {
   const { guardarAsiento } = useAsientos();
-  const { obtenerProductos } = useProductosUnificado();
+  const { obtenerProductos } = useProductosValidated();
 
   const generarAsientoInventario = async (movimiento: MovimientoInventario): Promise<AsientoContable | null> => {
     try {

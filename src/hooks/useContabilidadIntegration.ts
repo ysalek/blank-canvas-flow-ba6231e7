@@ -2,7 +2,6 @@ import { AsientoContable } from "@/components/contable/diary/DiaryData";
 import { MovimientoInventario } from "@/components/contable/inventory/InventoryData";
 import { useAsientos } from "./useAsientos";
 import { useReportesContables } from "./useReportesContables";
-import { useProductosUnificado } from "./useProductosUnificado";
 import { useAsientosGenerator } from "./useAsientosGenerator";
 import { useProductosValidated } from "./useProductosValidated";
 import type { 
@@ -14,7 +13,7 @@ import type {
   DeclaracionIVAData 
 } from "./useReportesContables";
 import type { Producto as ProductoLegacy } from "@/components/contable/products/ProductsData";
-import type { Producto } from "@/hooks/useProductosUnificado";
+import type { Producto } from "@/hooks/useProductosValidated";
 import type { Factura } from "@/components/contable/billing/BillingData";
 import type { Compra } from "@/components/contable/purchases/PurchasesData";
 
@@ -28,7 +27,7 @@ export type {
   DeclaracionIVAData 
 } from "./useReportesContables";
 export type { Producto as ProductoLegacy } from "@/components/contable/products/ProductsData";
-export type { Producto } from "@/hooks/useProductosUnificado";
+export type { Producto } from "@/hooks/useProductosValidated";
 export type { Compra } from "@/components/contable/purchases/PurchasesData";
 
 export interface ContabilidadIntegrationHook {
@@ -54,9 +53,8 @@ export interface ContabilidadIntegrationHook {
 
 export const useContabilidadIntegration = (): ContabilidadIntegrationHook => {
   const { getAsientos, guardarAsiento, validarTransaccion } = useAsientos();
-  const { productos: productosValidated } = useProductosValidated();
+  const { productos: productosValidated, obtenerProductos, actualizarStockProducto } = useProductosValidated();
   const reportesHook = useReportesContables(productosValidated);
-  const { obtenerProductos, actualizarStockProducto } = useProductosUnificado();
   const {
     generarAsientoInventario,
     generarAsientoVenta,

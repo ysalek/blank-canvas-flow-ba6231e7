@@ -45,7 +45,7 @@ export interface Producto {
 export const useProductosUnificado = () => {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [categorias, setCategorias] = useState<CategoriaProducto[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   const { toast } = useToast();
 
@@ -88,8 +88,8 @@ export const useProductosUnificado = () => {
   // Función principal de carga de datos
   const loadData = useCallback(async (force: boolean = false) => {
     console.log('🔍 loadData llamado - dataLoaded:', dataLoaded, 'loading:', loading, 'force:', force);
-    if (!force && loading) {
-      console.log('🛑 Carga ya en proceso - loading:', loading);
+    if (loading) {
+      console.log('🛑 Carga ya en proceso');
       return;
     }
     

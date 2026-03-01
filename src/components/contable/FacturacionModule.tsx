@@ -31,7 +31,7 @@ const FacturacionModule = () => {
   const [normativasAlerts, setNormativasAlerts] = useState<any[]>([]);
   const [configuracionTributaria, setConfiguracionTributaria] = useState<any>(null);
   const { toast } = useToast();
-  const { productos, loading: productosLoading, error: productosError, connectivity, crearProducto, actualizarStockProducto } = useProductosValidated();
+  const { productos, loading: productosLoading, error: productosError, connectivity, crearProducto, actualizarStockProducto, refetch: refetchProductos } = useProductosValidated();
   const { 
     generarAsientoVenta, 
     generarAsientoInventario, 
@@ -268,7 +268,7 @@ const FacturacionModule = () => {
 
   if (showNewInvoice) {
     // Verificar el estado de carga y disponibilidad de productos
-    if (productosLoading && !productosError) {
+    if (productosLoading && !productosError && productos.length === 0) {
       return (
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center space-y-4">
@@ -281,9 +281,14 @@ const FacturacionModule = () => {
                 Preparando el catálogo de productos
               </p>
             </div>
-            <Button onClick={() => setShowNewInvoice(false)} variant="outline">
-              Cancelar
-            </Button>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={() => refetchProductos()} variant="default" size="sm">
+                Reintentar
+              </Button>
+              <Button onClick={() => setShowNewInvoice(false)} variant="outline" size="sm">
+                Cancelar
+              </Button>
+            </div>
           </div>
         </div>
       );
