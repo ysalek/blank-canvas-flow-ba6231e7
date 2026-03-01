@@ -34,10 +34,11 @@ const SubscriptionsManager = () => {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       const proInMonth = subs.filter(s => s.subscribed && s.subscription_tier === 'pro' && s.created_at.startsWith(key)).length;
+      const enterpriseInMonth = subs.filter(s => s.subscribed && s.subscription_tier === 'enterprise' && s.created_at.startsWith(key)).length;
       chartData.push({
         month: monthNames[d.getMonth()],
-        ingresos: proInMonth * 29,
-        suscriptores: proInMonth,
+        ingresos: (proInMonth * 199) + (enterpriseInMonth * 699),
+        suscriptores: proInMonth + enterpriseInMonth,
       });
     }
     setRevenueData(chartData);
