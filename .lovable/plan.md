@@ -1,133 +1,82 @@
 
-# Simplificar Flujos de Trabajo - Creacion Inline y Reduccion de Pasos
+# Corregir Costos en Historial de Movimientos de Inventario
 
-## Problema Actual
+## Problema
 
-El sistema obliga al usuario a navegar entre 3-4 modulos diferentes para completar tareas basicas:
+El historial de movimientos muestra **Bs. 0.00** en las columnas de Costo Unitario, Costo Promedio y Valor del Movimiento. Esto ocurre porque al registrar movimientos en la base de datos, **no se guarda el costo unitario del producto**.
 
-```text
-Flujo actual para vender un producto nuevo:
-  Productos --> crear producto
-  Compras --> crear proveedor --> crear orden de compra (stock)
-  Facturacion --> crear cliente --> crear factura
-  = 5 pantallas diferentes, navegacion constante
-```
+Hay 3 lugares donde se insertan movimientos sin incluir `costo_unitario`:
+- `useSupabaseProductos.ts` (movimientos manuales)
+- `useProductosValidated.ts` (movimientos por facturacion)
+- `useProductosUnificado.ts` (movimientos generales)
 
-Cada modulo esta aislado: no puedes crear un producto desde Compras, ni un proveedor desde Productos. Los formularios son pantallas completas que reemplazan todo el modulo, haciendo perder el contexto.
-
-## Solucion: Creacion Inline con Dialogs
-
-Agregar botones "+" junto a cada selector que permitan crear entidades sin salir del formulario actual, usando dialogs modales. Esto ya existe parcialmente (clientes en facturacion, proveedores en compras, categorias en productos) pero falta en los puntos criticos.
+Ademas, falta una columna de **Valor del Stock** (stock nuevo x costo) para que el usuario vea cuanto vale su inventario despues de cada movimiento.
 
 ---
 
-## Cambios Concretos
+## Cambios a Realizar
 
-### 1. Boton "+" para crear productos desde CompraForm y InvoiceForm
+### 1. Incluir `costo_unitario` al crear movimientos
 
-**Archivos**: `ProductSearchCombobox.tsx`, `CompraForm.tsx`, `InvoiceForm.tsx`
+**Archivos**: `useSupabaseProductos.ts`, `useProductosValidated.ts`, `useProductosUnificado.ts`
 
-Actualmente `ProductSearchCombobox` solo tiene un combobox de busqueda. Se le agregara:
-- Un boton "+" al lado del combobox
-- Un callback `onCreateProduct` opcional
-- Cuando se hace clic, abre un Dialog con un formulario rapido de producto (nombre, codigo, precio venta, precio compra, costo, unidad, categoria)
-- Al guardar, el producto se crea en Supabase y se selecciona automaticamente en el combobox
+En cada lugar donde se hace `insert` a `movimientos_inventario`, agregar el campo `costo_unitario` tomandolo del producto:
 
-Esto permite que desde **Compras** y desde **Facturacion** el usuario cree un producto nuevo sin salir del formulario.
+```
+costo_unitario: producto.costo_unitario || producto.precio_compra || 0
+```
 
-### 2. Formulario rapido de producto (QuickProductForm)
+Esto asegura que todos los movimientos futuros registren el costo real.
 
-**Archivo nuevo**: `src/components/contable/products/QuickProductForm.tsx`
+### 2. Agregar columna "Valor Stock" al historial
 
-Un formulario simplificado dentro de un Dialog, con solo los campos esenciales:
-- Nombre (requerido)
-- Codigo (autogenerado)
-- Categoria (con su boton "+" existente para crear nueva)
-- Precio de venta
-- Costo unitario
-- Unidad de medida
-- Stock inicial (opcional, default 0)
+**Archivo**: `MovementListTab.tsx`
 
-Omite campos secundarios como imagen URL, codigo SIN, descripcion larga. El usuario puede completarlos despues editando el producto.
+Agregar una columna adicional que muestre el valor del inventario despues del movimiento:
+- **Valor Stock** = Stock Nuevo x Costo Promedio Ponderado
+- Esto responde directamente a "cuanto en dinero es el inventario"
 
-### 3. Boton "+" para crear proveedor desde ProductoForm
+### 3. Agregar fila de totales al final de la tabla
 
-**Archivo**: `ProductoForm.tsx`
+**Archivo**: `MovementListTab.tsx`
 
-Agregar campo opcional "Proveedor principal" con un combobox + boton "+" que abre el `ProveedorForm` existente (ya es un Dialog). Esto permite que al registrar un producto, se asocie un proveedor sin ir al modulo de Compras.
+Incluir un `tfoot` con:
+- Total de cantidad de movimientos
+- Suma total de valores de movimientos
+- Mensaje informativo si no hay movimientos
 
-### 4. Stock inicial en ProductoForm mejorado
+### 4. Mejorar mapeo de datos en el hook
 
-**Archivo**: `ProductoForm.tsx`
+**Archivo**: `useSupabaseMovimientos.ts`
 
-Actualmente el campo "Stock Actual" existe pero esta desconectado del flujo contable. Se agregara una seccion colapsable "Inventario inicial" con:
-- Stock inicial (ya existe)
-- Proveedor (nuevo, del punto 3)
-- Costo de compra (ya existe como precio_compra)
-
-Cuando el usuario crea un producto con stock > 0 y proveedor, el sistema puede generar automaticamente el registro de inventario inicial.
-
-### 5. Conectar InvoiceForm para crear productos inline
-
-**Archivo**: `InvoiceForm.tsx`, `InvoiceItems.tsx`
-
-El componente `InvoiceItems` usa `ProductSearchCombobox`. Se pasara el callback `onCreateProduct` para que el boton "+" funcione desde facturacion tambien. Al crear un producto desde facturacion, se agrega al catalogo y se selecciona inmediatamente en el item de la factura.
+Mejorar `getMovimientosInventario()` para calcular mejor el costo promedio ponderado usando datos del producto asociado cuando `costo_unitario` del movimiento es 0 (para movimientos historicos sin costo guardado).
 
 ---
 
 ## Detalle Tecnico
 
-### ProductSearchCombobox.tsx (modificar)
-- Agregar prop opcional `onCreateProduct?: () => void`
-- Renderizar boton "+" junto al combobox trigger si `onCreateProduct` esta definido
-- El contenedor pasa a ser un `div` con `flex gap-2`
+### useSupabaseProductos.ts - linea ~258
+Agregar `costo_unitario: producto.costo_unitario` al objeto de insert.
 
-### QuickProductForm.tsx (nuevo)
-- Dialog modal con formulario de 6 campos esenciales
-- Usa `useSupabaseProductos` para `crearProducto` y `generarCodigoProducto`
-- Incluye selector de categoria con boton "+" (reutiliza logica de ProductoForm)
-- Props: `open`, `onOpenChange`, `onProductCreated(producto)` 
-- Al guardar exitosamente, cierra dialog y llama `onProductCreated` con el producto creado
+### useProductosValidated.ts - linea ~410
+Agregar `costo_unitario: producto.costo_unitario` al objeto de insert.
 
-### CompraForm.tsx (modificar)
-- Importar `QuickProductForm`
-- Agregar estado `showQuickProductForm`
-- Pasar `onCreateProduct` a `ProductSearchCombobox`
-- Cuando se crea producto, refrescar lista de productos y seleccionarlo en el item actual
+### useProductosUnificado.ts - buscar insert similar
+Agregar `costo_unitario` igualmente.
 
-### InvoiceForm.tsx + InvoiceItems.tsx (modificar)
-- Mismo patron: pasar `onCreateProduct` por props hasta `ProductSearchCombobox`
-- Al crear producto, actualizar lista y seleccionarlo en el item
+### MovementListTab.tsx
+- Nueva columna "Valor Stock" despues de "Valor Mov."
+- Fila de totales en `tfoot`
+- Mensaje "Sin movimientos registrados" cuando la lista esta vacia
+- Formato de numeros mejorado con separador de miles
 
-### ProductoForm.tsx (modificar)
-- Agregar seccion "Proveedor" con `ProveedorSearchCombobox` + boton "+"
-- Reutilizar `ProveedorForm` dialog existente
-- Campo opcional, no bloquea el guardado
-
----
+### useSupabaseMovimientos.ts
+- En `getMovimientosInventario()`, si `costo_unitario` es 0, intentar obtener el costo del producto relacionado via el join existente con `productos`
+- Agregar `precio_compra` y `costo_unitario` al select del join de productos
 
 ## Resultado Esperado
 
-```text
-Flujo nuevo para vender un producto nuevo:
-  Facturacion --> "Nueva factura"
-    --> "+" crear cliente (ya existe)
-    --> "+" crear producto (NUEVO - inline)
-    --> Guardar factura
-  = 1 sola pantalla, todo inline
-
-Flujo nuevo para comprar inventario de producto nuevo:
-  Compras --> "Nueva compra"
-    --> "+" crear proveedor (ya existe)
-    --> "+" crear producto (NUEVO - inline)
-    --> Guardar compra
-  = 1 sola pantalla, todo inline
-```
-
-## Orden de Implementacion
-
-1. Crear `QuickProductForm.tsx` (formulario rapido de producto en dialog)
-2. Modificar `ProductSearchCombobox.tsx` para soportar boton "+" 
-3. Conectar en `CompraForm.tsx` (crear producto inline desde compras)
-4. Conectar en `InvoiceItems.tsx` y `InvoiceForm.tsx` (crear producto inline desde facturacion)
-5. Agregar proveedor opcional en `ProductoForm.tsx`
+- Todos los movimientos nuevos guardan el costo unitario real
+- El historial muestra costos reales en lugar de Bs. 0.00
+- Nueva columna "Valor Stock" muestra el valor monetario del inventario tras cada movimiento
+- Fila de totales da un resumen rapido
