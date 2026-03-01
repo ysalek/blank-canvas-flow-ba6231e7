@@ -151,6 +151,15 @@ export const useProductosValidated = () => {
     setLoading(true);
     setError(null);
     
+    // Timeout de seguridad para evitar que loading se quede en true indefinidamente
+    const timeoutId = setTimeout(() => {
+      if (mountedRef.current && loadingRef.current) {
+        console.warn('⏱️ [ProductosValidated] Timeout de carga alcanzado (15s)');
+        setLoading(false);
+        loadingRef.current = false;
+      }
+    }, 15000);
+    
     try {
       const connectivityStatus = await validateConnectivity();
       
@@ -170,7 +179,7 @@ export const useProductosValidated = () => {
           console.log(`🔄 [ProductosValidated] Intento ${attempt} - Cargando categorías...`);
           const categoriasResult = await supabase
             .from('categorias_productos')
-            .select('*')
+            .select('id, nombre, descripcion, activo, created_at, updated_at')
             .eq('user_id', connectivityStatus.userId)
             .order('nombre');
           
@@ -194,7 +203,7 @@ export const useProductosValidated = () => {
           console.log(`🔄 [ProductosValidated] Intento ${attempt} - Cargando productos...`);
           const productosResult = await supabase
             .from('productos')
-            .select('*')
+            .select('id, codigo, nombre, descripcion, categoria_id, unidad_medida, precio_venta, precio_compra, costo_unitario, stock_actual, stock_minimo, codigo_sin, activo, imagen_url, created_at, updated_at')
             .eq('user_id', connectivityStatus.userId)
             .order('codigo');
           
@@ -234,13 +243,17 @@ export const useProductosValidated = () => {
       
       if (mountedRef.current) {
         setError(error.message);
-        toast({
-          title: "Error al cargar productos",
-          description: `${error.message} - Verificando conectividad con la base de datos`,
-          variant: "destructive"
-        });
+        // Don't show toast for auth errors - they're expected during init
+        if (error.message !== 'Usuario no autenticado') {
+          toast({
+            title: "Error al cargar productos",
+            description: `${error.message}`,
+            variant: "destructive"
+          });
+        }
       }
     } finally {
+      clearTimeout(timeoutId);
       if (mountedRef.current) {
         setLoading(false);
       }

@@ -268,7 +268,7 @@ const FacturacionModule = () => {
 
   if (showNewInvoice) {
     // Verificar el estado de carga y disponibilidad de productos
-    if (productosLoading) {
+    if (productosLoading && !productosError) {
       return (
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center space-y-4">
