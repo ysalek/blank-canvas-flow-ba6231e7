@@ -108,7 +108,7 @@ export const planCuentasBoliviano2025: CuentaContable[] = [
   // 5.4 IMPUESTOS
   { codigo: '54', nombre: 'IMPUESTOS', tipo: 'gasto', naturaleza: 'deudora', nivel: 2, padre: '5', activa: false, requiereDetalle: false },
   { codigo: '540', nombre: 'IMPUESTOS NACIONALES', tipo: 'gasto', naturaleza: 'deudora', nivel: 3, padre: '54', activa: false, requiereDetalle: false },
-  { codigo: '5401', nombre: 'IT Pagado', tipo: 'gasto', naturaleza: 'deudora', nivel: 4, padre: '540', activa: true, requiereDetalle: true, categoriaTributaria: 'IT' },
+  { codigo: '5261', nombre: 'Impuesto a las Transacciones', tipo: 'gasto', naturaleza: 'deudora', nivel: 4, padre: '540', activa: true, requiereDetalle: true, categoriaTributaria: 'IT' },
 ];
 
 // Funciones de utilidad para el plan de cuentas
