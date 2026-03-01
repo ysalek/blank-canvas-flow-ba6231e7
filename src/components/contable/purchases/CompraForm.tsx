@@ -107,7 +107,9 @@ const CompraForm = ({ proveedores, productos, compras, onSave, onCancel, onAddPr
       return;
     }
 
-    const numero = (Math.max(...compras.map(c => parseInt(c.numero.replace('OC-', ''))), 0) + 1).toString().padStart(4, '0');
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const secuencial = (compras.length + 1).toString().padStart(4, '0');
+    const numero = `${secuencial}-${timestamp}`;
 
     const nuevaCompra: Compra = {
       id: Date.now().toString(),
