@@ -33,7 +33,17 @@ const ProveedoresModule = () => {
       toast({ title: 'Error', description: 'Nombre y NIT son obligatorios', variant: 'destructive' });
       return;
     }
-    await crearProveedor(nuevoProveedor as any);
+    const payload = {
+      nombre: nuevoProveedor.nombre,
+      nit: nuevoProveedor.nit,
+      email: nuevoProveedor.email || undefined,
+      telefono: nuevoProveedor.telefono || '',
+      direccion: nuevoProveedor.direccion || '',
+      codigo: `PROV-${Date.now()}`,
+      activo: true,
+      saldo_deuda: 0,
+    };
+    await crearProveedor(payload as any);
     setDialogOpen(false);
     setNuevoProveedor({ nombre: '', nit: '', email: '', telefono: '', direccion: '', contacto: '' });
     toast({ title: 'Proveedor registrado', description: `${nuevoProveedor.nombre} agregado exitosamente` });
