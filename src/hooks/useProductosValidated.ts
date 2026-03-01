@@ -415,6 +415,7 @@ export const useProductosValidated = () => {
             cantidad,
             stock_anterior: producto.stock_actual,
             stock_actual: nuevoStock,
+            costo_unitario: producto.costo_unitario || producto.precio_compra || 0,
             observaciones: `Movimiento ${tipo} por facturación - Sistema validado`
           }]);
         console.log('✅ [ProductosValidated] Movimiento de inventario creado');

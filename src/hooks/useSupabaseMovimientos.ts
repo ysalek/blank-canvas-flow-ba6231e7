@@ -43,7 +43,9 @@ export const useSupabaseMovimientos = () => {
           *,
           productos (
             codigo,
-            nombre
+            nombre,
+            costo_unitario,
+            precio_compra
           )
         `)
         .eq('user_id', user.id) // SECURITY FIX: Filtro explícito por usuario
@@ -102,22 +104,26 @@ export const useSupabaseMovimientos = () => {
 
   // Convertir movimientos de Supabase al formato esperado por la UI
   const getMovimientosInventario = (): MovimientoInventario[] => {
-    return movimientos.map(mov => ({
-      id: mov.id,
-      fecha: mov.fecha,
-      tipo: mov.tipo as 'entrada' | 'salida' | 'ajuste',
-      productoId: mov.producto_id,
-      producto: (mov as any).productos?.nombre || 'Producto no encontrado',
-      cantidad: mov.cantidad,
-      costoUnitario: mov.costo_unitario || 0,
-      costoPromedioPonderado: mov.costo_unitario || 0,
-      motivo: mov.observaciones || `Movimiento ${mov.tipo}`,
-      documento: mov.factura_id || mov.compra_id || 'N/A',
-      usuario: 'Sistema',
-      stockAnterior: mov.stock_anterior || 0,
-      stockNuevo: mov.stock_actual || 0,
-      valorMovimiento: (mov.costo_unitario || 0) * mov.cantidad
-    }));
+    return movimientos.map(mov => {
+      const prodData = (mov as any).productos;
+      const costoReal = mov.costo_unitario || prodData?.costo_unitario || prodData?.precio_compra || 0;
+      return {
+        id: mov.id,
+        fecha: mov.fecha,
+        tipo: mov.tipo as 'entrada' | 'salida' | 'ajuste',
+        productoId: mov.producto_id,
+        producto: prodData?.nombre || 'Producto no encontrado',
+        cantidad: mov.cantidad,
+        costoUnitario: costoReal,
+        costoPromedioPonderado: costoReal,
+        motivo: mov.observaciones || `Movimiento ${mov.tipo}`,
+        documento: mov.factura_id || mov.compra_id || 'N/A',
+        usuario: 'Sistema',
+        stockAnterior: mov.stock_anterior || 0,
+        stockNuevo: mov.stock_actual || 0,
+        valorMovimiento: costoReal * mov.cantidad
+      };
+    });
   };
 
   // Limpiar todos los movimientos (para resetear sistema)
