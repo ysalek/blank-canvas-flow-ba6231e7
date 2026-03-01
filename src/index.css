@@ -330,4 +330,59 @@
   .nav-item-animated:hover {
     transform: translateX(3px);
   }
+
+  /* Glass effect */
+  .glass-effect {
+    background: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(12px) saturate(180%);
+    border: 1px solid hsl(var(--border) / 0.4);
+  }
+
+  /* Unified KPI card */
+  .card-kpi {
+    @apply border rounded-xl transition-all duration-300;
+    box-shadow: var(--shadow-sm);
+  }
+  .card-kpi:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+
+  /* Card gradient */
+  .card-gradient {
+    background: var(--gradient-card);
+    border: 1px solid hsl(var(--border) / 0.6);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* Empty state icon float */
+  .empty-state-icon {
+    animation: float 3s ease-in-out infinite;
+    opacity: 0.4;
+  }
+
+  /* Dialog animated entry */
+  .dialog-animated {
+    animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+
+  /* Group hover action buttons */
+  .group-action-buttons {
+    @apply opacity-0 group-hover:opacity-100 transition-opacity duration-200;
+  }
+
+  /* Smooth scroll */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Pulse glow for CTA */
+  .animate-pulse-glow {
+    animation: pulseGlowSoft 3s ease-in-out infinite;
+  }
+
+  @keyframes pulseGlowSoft {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.1); }
+    50% { box-shadow: 0 0 20px 4px hsl(var(--primary) / 0.15); }
+  }
 }

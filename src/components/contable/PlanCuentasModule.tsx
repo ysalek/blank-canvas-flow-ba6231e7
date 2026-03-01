@@ -188,7 +188,7 @@ const PlanCuentasModule = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <FolderTree className="w-6 h-6 text-primary" />
@@ -201,12 +201,12 @@ const PlanCuentasModule = () => {
         </div>
         <Dialog open={showNewCuenta} onOpenChange={setShowNewCuenta}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
+            <Button size="sm">
+              <Plus className="w-4 h-4 mr-1.5" />
               Nueva Cuenta
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="dialog-animated">
             <DialogHeader>
               <DialogTitle>Nueva Cuenta Contable</DialogTitle>
               <DialogDescription>
@@ -377,7 +377,7 @@ const PlanCuentasModule = () => {
                     </h3>
                     <div className="border rounded-lg divide-y">
                       {cuentasTipo.map(cuenta => (
-                        <div key={cuenta.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                        <div key={cuenta.id} className="p-4 table-row-interactive group">
                           <div className="flex items-center justify-between">
                             <div className="space-y-1">
                               <div className="flex items-center gap-3">
@@ -437,7 +437,7 @@ const PlanCuentasModule = () => {
 
       {/* Dialog para editar cuenta */}
       <Dialog open={showEditCuenta} onOpenChange={setShowEditCuenta}>
-        <DialogContent>
+        <DialogContent className="dialog-animated">
           <DialogHeader>
             <DialogTitle>Editar Cuenta</DialogTitle>
             <DialogDescription>

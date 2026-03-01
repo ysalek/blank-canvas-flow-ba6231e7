@@ -137,7 +137,7 @@ const Landing = () => {
           </div>
 
           {/* Stats Card */}
-          <div className="relative animate-scale-in" style={{ animationDelay: '0.2s' }}>
+          <div className="relative animate-scale-in animate-float" style={{ animationDelay: '0.2s' }}>
             <div className="absolute -inset-4 bg-gradient-hero opacity-10 rounded-3xl blur-2xl"></div>
             <Card className="relative border-border/50 shadow-xl overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-primary"></div>
@@ -248,7 +248,7 @@ const Landing = () => {
 
         <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {testimonials.map((t, i) => (
-            <Card key={i} className="border-border/50 hover:shadow-lg transition-all duration-300 animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
+            <Card key={i} className="border-border/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
               <CardContent className="p-7">
                 <div className="flex gap-1 mb-4">
                   {[...Array(5)].map((_, j) => (

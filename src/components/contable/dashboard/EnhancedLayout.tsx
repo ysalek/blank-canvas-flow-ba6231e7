@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -69,7 +69,11 @@ export const MetricGrid = ({ children, columns = 4, className }: MetricGridProps
 
   return (
     <div className={cn("grid gap-6", gridCols[columns as keyof typeof gridCols] || gridCols[4], className)}>
-      {children}
+      {React.Children.map(children, (child, index) => (
+        <div className={`animate-slide-up stagger-${Math.min(index + 1, 6)}`} key={index}>
+          {child}
+        </div>
+      ))}
     </div>
   );
 };
@@ -111,13 +115,13 @@ export const EnhancedMetricCard = ({
   };
 
   return (
-    <Card className={cn("card-kpi", variantStyles[variant], className)}>
+    <Card className={cn("card-kpi group cursor-default", variantStyles[variant], className)}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
         {Icon && (
-          <div className="p-2 rounded-lg bg-primary/10">
+          <div className="p-2 rounded-lg bg-primary/10 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
             <Icon className="h-4 w-4 text-primary" />
           </div>
         )}
