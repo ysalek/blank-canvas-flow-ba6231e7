@@ -1,86 +1,94 @@
 
-# Optimizacion del Sistema - Errores Detectados y Correcciones
 
-## Problemas Identificados
+# Plan: Corregir Sistema de Roles Admin y Asignacion de Suscripciones
 
-### 1. CRITICO: Error 400 al cambiar plan de usuario (subscribers)
-**Archivo:** `src/components/admin/UsersManagement.tsx` linea 72-78
+## Problemas Criticos Detectados
 
-El modulo de gestion de usuarios usa `.upsert()` con `{ onConflict: 'user_id' }`, pero la tabla `subscribers` no tiene un constraint UNIQUE en la columna `user_id`. Esto genera el error 400 visible en la sesion:
+### 1. Las suscripciones asignadas por el admin NO tienen efecto
+El problema mas grave del sistema: `usePlan.ts` (linea 68) lee el plan desde `localStorage('user_plan')`, **nunca consulta la tabla `subscribers` de Supabase**. Esto significa que cuando un admin cambia el plan de un usuario en el panel, ese cambio se guarda en la base de datos pero el usuario sigue viendo el plan que tiene en su localStorage local. La asignacion de suscripciones es completamente inoperante.
 
-```
-"there is no unique or exclusion constraint matching the ON CONFLICT specification"
-```
+### 2. Las vistas de admin no tienen proteccion de acceso
+En `Index.tsx` lineas 141-147, las vistas admin (`admin-dashboard`, `admin-users`, `admin-subscriptions`, etc.) se renderizan sin ningun control de acceso. Cualquier usuario puede navegar directamente a `/?view=admin-dashboard` y ver el panel de administracion completo.
 
-**Solucion:**
-- Crear una migracion SQL para agregar un constraint UNIQUE en `subscribers.user_id`
-- Esto permitira que el upsert funcione correctamente cuando un admin cambia el plan de un usuario
+### 3. Falta el tier Enterprise en los selectores de admin
+Tanto `UsersManagement.tsx` (linea 261-263) como `SubscriptionsManager.tsx` (linea 214-217) solo muestran las opciones "Basic" y "Pro". El tier "Enterprise" no puede ser asignado por el admin.
 
-### 2. CRITICO: Datos de ejemplo en DiaryData.ts tienen codigos incorrectos
-**Archivo:** `src/components/contable/diary/DiaryData.ts` lineas 86-117
-
-Los `asientosIniciales` contienen errores de codificacion que confunden al usuario:
-- Linea 97: `1121` etiquetado como "Bancos" (deberia ser "Cuentas por Cobrar Comerciales")
-- Linea 112: `1141` etiquetado como "Inventarios" (deberia ser `1131` para Inventarios)
-- Linea 113: `2114` etiquetado como "IVA Credito Fiscal" (deberia ser `1142` para IVA CF; `2114` es "IT por Pagar")
-
-**Solucion:** Corregir los codigos y nombres en los asientos de ejemplo para que coincidan con el plan de cuentas ya actualizado en la misma seccion del archivo.
-
-### 3. MEDIO: guardarAsiento es async pero no se awaita en ComprobantesIntegrados
-**Archivo:** `src/components/contable/comprobantes/ComprobantesIntegrados.tsx`
-
-- Linea 436: `const exito = guardarAsiento(asiento)` - `guardarAsiento` retorna `Promise<boolean>`, pero no se usa `await`. Esto significa que el resultado siempre es truthy (un Promise object) y el asiento puede no haberse guardado realmente.
-- Linea 523: `guardarAsiento(asientoReversion)` - mismo problema en la anulacion.
-
-**Solucion:** Agregar `await` a las llamadas y hacer las funciones contenedoras `async`.
-
-### 4. MEDIO: ComprobantesIntegrados valida contra localStorage planCuentas
-**Archivo:** `src/components/contable/comprobantes/ComprobantesIntegrados.tsx` linea 356
-
-La funcion `validarIntegridadContable` lee el plan de cuentas de `localStorage` en lugar de Supabase, donde ya estan los 28 cuentas del usuario. Esto causa que la validacion falle si el localStorage no tiene datos sincronizados.
-
-**Solucion:** Obtener el plan de cuentas desde el hook `useSupabasePlanCuentas` en lugar de `localStorage`.
-
-### 5. BAJO: ComprobantesIntegrados persiste todo en localStorage
-**Archivo:** `src/components/contable/comprobantes/ComprobantesIntegrados.tsx`
-
-Todo el modulo de comprobantes (lineas 85-93, 404-405, 488, 539) usa exclusivamente `localStorage` para persistencia. Esto es inconsistente con el resto del sistema que ya migro a Supabase, y significa que los datos se pierden al cambiar de dispositivo.
-
-**Solucion:** Documentar como deuda tecnica. No migrar en este ciclo porque requiere una tabla nueva en Supabase y refactorizacion significativa. Sin embargo, los asientos que generan los comprobantes SI se guardan en Supabase via `guardarAsiento`, lo cual es lo importante para la integridad contable.
+### 4. La logica de `subscribed` es incorrecta
+En `changePlan`, `subscribed: newTier === 'pro'` marca como "no suscrito" a un usuario Enterprise. Deberia ser `subscribed: newTier !== 'basic'`.
 
 ---
 
 ## Plan de Implementacion
 
-### Cambio 1: Migracion SQL - Agregar UNIQUE constraint a subscribers.user_id
-Crear migracion:
-```sql
-ALTER TABLE subscribers ADD CONSTRAINT subscribers_user_id_unique UNIQUE (user_id);
+### Archivo 1: `src/hooks/usePlan.ts` (cambio principal)
+Modificar el hook para que cargue el plan del usuario desde la tabla `subscribers` en Supabase en lugar de `localStorage`:
+
+- Importar `supabase` y `useEffect/useState`
+- Al montar, consultar `subscribers` con `eq('user_id', user.id)` para obtener `subscription_tier`
+- Usar el tier de Supabase como fuente de verdad
+- Mantener `localStorage` solo como cache/fallback mientras carga
+- Si el usuario es admin (via `user.rol === 'admin'`), darle acceso total sin importar el tier
+- Sincronizar: cuando Supabase responde, actualizar localStorage para que la UI sea consistente
+
+```
+Flujo:
+1. Estado inicial: lee localStorage como cache temporal
+2. useEffect: consulta subscribers.subscription_tier desde Supabase
+3. Si encuentra dato -> actualiza estado y localStorage
+4. Si no encuentra -> mantiene 'basic'
+5. Si es admin -> hasAccess() siempre retorna true (ya existe)
 ```
 
-### Cambio 2: Corregir asientosIniciales en DiaryData.ts
-Actualizar los asientos de ejemplo:
-- Asiento 1 (Venta): `1121` -> nombre correcto "Cuentas por Cobrar Comerciales"
-- Asiento 2 (Compra): `1141` -> cambiar a `1131` "Inventarios"; `2114` -> cambiar a `1142` "IVA Credito Fiscal"
+### Archivo 2: `src/pages/Index.tsx` (proteger vistas admin)
+Agregar verificacion de rol admin antes de renderizar vistas administrativas:
 
-### Cambio 3: Await en guardarAsiento dentro de ComprobantesIntegrados
-- Hacer `generarAsientoContableIntegrado` async y agregar `await guardarAsiento(asiento)`
-- Hacer `anularComprobante` async y agregar `await guardarAsiento(asientoReversion)`
-- Actualizar las llamadas a estas funciones para que usen await
+- Importar `useAdmin` hook
+- En `renderCurrentView()`, las vistas `admin-*` deben verificar `isAdmin` antes de renderizar
+- Si no es admin, mostrar un mensaje de acceso denegado o redirigir al dashboard
 
-### Cambio 4: Validacion de cuentas contra Supabase
-- Importar `useSupabasePlanCuentas` en ComprobantesIntegrados
-- Usar las cuentas de Supabase en `validarIntegridadContable` en lugar de localStorage
+### Archivo 3: `src/components/admin/UsersManagement.tsx` (enterprise + logica subscribed)
+- Agregar opcion "Enterprise" al Select de cambio de plan (lineas 261-263 y 366-379)
+- Corregir logica `subscribed`: cambiar `newTier === 'pro'` a `newTier !== 'basic'`
+- Agregar conteo de Enterprise en las estadisticas rapidas
+- Actualizar Badge para mostrar "Enterprise" ademas de "Pro" y "Basic"
+
+### Archivo 4: `src/components/admin/SubscriptionsManager.tsx` (enterprise + logica subscribed)
+- Agregar opcion "Enterprise" al Select de cambio de plan (linea 214-217)
+- Corregir logica `subscribed` en `changePlan` (linea 52)
+- Actualizar KPIs para contar Enterprise por separado
+- Corregir calculo de MRR para incluir Enterprise (699 Bs)
 
 ---
 
 ## Detalle Tecnico
 
-### Migracion SQL
-La tabla `subscribers` actualmente tiene `user_id` como columna regular sin constraint unique. El upsert de PostgREST requiere un constraint unique o exclusion para resolver conflictos. Sin este constraint, cualquier intento de usar `onConflict: 'user_id'` falla con error 42P10.
+### usePlan.ts - Nuevo flujo de carga
+```text
+usePlan()
+  |-- lee localStorage('user_plan') como estado inicial (cache)
+  |-- useEffect con user.id como dependencia
+  |     |-- supabase.from('subscribers')
+  |     |     .select('subscription_tier')
+  |     |     .eq('user_id', user.id)
+  |     |     .maybeSingle()
+  |     |-- Si data.subscription_tier existe:
+  |     |     setCurrentPlan(data.subscription_tier)
+  |     |     localStorage.setItem('user_plan', data.subscription_tier)
+  |     |-- Si no existe: mantener 'basic'
+  |-- isAdmin bypass: hasAccess() ya retorna true para admin
+```
 
-### Impacto de los cambios
-- Cambio 1: Resuelve el error toast que el usuario ve al administrar suscripciones
-- Cambio 2: Los datos de ejemplo se alinean con el plan de cuentas boliviano correcto
-- Cambio 3: Garantiza que los asientos de comprobantes se persistan en Supabase
-- Cambio 4: La validacion usa datos reales del plan de cuentas del usuario
+### Index.tsx - Proteccion admin
+```text
+renderCurrentView()
+  |-- case 'admin-*':
+  |     |-- if (!isAdmin) return <AccesoDenegado />
+  |     |-- else return <AdminComponent />
+```
+
+### Impacto
+- Los usuarios veran el plan que realmente tienen asignado en Supabase
+- El admin podra asignar Basic, Pro o Enterprise
+- Las vistas admin estaran protegidas contra acceso no autorizado
+- La logica de `subscribed` sera correcta para todos los tiers
+
