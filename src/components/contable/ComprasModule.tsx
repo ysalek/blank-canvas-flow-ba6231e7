@@ -16,8 +16,8 @@ import ProveedoresList from "./purchases/ProveedoresList";
 const ComprasModule = () => {
   const [showNewCompraForm, setShowNewCompraForm] = useState(false);
   const { toast } = useToast();
-  const { generarAsientoCompra, actualizarStockProducto, generarAsientoPagoCompra } = useContabilidadIntegration();
-  const { productos: productosSupabase } = useSupabaseProductos();
+  const { generarAsientoCompra, generarAsientoPagoCompra } = useContabilidadIntegration();
+  const { productos: productosSupabase, actualizarStockProducto } = useSupabaseProductos();
   const {
     proveedores: proveedoresDB,
     compras: comprasDB,
@@ -78,6 +78,7 @@ const ComprasModule = () => {
 
   const handleSaveCompra = async (nuevaCompra: Compra) => {
     try {
+      // 1. Generar asiento contable
       const asientoCompra = await generarAsientoCompra({
         numero: nuevaCompra.numero,
         total: nuevaCompra.total,
@@ -87,11 +88,7 @@ const ComprasModule = () => {
 
       if (!asientoCompra) return;
 
-      for (const item of nuevaCompra.items) {
-        await actualizarStockProducto(item.productoId, item.cantidad, 'entrada');
-      }
-
-      // Save to Supabase
+      // 2. Guardar compra en DB primero
       await crearCompra({
         proveedor_id: nuevaCompra.proveedor.id,
         numero: nuevaCompra.numero,
@@ -108,17 +105,36 @@ const ComprasModule = () => {
         observaciones: nuevaCompra.observaciones || null
       });
 
-      toast({
-        title: "Compra Creada Exitosamente",
-        description: `Compra N° ${nuevaCompra.numero} registrada. Inventario actualizado.`,
-      });
+      // 3. Actualizar stock (no aborta si falla)
+      let stockErrors = 0;
+      for (const item of nuevaCompra.items) {
+        try {
+          await actualizarStockProducto(item.productoId, item.cantidad, 'entrada');
+        } catch (e) {
+          console.warn('⚠️ Error actualizando stock para producto:', item.productoId, e);
+          stockErrors++;
+        }
+      }
+
+      if (stockErrors > 0) {
+        toast({
+          title: "Compra registrada con advertencia",
+          description: `Compra N° ${nuevaCompra.numero} guardada, pero ${stockErrors} producto(s) no actualizaron stock.`,
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Compra Creada Exitosamente",
+          description: `Compra N° ${nuevaCompra.numero} registrada. Inventario actualizado.`,
+        });
+      }
 
       setShowNewCompraForm(false);
     } catch (error) {
       console.error("Error al guardar la compra:", error);
       toast({
         title: "Error al Procesar la Compra",
-        description: "Ocurrió un error inesperado.",
+        description: error instanceof Error ? error.message : "Ocurrió un error inesperado.",
         variant: "destructive",
       });
     }
