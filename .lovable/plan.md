@@ -1,40 +1,95 @@
 
-# Correccion de errores en modulo de Compras
+# Correccion del error 25006 en Facturas y Compras
 
-## Problemas encontrados (3 bugs)
+## Causa raiz
 
-### Bug 1: "Producto no encontrado" al actualizar stock
-`ComprasModule` usa `actualizarStockProducto` de `useContabilidadIntegration`, que internamente usa `useProductosUnificado` -- una instancia separada del hook con su propia lista de productos. Esta lista puede no estar sincronizada con la de `useSupabaseProductos` que ya se usa en el mismo componente.
+La funcion `validate_financial_access` en la base de datos ejecuta un `INSERT INTO financial_access_log` dentro de las politicas RLS de SELECT. Cuando Supabase usa una replica de solo lectura para las consultas GET, el INSERT falla con error 25006 "cannot execute INSERT in a read-only transaction".
 
-**Solucion**: Usar `actualizarStockProducto` directamente de `useSupabaseProductos` en lugar de pasarlo por `useContabilidadIntegration`.
+Esto afecta a:
+- **Tabla `facturas`**: no se pueden listar (SELECT falla)
+- **Tabla `compras`**: no se pueden listar (SELECT falla)
+- **Tabla `pagos`**, `cuentas_bancarias`, `movimientos_bancarios`: potencialmente afectadas tambien
 
-### Bug 2: Error 25006 "read-only transaction" al insertar compra
-La tabla `compras` tiene triggers de auditoria. Usar `.select('*')` despues de `.insert()` causa conflicto con transacciones de solo lectura.
+## Solucion
 
-**Solucion**: En `useSupabaseProveedores.ts`, cambiar `.select()` a `.select('id, numero, proveedor_id, fecha, fecha_vencimiento, subtotal, descuento_total, iva, total, estado, tipo_pago, monto_pagado, saldo_pendiente, observaciones, created_at, updated_at')` en las operaciones de insert y update de compras.
+### 1. Migracion SQL: Simplificar politicas RLS (archivo nuevo en `supabase/migrations/`)
 
-### Bug 3: Error de flujo - el fallo en stock no detiene la creacion de la compra
-Cuando `actualizarStockProducto` falla (Bug 1), el error se lanza pero `handleSaveCompra` no lo captura correctamente porque el loop `for...of` continua y luego `crearCompra` se ejecuta igual. Al reintentar, el numero de compra ya existe (error 23505 "duplicate key").
+Reemplazar las politicas RLS "Enhanced" que usan `validate_financial_access` con politicas simples que no hagan INSERT:
 
-**Solucion**: Reestructurar `handleSaveCompra` para que primero guarde la compra en DB, y luego actualice el stock. Si el stock falla, la compra queda registrada y se muestra un aviso parcial. Ademas, generar el numero de compra consultando las compras existentes en DB correctamente.
+```sql
+-- Eliminar politicas problematicas de facturas
+DROP POLICY IF EXISTS "Enhanced facturas - read access" ON public.facturas;
+DROP POLICY IF EXISTS "Enhanced facturas - insert access" ON public.facturas;
+DROP POLICY IF EXISTS "Enhanced facturas - update access" ON public.facturas;
+DROP POLICY IF EXISTS "Enhanced facturas - delete access" ON public.facturas;
+
+-- Crear politicas simples sin audit logging en SELECT
+CREATE POLICY "facturas_select" ON public.facturas
+  FOR SELECT TO authenticated
+  USING (user_id = auth.uid());
+
+CREATE POLICY "facturas_insert" ON public.facturas
+  FOR INSERT TO authenticated
+  WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "facturas_update" ON public.facturas
+  FOR UPDATE TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "facturas_delete" ON public.facturas
+  FOR DELETE TO authenticated
+  USING (user_id = auth.uid());
+```
+
+Lo mismo para `compras`, `pagos`, `cuentas_bancarias`, `movimientos_bancarios` y `items_facturas`.
+
+### 2. Tambien en la migracion: Corregir `validate_financial_access`
+
+Reescribir la funcion para que NO haga INSERT en transacciones de solo lectura, o simplemente eliminar el logging del audit trail en operaciones de lectura:
+
+```sql
+CREATE OR REPLACE FUNCTION public.validate_financial_access(
+    requesting_user_id UUID,
+    data_owner_id UUID,
+    operation_type TEXT
+) RETURNS BOOLEAN
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    RETURN (requesting_user_id = data_owner_id)
+        OR public.has_role(requesting_user_id, 'admin'::app_role);
+END;
+$$;
+```
+
+### 3. Codigo: Corregir `useFacturas.ts` - refetch despues de guardar
+
+Actualmente `guardarFactura` hace `setFacturas(prev => [facturaCompleta, ...prev])` para agregar localmente, pero si el fetchFacturas inicial fallo (por el bug 25006), la lista empieza vacia. Una vez corregida la migracion, agregar `await fetchFacturas()` despues de guardar para refrescar la lista completa desde DB.
+
+### 4. Codigo: Revisar otros hooks con `.select('*')` en inserts
+
+Auditar y corregir cualquier otro hook que use `.select('*')` o `.select()` sin columnas explicitas despues de `.insert()` o `.update()`:
+- `useSupabaseProveedores.ts` (ya parcialmente corregido)
+- `useAsientos.ts`
+- `useSupabaseBancos.ts`
+- `useSupabaseEmpleados.ts`
+- Otros hooks en `src/hooks/`
 
 ---
 
 ## Archivos a modificar
 
-### 1. `src/components/contable/ComprasModule.tsx`
-- Importar `actualizarStockProducto` de `useSupabaseProductos` en vez de `useContabilidadIntegration`
-- Reorganizar `handleSaveCompra`: primero asiento contable, luego guardar compra en DB, luego actualizar stock (con try/catch individual para stock)
-- Manejar errores de stock como advertencia sin abortar toda la operacion
-
-### 2. `src/hooks/useSupabaseProveedores.ts`
-- Cambiar `.select()` a seleccion explicita de columnas en `crearCompra` (linea 198) y `actualizarCompra` (linea 236)
-- Usar `.maybeSingle()` en lugar de `.single()` como medida defensiva
-
-### 3. `src/components/contable/purchases/CompraForm.tsx`
-- Mejorar la generacion de numero de compra para evitar duplicados: usar timestamp o UUID parcial como sufijo unico
+| Archivo | Cambio |
+|---------|--------|
+| Nueva migracion SQL | Reemplazar politicas RLS de facturas, compras, pagos con politicas simples sin INSERT en SELECT |
+| `src/hooks/useFacturas.ts` | Agregar `await fetchFacturas()` despues de guardar exitosamente |
+| Otros hooks con `.select('*')` | Auditar y corregir seleccion explicita de columnas |
 
 ## Resultado esperado
-- Las compras se guardaran sin errores de "Producto no encontrado"
-- No habra errores de transaccion de solo lectura (25006)
-- No habra errores de clave duplicada (23505) al reintentar
+
+- Las facturas se listaran correctamente al cargar el modulo
+- Las facturas guardadas apareceran inmediatamente en "Facturas emitidas"
+- Las compras se listaran correctamente
+- No mas errores 25006 en ninguna operacion de lectura
