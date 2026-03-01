@@ -20,7 +20,7 @@ interface ProductoFormProps {
 }
 
 const ProductoForm = ({ producto, productos, categorias, onSave, onCancel }: ProductoFormProps) => {
-  const { crearProducto, actualizarProducto, generarCodigoProducto, crearCategoria, refetch } = useSupabaseProductos();
+  const { crearProducto, actualizarProducto, generarCodigoProducto, crearCategoria, categorias: categoriasHook, refetch } = useSupabaseProductos();
   const [showNewCatDialog, setShowNewCatDialog] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [newCatDesc, setNewCatDesc] = useState("");
@@ -244,7 +244,7 @@ const ProductoForm = ({ producto, productos, categorias, onSave, onCancel }: Pro
                     <SelectValue placeholder="Seleccionar categoría" />
                   </SelectTrigger>
                   <SelectContent>
-                    {categorias.map(cat => (
+                    {categoriasHook.map(cat => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.nombre}
                       </SelectItem>
