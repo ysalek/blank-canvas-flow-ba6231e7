@@ -1,58 +1,94 @@
 
-# Revision Completa del Sistema - Estado de Conexiones
+# Verificacion de Integridad de Modulos Contables
 
-## Estado General: FUNCIONAL con detalles pendientes
+## Estado General: FUNCIONAL con 2 problemas identificados
 
-Los hooks criticos de Supabase estan correctamente conectados:
-- `useAsientos` - OK (sin localStorage)
-- `useFacturas` - OK (select explicito para evitar error 25006)
-- `useClientesSupabase` - OK (sin fallback localStorage)
-- `useSupabaseProductos` - OK (categorias y productos desde Supabase)
-- `useProductosValidated` - OK (reintentos, validacion de conectividad)
-- `useSupabasePlanCuentas` - OK (plan de cuentas desde Supabase)
-- `usePlan` - OK (plan y contador de transacciones desde Supabase)
-- `LibroMayor` - OK (usa useSupabasePlanCuentas)
+### Modulos que funcionan correctamente (Supabase)
+
+| Modulo | Fuente de datos | Estado |
+|--------|----------------|--------|
+| Libro Diario | `useAsientos` (Supabase) | OK |
+| Libro Mayor | `useAsientos` + `useSupabasePlanCuentas` (Supabase) | OK |
+| Balance de Comprobacion (Modulo dedicado) | `useReportesContables` -> `useAsientos` (Supabase) | OK |
+| Balance General | `useContabilidadIntegration` -> `useReportesContables` (Supabase) | OK |
+| Estado de Resultados | `useReportesContables` -> `useAsientos` (Supabase) | OK |
+| Declaracion IVA | `useContabilidadIntegration` -> `useAsientos` (Supabase) | OK |
+| Facturacion | `useFacturas` (Supabase) | OK |
+
+### Flujo contable verificado
+
+```text
+Factura/Compra/Movimiento Inventario
+        |
+        v
+useAsientosGenerator (genera asientos con cuentas correctas)
+        |
+        v
+useAsientos.guardarAsiento() (persiste en Supabase: asientos_contables + cuentas_asientos)
+        |
+        v
+useReportesContables (lee asientos de Supabase via useAsientos)
+        |
+        +---> getLibroMayor() --> Libro Mayor
+        +---> getTrialBalanceData() --> Balance de Comprobacion
+        +---> getBalanceSheetData() --> Balance General (Activos = Pasivos + Patrimonio)
+        +---> getIncomeStatementData() --> Estado de Resultados
+        +---> getDeclaracionIVAData() --> Declaracion IVA (Debito - Credito Fiscal)
+```
+
+### Verificacion de integridad contable
+
+- **Partida doble**: Cada asiento se valida con `validarTransaccion()` que verifica `|Debe - Haber| < 0.01` antes de guardar.
+- **Ecuacion contable**: El Balance General verifica `Activos = Pasivos + Patrimonio` y muestra indicador visual (Badge verde/rojo).
+- **IVA Bolivia**: Ventas se desglosan correctamente: Total/1.13 = Base Imponible, diferencia = IVA 13%. IT al 3% se registra como asiento separado.
+- **Codificacion de cuentas**: Consistente en todo el sistema (1111=Caja, 1121=Ctas Cobrar, 1131=Inventarios, 1142=IVA Credito, 2113=IVA Debito, 4111=Ventas, 5111=Costo Ventas).
+- **Anulaciones**: Generan asientos de reversion correctos (debito a Ventas, credito a Ctas Cobrar) + reversion de IT.
 
 ---
 
-## Problemas Encontrados (por prioridad)
+## Problemas encontrados
 
-### 1. MEDIO: NotificationCenter lee de localStorage vacio
-**Archivo:** `src/components/contable/notifications/NotificationCenter.tsx`
+### 1. CRITICO: BalanceComprobacion.tsx usa datos de ejemplo hardcodeados
 
-El centro de notificaciones lee productos, facturas, asientos y cuentas por cobrar desde `localStorage` (lineas 40, 65, 87, 112). Como los datos ahora viven en Supabase, todas estas lecturas retornan arrays vacios. Resultado: **las notificaciones de stock bajo, facturas pendientes y alertas contables nunca se generan**.
+**Archivo:** `src/components/contable/BalanceComprobacion.tsx`
 
-**Correccion:** Migrar a usar los hooks de Supabase (`useProductosValidated`, `useFacturas`, `useAsientos`) en vez de `localStorage`.
+Este componente (usado dentro de `ImprovedReportsModule` en la seccion "Reportes y Analisis") muestra datos ficticios hardcodeados (lineas 33-118) en lugar de datos reales de Supabase. Siempre muestra las mismas 7 cuentas con montos inventados (60,000, 55,000, 105,000, etc.) sin importar los asientos reales.
 
-### 2. BAJO: upgradeToPro/upgradeToEnterprise no persisten
-**Archivo:** `src/hooks/usePlan.ts` (lineas 122-123)
+**Nota:** Existe otro componente `BalanceComprobacionModule.tsx` que SI usa `useReportesContables` correctamente con datos reales de Supabase. El problema es que `BalanceComprobacion.tsx` (el componente antiguo) es el que se renderiza dentro de la pestana "Balance Comprobacion" del modulo de Reportes.
 
-Las funciones `upgradeToPro()` y `upgradeToEnterprise()` solo hacen `setCurrentPlan()` en estado local. No actualizan la tabla `subscribers` en Supabase. El cambio de plan se pierde al recargar la pagina.
+**Correccion:** Reemplazar `BalanceComprobacion` con `BalanceComprobacionModule` dentro de `ImprovedReportsModule.tsx`, o reescribir `BalanceComprobacion.tsx` para usar `useReportesContables` en lugar de datos de ejemplo.
 
-**Correccion:** Actualizar la tabla `subscribers` en Supabase cuando se cambia de plan. Esto asegura que el upgrade persista entre sesiones.
+### 2. MEDIO: Balance General no filtra por fechas
 
-### 3. INFORMATIVO: 44 archivos con localStorage residual
-Modulos como Presupuestos, Anticipos, Comprobantes Integrados, POS, Kardex, Nomina y otros siguen usando localStorage como almacenamiento primario. Los datos de estos modulos se pierden al cambiar de navegador/dispositivo. Esto es deuda tecnica conocida que requiere nuevas tablas en Supabase -- fuera de alcance para esta iteracion.
+**Archivo:** `src/components/contable/BalanceGeneralModule.tsx`
+
+El modulo tiene selectores de fecha (Fecha Inicio y Fecha Corte) pero NO pasa esas fechas a `getBalanceSheetData()`. La funcion se llama sin parametros (linea 32), por lo que siempre muestra todos los asientos de todos los tiempos, ignorando las fechas seleccionadas por el usuario.
+
+Lo mismo ocurre con `getBalanceSheetData()` en `useReportesContables.ts` (linea 202): internamente llama a `getTrialBalanceData()` sin filtros de fecha.
+
+**Correccion:** Modificar `getBalanceSheetData()` para que acepte filtros de fecha y los propague a `getTrialBalanceData()`. Actualizar `BalanceGeneralModule.tsx` para pasar las fechas seleccionadas.
 
 ---
 
-## Plan de Correccion
+## Plan de correccion
 
-### Archivo 1: `src/components/contable/notifications/NotificationCenter.tsx`
-- Importar `useProductosValidated`, `useFacturas`, `useAsientos`
-- Reemplazar las 5 lecturas de `localStorage` (lineas 40, 65, 87, 112, 158) por datos de los hooks
-- Productos con stock bajo: usar `productos` del hook filtrados por `stock_actual <= stock_minimo`
-- Facturas pendientes: usar `facturas` del hook filtradas por `estado === 'enviada'`
-- Asientos contables: usar `getAsientos()` del hook
-- Cuentas por cobrar: se mantiene sin datos hasta que exista hook dedicado (no hay tabla)
-- Backup reminder: mantener en localStorage (es preferencia local, no dato critico)
+### Archivo 1: `src/components/contable/reports/ImprovedReportsModule.tsx`
+- Reemplazar el import de `BalanceComprobacion` por `BalanceComprobacionModule`
+- Actualizar el JSX para renderizar `BalanceComprobacionModule` en la pestana correspondiente
 
-### Archivo 2: `src/hooks/usePlan.ts`
-- Modificar `upgradeToPro` y `upgradeToEnterprise` para hacer `upsert` en la tabla `subscribers` con el nuevo `subscription_tier`
-- Si el registro no existe, crearlo con `user_id` y el tier seleccionado
-- Mantener la actualizacion local (`setCurrentPlan`) para respuesta inmediata en la UI
+### Archivo 2: `src/hooks/useReportesContables.ts`
+- Modificar `getBalanceSheetData()` para aceptar un parametro opcional `filtros?: { fechaInicio?: string, fechaFin?: string }`
+- Propagar esos filtros a la llamada interna `getTrialBalanceData(filtros)`
 
-## Resultado Esperado
-- Las notificaciones de stock bajo, facturas pendientes y alertas contables funcionaran con datos reales de Supabase
-- Los cambios de plan (upgrade) persistiran entre sesiones y dispositivos
-- El error 25006 en facturas sigue requiriendo accion manual en Supabase SQL Editor (trigger problematico)
+### Archivo 3: `src/hooks/useContabilidadIntegration.ts`
+- Actualizar la interfaz `ContabilidadIntegrationHook` para que `getBalanceSheetData` acepte filtros opcionales
+- Propagar los filtros en la implementacion
+
+### Archivo 4: `src/components/contable/BalanceGeneralModule.tsx`
+- Pasar las fechas seleccionadas (`fechaInicio`, `fechaCorte`) a `getBalanceSheetData()` al generar el reporte
+- Convertir las fechas a formato `yyyy-MM-dd` antes de pasarlas
+
+## Resultado esperado
+- El Balance de Comprobacion en Reportes mostrara datos reales de Supabase en lugar de datos ficticios
+- El Balance General respetara las fechas seleccionadas por el usuario
+- Todos los reportes contables estaran conectados al mismo flujo de datos real desde Supabase
