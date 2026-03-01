@@ -184,13 +184,13 @@ const AppSidebar = () => {
             )}
             <div className="space-y-0.5">
               {group.items.map((item, itemIndex) => (
-                <button
-                  key={itemIndex}
-                  onClick={() => handleNavigation(item.url)}
-                  className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${getNavClasses(isActive(item.url))}`}
-                  title={isCollapsed ? item.title : undefined}
-                >
-                  <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
+                  <button
+                   key={itemIndex}
+                   onClick={() => handleNavigation(item.url)}
+                   className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg nav-item-animated text-sm ${getNavClasses(isActive(item.url))}`}
+                   title={isCollapsed ? item.title : undefined}
+                 >
+                   <item.icon className={`w-[18px] h-[18px] flex-shrink-0 transition-transform duration-200 ${isActive(item.url) ? 'scale-110' : ''}`} />
                   {!isCollapsed && <span className="flex-1 truncate">{item.title}</span>}
                 </button>
               ))}
@@ -200,7 +200,7 @@ const AppSidebar = () => {
 
         {/* Navigation */}
         {menuItems.map((group, groupIndex) => (
-          <div key={groupIndex} className="mb-5">
+          <div key={groupIndex} className="mb-5 animate-fade-in" style={{ animationDelay: `${groupIndex * 0.04}s` }}>
             {!isCollapsed && (
               <div className="px-3 mb-2">
                 <span className="text-[11px] font-bold text-muted-foreground/70 uppercase tracking-widest">
@@ -217,12 +217,12 @@ const AppSidebar = () => {
                   <button
                     key={itemIndex}
                     onClick={() => handleNavigation(item.url)}
-                    className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${
+                    className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg nav-item-animated text-sm ${
                       locked ? 'opacity-50' : ''
                     } ${getNavClasses(isActive(item.url))}`}
                     title={isCollapsed ? item.title : undefined}
                   >
-                    <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
+                    <item.icon className={`w-[18px] h-[18px] flex-shrink-0 transition-transform duration-200 ${isActive(item.url) ? 'scale-110' : ''}`} />
                     {!isCollapsed && (
                       <>
                         <span className="flex-1 truncate">{item.title}</span>

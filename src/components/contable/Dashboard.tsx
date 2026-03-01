@@ -82,10 +82,10 @@ const Dashboard = () => {
 
       {/* KPIs principales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="card-modern group hover:shadow-glow transition-smooth cursor-pointer" onClick={() => navigateTo('facturacion')}>
+        <Card className="card-modern group hover:shadow-glow hover-lift cursor-pointer animate-slide-up stagger-1" onClick={() => navigateTo('facturacion')}>
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
-              <div className="p-2.5 rounded-xl bg-success/10"><DollarSign className="w-5 h-5 text-success" /></div>
+              <div className="p-2.5 rounded-xl bg-success/10 group-hover:scale-110 transition-transform duration-200"><DollarSign className="w-5 h-5 text-success" /></div>
               {metrics.crecimiento !== 0 && (
                 <Badge variant={metrics.crecimiento > 0 ? "default" : "destructive"} className="text-xs">
                   {metrics.crecimiento > 0 ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
@@ -101,10 +101,10 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="card-modern group hover:shadow-glow transition-smooth cursor-pointer" onClick={() => navigateTo('balance-general')}>
+        <Card className="card-modern group hover:shadow-glow hover-lift cursor-pointer animate-slide-up stagger-2" onClick={() => navigateTo('balance-general')}>
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
-              <div className="p-2.5 rounded-xl bg-primary/10"><BarChart3 className="w-5 h-5 text-primary" /></div>
+              <div className="p-2.5 rounded-xl bg-primary/10 group-hover:scale-110 transition-transform duration-200"><BarChart3 className="w-5 h-5 text-primary" /></div>
               <Badge variant="outline" className="text-xs">{balanceCuadrado ? 'OK' : 'Revisar'}</Badge>
             </div>
             <p className="text-2xl font-bold text-foreground">Bs {balance.activos.toLocaleString()}</p>
@@ -115,10 +115,10 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="card-modern group hover:shadow-glow transition-smooth cursor-pointer" onClick={() => navigateTo('clientes')}>
+        <Card className="card-modern group hover:shadow-glow hover-lift cursor-pointer animate-slide-up stagger-3" onClick={() => navigateTo('clientes')}>
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
-              <div className="p-2.5 rounded-xl bg-warning/10"><Users className="w-5 h-5 text-warning" /></div>
+              <div className="p-2.5 rounded-xl bg-warning/10 group-hover:scale-110 transition-transform duration-200"><Users className="w-5 h-5 text-warning" /></div>
               {metrics.clientesNuevos > 0 && <Badge className="text-xs">+{metrics.clientesNuevos}</Badge>}
             </div>
             <p className="text-2xl font-bold text-foreground">{metrics.clientesActivos}</p>
@@ -129,10 +129,10 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="card-modern group hover:shadow-glow transition-smooth cursor-pointer" onClick={() => navigateTo('inventario')}>
+        <Card className="card-modern group hover:shadow-glow hover-lift cursor-pointer animate-slide-up stagger-4" onClick={() => navigateTo('inventario')}>
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
-              <div className="p-2.5 rounded-xl bg-accent"><Package className="w-5 h-5 text-accent-foreground" /></div>
+              <div className="p-2.5 rounded-xl bg-accent group-hover:scale-110 transition-transform duration-200"><Package className="w-5 h-5 text-accent-foreground" /></div>
               {metrics.stockBajo > 0 && <Badge variant="destructive" className="text-xs"><AlertTriangle className="w-3 h-3 mr-1" />{metrics.stockBajo}</Badge>}
             </div>
             <p className="text-2xl font-bold text-foreground">Bs {metrics.valorInv.toLocaleString()}</p>
@@ -145,7 +145,7 @@ const Dashboard = () => {
       </div>
 
       {/* Accesos rápidos */}
-      <div>
+      <div className="animate-fade-in stagger-5">
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Acceso Rápido</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           {[
@@ -159,9 +159,9 @@ const Dashboard = () => {
             <button
               key={i}
               onClick={() => navigateTo(item.view)}
-              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border/60 bg-card hover:bg-accent/50 hover:shadow-sm transition-all duration-200"
+              className="flex flex-col items-center gap-2 p-4 rounded-xl border border-border/60 bg-card hover:bg-accent/50 hover:shadow-sm hover-lift transition-all duration-200 hover:scale-[1.02]"
             >
-              <div className={`p-2.5 rounded-lg ${item.color}`}>
+              <div className={`p-2.5 rounded-lg ${item.color} transition-transform duration-200 group-hover:scale-110`}>
                 <item.icon className="w-5 h-5" />
               </div>
               <span className="text-xs font-medium text-foreground">{item.label}</span>
@@ -171,7 +171,7 @@ const Dashboard = () => {
       </div>
 
       {/* Indicadores secundarios */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-fade-in stagger-6">
         <Card className="card-modern">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
