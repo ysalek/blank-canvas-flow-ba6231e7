@@ -47,7 +47,7 @@ export interface ContabilidadIntegrationHook {
   validarTransaccion: (asiento: AsientoContable) => boolean;
   obtenerBalanceGeneral: () => { activos: number; pasivos: number; patrimonio: number };
   getBalanceSheetData: (filtros?: { fechaInicio?: string, fechaFin?: string }) => BalanceSheetData;
-  getIncomeStatementData: () => IncomeStatementData;
+  getIncomeStatementData: (filtros?: { fechaInicio?: string, fechaFin?: string }) => IncomeStatementData;
   getDeclaracionIVAData: (fechas: { fechaInicio: string, fechaFin: string }) => DeclaracionIVAData;
 }
 
