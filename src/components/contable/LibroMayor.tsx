@@ -39,12 +39,12 @@ const LibroMayor = () => {
   const [cuentasMayor, setCuentasMayor] = useState<CuentaMayor[]>([]);
   const [cuentasDisponibles, setCuentasDisponibles] = useState<{codigo: string, nombre: string}[]>([]);
   
-  const { getAsientos } = useAsientos();
-  const { planCuentas: planCuentasSupabase } = useSupabasePlanCuentas();
+  const { getAsientos, asientos, loading } = useAsientos();
+  const { planCuentas: planCuentasSupabase, loading: loadingPlan } = useSupabasePlanCuentas();
 
   useEffect(() => {
     generarLibroMayor();
-  }, [fechaInicio, fechaFin, planCuentasSupabase]);
+  }, [fechaInicio, fechaFin, planCuentasSupabase, asientos]);
 
   const generarLibroMayor = () => {
     const asientos = getAsientos();
@@ -168,11 +168,14 @@ const LibroMayor = () => {
     
     setCuentasMayor(cuentasMayorData);
     
-    // Actualizar lista de cuentas disponibles
-    const cuentasUnicas = cuentasMayorData.map(cuenta => ({
-      codigo: cuenta.codigo,
-      nombre: cuenta.nombre
-    }));
+    // Combinar cuentas con movimientos + todas las del plan de cuentas
+    const todasLasCuentas = new Map<string, string>();
+    planCuentasSupabase.forEach(c => todasLasCuentas.set(c.codigo, c.nombre));
+    cuentasMayorData.forEach(c => todasLasCuentas.set(c.codigo, c.nombre));
+
+    const cuentasUnicas = Array.from(todasLasCuentas.entries())
+      .map(([codigo, nombre]) => ({ codigo, nombre }))
+      .sort((a, b) => a.codigo.localeCompare(b.codigo));
     setCuentasDisponibles(cuentasUnicas);
   };
 
@@ -428,7 +431,17 @@ const LibroMayor = () => {
             ))}
           </div>
 
-          {cuentasFiltradas.length === 0 && (
+          {(loading || loadingPlan) && (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <BookOpenCheck className="w-12 h-12 mx-auto mb-4 text-muted-foreground animate-pulse" />
+                <h3 className="text-lg font-semibold mb-2">Cargando datos contables...</h3>
+                <p className="text-muted-foreground">Obteniendo asientos y plan de cuentas desde la base de datos</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {!loading && !loadingPlan && cuentasFiltradas.length === 0 && (
             <Card>
               <CardContent className="p-8 text-center">
                 <BookOpenCheck className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />

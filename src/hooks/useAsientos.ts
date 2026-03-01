@@ -202,7 +202,8 @@ export const useAsientos = () => {
   };
 
   return { 
-    getAsientos, 
+    getAsientos,
+    asientos,
     guardarAsiento, 
     validarTransaccion,
     actualizarEstadoAsiento,
