@@ -21,7 +21,7 @@ export const useAsientos = () => {
       // Obtener asientos contables
       const { data: asientosData, error: asientosError } = await supabase
         .from('asientos_contables')
-        .select('*')
+        .select('id, numero, fecha, concepto, referencia, debe, haber, estado, user_id, created_at')
         .eq('user_id', user.id)
         .order('fecha', { ascending: false });
 
@@ -34,7 +34,7 @@ export const useAsientos = () => {
       if (asientoIds.length > 0) {
         const { data, error: cuentasError } = await supabase
           .from('cuentas_asientos')
-          .select('*')
+          .select('id, asiento_id, codigo_cuenta, nombre_cuenta, debe, haber')
           .in('asiento_id', asientoIds);
 
         if (cuentasError) throw cuentasError;
@@ -129,8 +129,8 @@ export const useAsientos = () => {
           estado: asiento.estado || 'registrado',
           user_id: user.id
         })
-        .select()
-        .single();
+        .select('id, numero, fecha, concepto, referencia, debe, haber, estado, user_id, created_at')
+        .maybeSingle();
 
       if (asientoError) throw asientoError;
 

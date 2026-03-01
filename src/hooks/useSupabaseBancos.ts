@@ -39,7 +39,7 @@ export const useSupabaseBancos = () => {
 
       const { data, error } = await supabase
         .from('cuentas_bancarias')
-        .select('*')
+        .select('id, nombre, banco, numero_cuenta, tipo_cuenta, moneda, saldo, activa, user_id, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -58,7 +58,7 @@ export const useSupabaseBancos = () => {
 
       const { data, error } = await supabase
         .from('movimientos_bancarios')
-        .select(`*, cuentas_bancarias(nombre, banco)`)
+        .select('id, cuenta_bancaria_id, fecha, tipo, monto, descripcion, numero_comprobante, beneficiario, saldo_anterior, saldo_actual, user_id, created_at, cuentas_bancarias(nombre, banco)')
         .eq('user_id', user.id)
         .order('fecha', { ascending: false });
 
@@ -78,8 +78,8 @@ export const useSupabaseBancos = () => {
       const { data, error } = await supabase
         .from('cuentas_bancarias')
         .insert([{ ...cuenta, user_id: user.id }])
-        .select()
-        .single();
+        .select('id, nombre, banco, numero_cuenta, tipo_cuenta, moneda, saldo, activa, user_id, created_at')
+        .maybeSingle();
 
       if (error) throw error;
       setCuentasBancarias(prev => [data, ...prev]);
@@ -102,8 +102,8 @@ export const useSupabaseBancos = () => {
         .update(updates)
         .eq('id', id)
         .eq('user_id', user.id)
-        .select()
-        .single();
+        .select('id, nombre, banco, numero_cuenta, tipo_cuenta, moneda, saldo, activa, user_id, created_at')
+        .maybeSingle();
 
       if (error) throw error;
       setCuentasBancarias(prev => prev.map(item => item.id === id ? { ...item, ...data } : item));
@@ -128,8 +128,8 @@ export const useSupabaseBancos = () => {
       const { data, error } = await supabase
         .from('movimientos_bancarios')
         .insert([{ ...movimiento, user_id: user.id, saldo_anterior: saldoAnterior, saldo_actual: saldoActual }])
-        .select()
-        .single();
+        .select('id, cuenta_bancaria_id, fecha, tipo, monto, descripcion, numero_comprobante, beneficiario, saldo_anterior, saldo_actual, user_id, created_at')
+        .maybeSingle();
 
       if (error) throw error;
       await updateCuentaBancaria(movimiento.cuenta_bancaria_id, { saldo: saldoActual });

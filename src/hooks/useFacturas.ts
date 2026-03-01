@@ -212,7 +212,8 @@ export const useFacturas = () => {
       }
 
       const facturaCompleta = { ...factura, id: nuevaFactura.id };
-      setFacturas(prev => [facturaCompleta, ...prev]);
+      // Refetch from DB to ensure list is up-to-date
+      await fetchFacturas();
       return facturaCompleta;
 
     } catch (error) {

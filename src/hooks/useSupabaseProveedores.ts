@@ -120,8 +120,8 @@ export const useSupabaseProveedores = () => {
       const { data, error } = await supabase
         .from('proveedores')
         .insert([{ ...proveedorData, user_id: user.id }])
-        .select()
-        .single();
+        .select('id, codigo, nombre, nit, telefono, direccion, email, activo, saldo_deuda, user_id, created_at, updated_at')
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -152,8 +152,8 @@ export const useSupabaseProveedores = () => {
         .from('proveedores')
         .update(proveedorData)
         .eq('id', id)
-        .select()
-        .single();
+        .select('id, codigo, nombre, nit, telefono, direccion, email, activo, saldo_deuda, user_id, created_at, updated_at')
+        .maybeSingle();
 
       if (error) throw error;
 

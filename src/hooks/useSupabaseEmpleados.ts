@@ -73,8 +73,8 @@ export const useSupabaseEmpleados = () => {
           ...empleadoData,
           user_id: user.id
         }])
-        .select()
-        .single();
+        .select('id, numero_empleado, nombres, apellidos, ci, fecha_nacimiento, genero, estado_civil, email, telefono, direccion, departamento, cargo, fecha_ingreso, salario_base, beneficios, estado, user_id, created_at, updated_at')
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -107,9 +107,9 @@ export const useSupabaseEmpleados = () => {
         .from('empleados')
         .update(empleadoData)
         .eq('id', id)
-        .eq('user_id', user.id) // SECURITY FIX: Verificar propiedad del empleado
-        .select()
-        .single();
+        .eq('user_id', user.id)
+        .select('id, numero_empleado, nombres, apellidos, ci, fecha_nacimiento, genero, estado_civil, email, telefono, direccion, departamento, cargo, fecha_ingreso, salario_base, beneficios, estado, user_id, created_at, updated_at')
+        .maybeSingle();
 
       if (error) throw error;
 
