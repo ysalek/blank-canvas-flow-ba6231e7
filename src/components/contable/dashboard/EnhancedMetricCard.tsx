@@ -63,8 +63,8 @@ const EnhancedMetricCard = ({
   return (
     <Card 
       className={`
-        group cursor-grab active:cursor-grabbing transition-all duration-200 
-        hover:shadow-elevated hover:-translate-y-1 bg-gradient-card border-0 shadow-kpi
+        group cursor-grab active:cursor-grabbing hover-lift
+        hover:shadow-lg bg-gradient-card border-0 shadow-kpi
         ${isDragging ? 'opacity-50 scale-95' : ''}
         ${shouldShowAlert ? getAlertColor(alert!.level) : ''}
       `}
@@ -78,7 +78,7 @@ const EnhancedMetricCard = ({
           <div className="flex items-center space-x-3">
             <div className={`
               p-3 rounded-xl bg-gradient-primary/10 ${color} 
-              group-hover:scale-110 transition-transform duration-200
+              group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300
             `}>
               <Icon className="w-6 h-6" />
             </div>
