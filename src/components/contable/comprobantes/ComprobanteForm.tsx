@@ -168,9 +168,9 @@ const ComprobanteForm = ({ tipo, onSave, onCancel }: ComprobanteFormProps) => {
         // Ingreso - determinar si es con factura o sin factura
         if (conFacturaIngreso) {
           // Con factura: incluir débito fiscal del 13% e IT del 3%
-          const baseImponible = formData.monto / 1.16; // Monto sin IVA ni IT
+          const baseImponible = formData.monto / 1.13; // Monto sin IVA (13%)
           const debitoFiscal = baseImponible * 0.13; // 13% de IVA
-          const impuestoTransacciones = baseImponible * 0.03; // 3% de IT
+          const impuestoTransacciones = formData.monto * 0.03; // IT 3% sobre ingreso bruto total
           
           // Débito a la cuenta de método de pago (total)
           cuentasGeneradas.push({
@@ -190,15 +190,21 @@ const ComprobanteForm = ({ tipo, onSave, onCancel }: ComprobanteFormProps) => {
           
           // Crédito a IVA Débito Fiscal
           cuentasGeneradas.push({
-            codigo: "2131",
+            codigo: "2113",
             nombre: "IVA Débito Fiscal",
             debe: 0,
             haber: debitoFiscal
           });
           
-          // Crédito a IT por Pagar
+          // Débito a IT (gasto) y Crédito a IT por Pagar
           cuentasGeneradas.push({
-            codigo: "2141",
+            codigo: "5261",
+            nombre: "Impuesto a las Transacciones",
+            debe: impuestoTransacciones,
+            haber: 0
+          });
+          cuentasGeneradas.push({
+            codigo: "2114",
             nombre: "IT por Pagar",
             debe: 0,
             haber: impuestoTransacciones

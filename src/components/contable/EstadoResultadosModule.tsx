@@ -92,11 +92,11 @@ const EstadoResultadosModule = () => {
         cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('524'))
       },
       totalGastosOperativos: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('52') && c.codigo !== '5211').reduce((sum, c) => sum + c.saldo, 0),
-      todasLasCuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('52') && c.codigo !== '5211')
+      todasLasCuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('52') && c.codigo !== '5261')
     },
     impuestoTransacciones: {
-      total: datosReales.gastos.cuentas.filter(c => c.codigo === '5211').reduce((sum, c) => sum + c.saldo, 0),
-      cuentas: datosReales.gastos.cuentas.filter(c => c.codigo === '5211')
+      total: datosReales.gastos.cuentas.filter(c => c.codigo === '5261').reduce((sum, c) => sum + c.saldo, 0),
+      cuentas: datosReales.gastos.cuentas.filter(c => c.codigo === '5261')
     },
     otrosIngresos: {
       ingresosFinancieros: {
