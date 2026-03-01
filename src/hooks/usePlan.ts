@@ -65,12 +65,10 @@ export const usePlan = () => {
   const { user } = useAuth();
   const isAdmin = user?.rol === 'admin';
 
-  const [currentPlan, setCurrentPlan] = useState<PlanType>(() => {
-    return (localStorage.getItem('user_plan') as PlanType) || 'basic';
-  });
+  const [currentPlan, setCurrentPlan] = useState<PlanType>('basic');
   const [loadingPlan, setLoadingPlan] = useState(true);
 
-  // Load plan from Supabase (source of truth)
+  // Load plan from Supabase (sole source of truth)
   useEffect(() => {
     if (!user?.id) {
       setLoadingPlan(false);
@@ -86,12 +84,9 @@ export const usePlan = () => {
           .maybeSingle();
 
         if (data?.subscription_tier) {
-          const tier = data.subscription_tier as PlanType;
-          setCurrentPlan(tier);
-          localStorage.setItem('user_plan', tier);
+          setCurrentPlan(data.subscription_tier as PlanType);
         } else {
           setCurrentPlan('basic');
-          localStorage.setItem('user_plan', 'basic');
         }
       } catch (e) {
         console.error('Error loading plan from Supabase:', e);
@@ -102,11 +97,6 @@ export const usePlan = () => {
 
     loadPlanFromSupabase();
   }, [user?.id]);
-
-  // Sync localStorage when plan changes
-  useEffect(() => {
-    localStorage.setItem('user_plan', currentPlan);
-  }, [currentPlan]);
 
   const features = PLAN_FEATURES[currentPlan];
 
