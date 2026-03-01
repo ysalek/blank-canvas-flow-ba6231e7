@@ -263,6 +263,7 @@ export const useSupabaseProductos = () => {
             cantidad,
             stock_anterior: producto.stock_actual,
             stock_actual: nuevoStock,
+            costo_unitario: producto.costo_unitario || producto.precio_compra || 0,
             observaciones: `Movimiento ${tipo} manual`
           }]);
       }
