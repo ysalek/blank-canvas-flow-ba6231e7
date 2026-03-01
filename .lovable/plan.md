@@ -1,35 +1,92 @@
 
 
-# Agregar Categorias desde el Formulario de Producto
+# Analisis Profundo del Sistema - Hallazgos y Correcciones
 
-## Problema
-Al crear un nuevo producto, el selector de categoria solo muestra las categorias existentes. Si el usuario necesita una nueva categoria, no puede crearla directamente desde el formulario.
+## Estado Actual
 
-## Solucion
-Agregar un boton "+" junto al selector de categoria en `ProductoForm.tsx` que abra un mini-dialogo inline para crear una nueva categoria sin salir del formulario.
+### Modulos con Supabase correctamente integrado (sin problemas)
+- `useAsientos.ts` - Limpio, sin localStorage
+- `useFacturas.ts` - Limpio, sin localStorage (pero tiene el error 25006 del trigger)
+- `useProductosValidated.ts` - Funciona correctamente (26 categorias, 1 producto cargados)
+- `useSupabaseProductos.ts` - Funciona correctamente
+- `usePlan.ts` - Plan cargado desde Supabase correctamente
+- `SubscriptionsManager.tsx` - Chart de ingresos ya incluye Pro + Enterprise (corregido previamente)
 
-## Cambios
+---
 
-### `src/components/contable/products/ProductoForm.tsx`
-- Importar `Dialog` de radix y el icono `Plus` de lucide-react
-- Agregar estado local para controlar el dialogo de nueva categoria (`showNewCatDialog`, `newCatName`, `newCatDesc`)
-- Junto al `Select` de categoria, agregar un boton con icono "+" que abre el dialogo
-- El dialogo tendra dos campos: nombre (requerido) y descripcion (opcional)
-- Al confirmar, llamar a `crearCategoria` del hook `useSupabaseProductos` (ya existe y funciona con Supabase)
-- Tras crear exitosamente, hacer `refetch` para actualizar la lista de categorias y auto-seleccionar la nueva categoria en el formulario
-- Actualizar las props del componente para recibir `crearCategoria` y `refetch` desde el padre, o usar `useSupabaseProductos` directamente (ya se importa en linea 11)
+## Problemas Detectados
 
-### `src/components/contable/ProductosModule.tsx`
-- No requiere cambios significativos, ya que `ProductoForm` usa `useSupabaseProductos` internamente
+### CRITICO: Error 25006 en tabla `facturas` (persiste)
+El GET a `/rest/v1/facturas` sigue devolviendo **status 405** con error `"cannot execute INSERT in a read-only transaction"`. Esto significa que hay un **trigger en la tabla facturas** en Supabase que ejecuta un INSERT durante una lectura. El modulo de facturacion esta completamente roto - no carga ninguna factura.
 
-## Detalles Tecnicos
+**Accion requerida (manual en Supabase SQL Editor):**
+```text
+-- Paso 1: Identificar triggers en la tabla facturas
+SELECT tgname, tgenabled, pg_get_triggerdef(oid) 
+FROM pg_trigger 
+WHERE tgrelid = 'public.facturas'::regclass;
 
-El hook `useSupabaseProductos` ya expone `crearCategoria` que inserta en la tabla `categorias_productos` de Supabase. `ProductoForm` ya importa y usa este hook (linea 22), por lo que solo necesita desestructurar `crearCategoria` y `refetch` adicionalmente.
+-- Paso 2: Desactivar el trigger problematico (reemplazar NOMBRE_TRIGGER)
+ALTER TABLE public.facturas DISABLE TRIGGER NOMBRE_TRIGGER;
+```
+Este problema no se puede resolver desde el codigo, requiere accion directa en la base de datos.
 
-La interfaz del dialogo sera un `Dialog` simple con:
-- Input para nombre de categoria (obligatorio)
-- Input para descripcion (opcional)
-- Botones Cancelar / Crear
+### MEDIO: localStorage residual en hooks de datos
 
-Al crear la categoria, se auto-seleccionara su `id` en el campo `categoria_id` del formulario.
+**1. `useClientesSupabase.ts` (linea 37-38)**
+Tiene fallback a localStorage cuando falla Supabase. Debe eliminarse para mantener consistencia.
+
+**2. `useInventarioBolivia.ts` (lineas 208-209)**
+La funcion `validarIntegridadContable` lee asientos y productos desde localStorage en vez de usar los hooks de Supabase. Los datos siempre estaran vacios o desactualizados.
+
+**3. `usePlan.ts` (lineas 125-140)**
+El contador de transacciones mensuales (`txn_count_YYYY-MM`) usa localStorage. Esto significa que el limite de 100 transacciones del plan basico se puede evadir limpiando el navegador. Deberia persistirse en Supabase para ser confiable.
+
+### BAJO: Modulos completos operando solo con localStorage
+Los siguientes modulos funcionan pero sus datos no persisten en Supabase (se pierden al cambiar navegador/dispositivo):
+
+| Modulo | Archivo | Impacto |
+|--------|---------|---------|
+| Comprobantes Integrados | `ComprobantesIntegrados.tsx` | 61 usos de localStorage |
+| Libro Mayor | `LibroMayor.tsx` | Lee planCuentas de localStorage |
+| Punto de Venta (POS) | `EnhancedPOSModule.tsx` | Ventas y clientes en localStorage |
+| Kardex | `KardexModule.tsx` | Productos y movimientos en localStorage |
+| Nomina Boliviana | `NominaBoliviana.tsx` | Empleados y planillas en localStorage |
+| Retenciones | `RetencionesModule.tsx` | Retenciones en localStorage |
+| Declaraciones Tributarias | `DeclaracionesTributariasModule.tsx` | Declaraciones en localStorage |
+| Datos de Ejemplo | `datosEjemplo.ts` | Inicializa localStorage con datos vacios |
+
+---
+
+## Plan de Correccion (esta iteracion)
+
+### 1. Eliminar localStorage en `useClientesSupabase.ts`
+- Remover lineas 37-38: el fallback a localStorage en el catch
+- Si Supabase falla, dejar el array vacio (consistente con useFacturas y useAsientos)
+
+### 2. Corregir `useInventarioBolivia.ts` 
+- Modificar `validarIntegridadContable` para recibir asientos y productos como parametros desde los hooks existentes, en vez de leer localStorage
+
+### 3. Corregir `LibroMayor.tsx`
+- Actualmente lee `planCuentas` de localStorage (linea 49)
+- Debe usar el hook `useSupabasePlanCuentas` que ya existe e importa datos desde Supabase
+
+### 4. Migrar contador de transacciones en `usePlan.ts`
+- Reemplazar localStorage por una consulta a Supabase que cuente los asientos del mes actual
+- Esto hace el limite del plan basico realmente efectivo
+
+### Fuera de alcance (iteracion futura)
+- Migracion completa de ComprobantesIntegrados, POS, Kardex, Nomina, Retenciones y Declaraciones a Supabase (requieren nuevas tablas y logica extensa)
+
+## Archivos a Modificar
+1. `src/hooks/useClientesSupabase.ts` - Eliminar fallback localStorage
+2. `src/hooks/useInventarioBolivia.ts` - Usar datos de hooks en vez de localStorage
+3. `src/components/contable/LibroMayor.tsx` - Usar useSupabasePlanCuentas
+4. `src/hooks/usePlan.ts` - Migrar contador de transacciones a Supabase
+
+## Resultado Esperado
+- Tres hooks criticos (clientes, inventario, plan) dejaran de depender de localStorage
+- El Libro Mayor mostrara datos reales del plan de cuentas en Supabase
+- El limite de transacciones del plan basico sera confiable
+- El error 25006 de facturas requiere accion manual del usuario en Supabase SQL Editor
 
