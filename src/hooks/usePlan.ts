@@ -119,8 +119,36 @@ export const usePlan = () => {
     return 'enterprise';
   };
 
-  const upgradeToPro = () => setCurrentPlan('pro');
-  const upgradeToEnterprise = () => setCurrentPlan('enterprise');
+  const persistPlan = async (newPlan: PlanType) => {
+    if (!user?.id) return;
+    setCurrentPlan(newPlan); // Respuesta inmediata en UI
+
+    try {
+      // Check if subscriber record exists (no UNIQUE constraint on user_id)
+      const { data: existing } = await supabase
+        .from('subscribers')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('subscribers')
+          .update({ subscription_tier: newPlan, updated_at: new Date().toISOString() })
+          .eq('id', existing.id);
+      } else {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        await supabase
+          .from('subscribers')
+          .insert({ user_id: user.id, subscription_tier: newPlan, email: authUser?.email || '' });
+      }
+    } catch (e) {
+      console.error('Error persisting plan upgrade:', e);
+    }
+  };
+
+  const upgradeToPro = () => persistPlan('pro');
+  const upgradeToEnterprise = () => persistPlan('enterprise');
 
   const [monthlyTxnCount, setMonthlyTxnCount] = useState(0);
 
