@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { supabase } from '@/integrations/supabase/client';
 
 export type PlanType = 'basic' | 'pro' | 'enterprise';
 
@@ -67,7 +68,42 @@ export const usePlan = () => {
   const [currentPlan, setCurrentPlan] = useState<PlanType>(() => {
     return (localStorage.getItem('user_plan') as PlanType) || 'basic';
   });
+  const [loadingPlan, setLoadingPlan] = useState(true);
 
+  // Load plan from Supabase (source of truth)
+  useEffect(() => {
+    if (!user?.id) {
+      setLoadingPlan(false);
+      return;
+    }
+
+    const loadPlanFromSupabase = async () => {
+      try {
+        const { data } = await supabase
+          .from('subscribers')
+          .select('subscription_tier')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (data?.subscription_tier) {
+          const tier = data.subscription_tier as PlanType;
+          setCurrentPlan(tier);
+          localStorage.setItem('user_plan', tier);
+        } else {
+          setCurrentPlan('basic');
+          localStorage.setItem('user_plan', 'basic');
+        }
+      } catch (e) {
+        console.error('Error loading plan from Supabase:', e);
+      } finally {
+        setLoadingPlan(false);
+      }
+    };
+
+    loadPlanFromSupabase();
+  }, [user?.id]);
+
+  // Sync localStorage when plan changes
   useEffect(() => {
     localStorage.setItem('user_plan', currentPlan);
   }, [currentPlan]);
@@ -122,6 +158,7 @@ export const usePlan = () => {
     isEnterpriseFeature,
     getRequiredPlan,
     isAdmin,
+    loadingPlan,
     upgradeToPro,
     upgradeToEnterprise,
     canCreateTransaction,
