@@ -14,9 +14,10 @@ interface InvoiceItemsProps {
   addItem: () => void;
   removeItem: (index: number) => void;
   error?: string;
+  onCreateProduct?: (index: number) => void;
 }
 
-const InvoiceItems = ({ items, productos, updateItem, addItem, removeItem, error }: InvoiceItemsProps) => {
+const InvoiceItems = ({ items, productos, updateItem, addItem, removeItem, error, onCreateProduct }: InvoiceItemsProps) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -57,6 +58,7 @@ const InvoiceItems = ({ items, productos, updateItem, addItem, removeItem, error
                     updateItem={updateItem}
                     removeItem={removeItem}
                     itemCount={items.length}
+                    onCreateProduct={onCreateProduct}
                 />
                 ))}
             </TableBody>

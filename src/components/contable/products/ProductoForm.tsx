@@ -7,9 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { X, Save, AlertCircle, Plus } from "lucide-react";
+import { X, Save, AlertCircle, Plus, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseProductos, ProductoSupabase, CategoriaProductoSupabase } from "@/hooks/useSupabaseProductos";
+import { useSupabaseProveedores } from "@/hooks/useSupabaseProveedores";
+import ProveedorSearchCombobox from "../purchases/ProveedorSearchCombobox";
+import ProveedorForm from "../purchases/ProveedorForm";
+import { Proveedor } from "../purchases/PurchasesData";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 
 interface ProductoFormProps {
   producto?: ProductoSupabase | null;
@@ -21,10 +26,14 @@ interface ProductoFormProps {
 
 const ProductoForm = ({ producto, productos, categorias, onSave, onCancel }: ProductoFormProps) => {
   const { crearProducto, actualizarProducto, generarCodigoProducto, crearCategoria, categorias: categoriasHook, refetch } = useSupabaseProductos();
+  const { proveedores: proveedoresDB } = useSupabaseProveedores();
   const [showNewCatDialog, setShowNewCatDialog] = useState(false);
   const [newCatName, setNewCatName] = useState("");
   const [newCatDesc, setNewCatDesc] = useState("");
   const [creatingCat, setCreatingCat] = useState(false);
+  const [selectedProveedorId, setSelectedProveedorId] = useState("");
+  const [showProveedorForm, setShowProveedorForm] = useState(false);
+  const [proveedorOpen, setProveedorOpen] = useState(false);
   const [formData, setFormData] = useState({
     codigo: "",
     nombre: "",
@@ -431,6 +440,41 @@ const ProductoForm = ({ producto, productos, categorias, onSave, onCancel }: Pro
           />
         </div>
 
+        {/* Proveedor principal (opcional) */}
+        <Collapsible open={proveedorOpen} onOpenChange={setProveedorOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" type="button" className="w-full justify-between px-0 hover:bg-transparent">
+              <span className="text-sm font-medium">Proveedor Principal (opcional)</span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${proveedorOpen ? "rotate-180" : ""}`} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-2">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <ProveedorSearchCombobox
+                  proveedores={proveedoresDB.map(p => ({
+                    id: p.id,
+                    nombre: p.nombre,
+                    nit: p.nit,
+                    email: p.email || "",
+                    telefono: p.telefono,
+                    direccion: p.direccion,
+                    activo: p.activo,
+                    fechaCreacion: p.created_at || "",
+                  }))}
+                  value={selectedProveedorId}
+                  onValueChange={setSelectedProveedorId}
+                  placeholder="Buscar proveedor..."
+                />
+              </div>
+              <Button type="button" variant="outline" size="icon" onClick={() => setShowProveedorForm(true)} title="Crear proveedor">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">Asociar un proveedor principal para este producto</p>
+          </CollapsibleContent>
+        </Collapsible>
+
         {/* Botones de acción */}
         <div className="flex justify-end gap-4 pt-6 border-t">
           <Button variant="outline" onClick={onCancel} disabled={saving}>
@@ -502,6 +546,14 @@ const ProductoForm = ({ producto, productos, categorias, onSave, onCancel }: Pro
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ProveedorForm
+        open={showProveedorForm}
+        onOpenChange={setShowProveedorForm}
+        onSave={(proveedor: Proveedor) => {
+          setSelectedProveedorId(proveedor.id);
+        }}
+      />
     </Card>
   );
 };

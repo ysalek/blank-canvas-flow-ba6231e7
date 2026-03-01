@@ -15,9 +15,10 @@ interface InvoiceItemRowProps {
   updateItem: (index: number, field: string, value: any) => void;
   removeItem: (index: number) => void;
   itemCount: number;
+  onCreateProduct?: (index: number) => void;
 }
 
-const InvoiceItemRow = ({ item, index, productos, updateItem, removeItem, itemCount }: InvoiceItemRowProps) => {
+const InvoiceItemRow = ({ item, index, productos, updateItem, removeItem, itemCount, onCreateProduct }: InvoiceItemRowProps) => {
   return (
     <TableRow>
       <TableCell>
@@ -25,6 +26,7 @@ const InvoiceItemRow = ({ item, index, productos, updateItem, removeItem, itemCo
           productos={productos}
           value={item.productoId}
           onChange={(newId) => updateItem(index, 'productoId', newId)}
+          onCreateProduct={onCreateProduct ? () => onCreateProduct(index) : undefined}
         />
       </TableCell>
       <TableCell>

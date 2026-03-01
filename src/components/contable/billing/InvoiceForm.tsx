@@ -15,6 +15,7 @@ import InvoiceActions from "./InvoiceActions";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import InvoicePreview from "./InvoicePreview";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import QuickProductForm from "../products/QuickProductForm";
 
 interface InvoiceFormProps {
   clientes: Cliente[];
@@ -23,9 +24,10 @@ interface InvoiceFormProps {
   onSave: (factura: Factura) => void;
   onCancel: () => void;
   onAddNewClient: (cliente: Cliente) => void;
+  onProductCreated?: (producto: Producto) => void;
 }
 
-const InvoiceForm = ({ clientes, productos, facturas, onSave, onCancel, onAddNewClient }: InvoiceFormProps) => {
+const InvoiceForm = ({ clientes, productos, facturas, onSave, onCancel, onAddNewClient, onProductCreated }: InvoiceFormProps) => {
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [items, setItems] = useState<ItemFactura[]>([
     {
@@ -44,6 +46,8 @@ const InvoiceForm = ({ clientes, productos, facturas, onSave, onCancel, onAddNew
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [previewingInvoice, setPreviewingInvoice] = useState<Factura | null>(null);
   const [selectedPuntoVenta, setSelectedPuntoVenta] = useState<PuntoVenta>(puntosVenta[0]);
+  const [showQuickProductForm, setShowQuickProductForm] = useState(false);
+  const [quickProductTargetIndex, setQuickProductTargetIndex] = useState<number | null>(null);
   const { toast } = useToast();
 
   const validateForm = () => {
@@ -291,6 +295,7 @@ const InvoiceForm = ({ clientes, productos, facturas, onSave, onCancel, onAddNew
             addItem={addItem}
             removeItem={removeItem}
             error={errors.items}
+            onCreateProduct={(index) => { setQuickProductTargetIndex(index); setShowQuickProductForm(true); }}
           />
 
           <div className="space-y-2">
@@ -325,6 +330,18 @@ const InvoiceForm = ({ clientes, productos, facturas, onSave, onCancel, onAddNew
           </DialogContent>
         </Dialog>
       )}
+
+      <QuickProductForm
+        open={showQuickProductForm}
+        onOpenChange={setShowQuickProductForm}
+        onProductCreated={(producto) => {
+          if (quickProductTargetIndex !== null) {
+            updateItem(quickProductTargetIndex, 'productoId', producto.id);
+          }
+          setQuickProductTargetIndex(null);
+          onProductCreated?.(producto);
+        }}
+      />
     </>
   );
 };
