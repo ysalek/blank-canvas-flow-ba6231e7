@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X, Save, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { X, Save, AlertCircle, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSupabaseProductos, ProductoSupabase, CategoriaProductoSupabase } from "@/hooks/useSupabaseProductos";
 
@@ -19,7 +20,11 @@ interface ProductoFormProps {
 }
 
 const ProductoForm = ({ producto, productos, categorias, onSave, onCancel }: ProductoFormProps) => {
-  const { crearProducto, actualizarProducto, generarCodigoProducto } = useSupabaseProductos();
+  const { crearProducto, actualizarProducto, generarCodigoProducto, crearCategoria, refetch } = useSupabaseProductos();
+  const [showNewCatDialog, setShowNewCatDialog] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatDesc, setNewCatDesc] = useState("");
+  const [creatingCat, setCreatingCat] = useState(false);
   const [formData, setFormData] = useState({
     codigo: "",
     nombre: "",
@@ -232,18 +237,31 @@ const ProductoForm = ({ producto, productos, categorias, onSave, onCancel }: Pro
           {/* Categoría */}
           <div className="space-y-2">
             <Label>Categoría *</Label>
-            <Select value={formData.categoria_id} onValueChange={(value) => handleInputChange("categoria_id", value)}>
-              <SelectTrigger className={errors.categoria_id ? "border-destructive" : ""}>
-                <SelectValue placeholder="Seleccionar categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                {categorias.map(cat => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.nombre}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Select value={formData.categoria_id} onValueChange={(value) => handleInputChange("categoria_id", value)}>
+                  <SelectTrigger className={errors.categoria_id ? "border-destructive" : ""}>
+                    <SelectValue placeholder="Seleccionar categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categorias.map(cat => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setShowNewCatDialog(true)}
+                title="Crear nueva categoría"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
             {errors.categoria_id && (
                <p className="text-sm text-destructive flex items-center gap-1">
                 <AlertCircle className="w-4 h-4" />
@@ -424,6 +442,66 @@ const ProductoForm = ({ producto, productos, categorias, onSave, onCancel }: Pro
           </Button>
         </div>
       </CardContent>
+
+      {/* Dialog para crear nueva categoría */}
+      <Dialog open={showNewCatDialog} onOpenChange={setShowNewCatDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nueva Categoría</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-cat-name">Nombre *</Label>
+              <Input
+                id="new-cat-name"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                placeholder="Nombre de la categoría"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-cat-desc">Descripción</Label>
+              <Input
+                id="new-cat-desc"
+                value={newCatDesc}
+                onChange={(e) => setNewCatDesc(e.target.value)}
+                placeholder="Descripción (opcional)"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowNewCatDialog(false); setNewCatName(""); setNewCatDesc(""); }}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={!newCatName.trim() || creatingCat}
+              onClick={async () => {
+                setCreatingCat(true);
+                try {
+                  const nuevaCat = await crearCategoria({
+                    nombre: newCatName.trim(),
+                    descripcion: newCatDesc.trim() || undefined,
+                    activo: true,
+                  });
+                  await refetch();
+                  if (nuevaCat?.id) {
+                    handleInputChange("categoria_id", nuevaCat.id);
+                  }
+                  setShowNewCatDialog(false);
+                  setNewCatName("");
+                  setNewCatDesc("");
+                } catch (e) {
+                  // toast already handled by hook
+                } finally {
+                  setCreatingCat(false);
+                }
+              }}
+            >
+              {creatingCat ? "Creando..." : "Crear"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
