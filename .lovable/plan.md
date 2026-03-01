@@ -1,82 +1,71 @@
 
-# Corregir Costos en Historial de Movimientos de Inventario
+# Corregir Busqueda en Libro Mayor
 
 ## Problema
 
-El historial de movimientos muestra **Bs. 0.00** en las columnas de Costo Unitario, Costo Promedio y Valor del Movimiento. Esto ocurre porque al registrar movimientos en la base de datos, **no se guarda el costo unitario del producto**.
+El Libro Mayor no muestra cuentas al buscar debido a dos errores:
 
-Hay 3 lugares donde se insertan movimientos sin incluir `costo_unitario`:
-- `useSupabaseProductos.ts` (movimientos manuales)
-- `useProductosValidated.ts` (movimientos por facturacion)
-- `useProductosUnificado.ts` (movimientos generales)
+1. **Los datos no se cargan a tiempo**: La funcion `generarLibroMayor()` se ejecuta antes de que los asientos contables terminen de cargar desde Supabase. El `useEffect` depende de `[fechaInicio, fechaFin, planCuentasSupabase]` pero NO depende de `asientos`, asi que cuando los asientos llegan de la base de datos, la funcion nunca se vuelve a ejecutar. El resultado: el libro mayor se genera con una lista vacia de asientos.
 
-Ademas, falta una columna de **Valor del Stock** (stock nuevo x costo) para que el usuario vea cuanto vale su inventario despues de cada movimiento.
+2. **La busqueda solo muestra cuentas con movimientos**: El selector "Cuenta Especifica" y el campo "Buscar Cuenta" solo filtran cuentas que ya tienen asientos registrados. Si una cuenta existe en el Plan de Cuentas pero no tiene movimientos, no aparece en la busqueda.
 
----
+## Solucion
 
-## Cambios a Realizar
+### Cambio 1: Agregar `asientos` como dependencia del useEffect
 
-### 1. Incluir `costo_unitario` al crear movimientos
+**Archivo**: `src/hooks/useAsientos.ts`
+- Exponer el array `asientos` directamente (ademas de `getAsientos`)
 
-**Archivos**: `useSupabaseProductos.ts`, `useProductosValidated.ts`, `useProductosUnificado.ts`
+**Archivo**: `src/components/contable/LibroMayor.tsx`
+- Importar `asientos` del hook ademas de `getAsientos`
+- Agregar `asientos` a las dependencias del `useEffect` que llama `generarLibroMayor()`
+- Esto garantiza que el libro mayor se regenera cada vez que los asientos terminan de cargar
 
-En cada lugar donde se hace `insert` a `movimientos_inventario`, agregar el campo `costo_unitario` tomandolo del producto:
+### Cambio 2: Incluir todas las cuentas del Plan en la busqueda
 
-```
-costo_unitario: producto.costo_unitario || producto.precio_compra || 0
-```
+**Archivo**: `src/components/contable/LibroMayor.tsx`
+- En la lista `cuentasDisponibles`, combinar las cuentas que tienen movimientos con TODAS las cuentas del Plan de Cuentas de Supabase
+- Eliminar duplicados por codigo
+- Ordenar por codigo
+- Esto permite buscar y seleccionar cualquier cuenta, incluso si no tiene movimientos (mostraria "Sin movimientos" en ese caso)
 
-Esto asegura que todos los movimientos futuros registren el costo real.
+### Cambio 3: Agregar indicador de carga
 
-### 2. Agregar columna "Valor Stock" al historial
-
-**Archivo**: `MovementListTab.tsx`
-
-Agregar una columna adicional que muestre el valor del inventario despues del movimiento:
-- **Valor Stock** = Stock Nuevo x Costo Promedio Ponderado
-- Esto responde directamente a "cuanto en dinero es el inventario"
-
-### 3. Agregar fila de totales al final de la tabla
-
-**Archivo**: `MovementListTab.tsx`
-
-Incluir un `tfoot` con:
-- Total de cantidad de movimientos
-- Suma total de valores de movimientos
-- Mensaje informativo si no hay movimientos
-
-### 4. Mejorar mapeo de datos en el hook
-
-**Archivo**: `useSupabaseMovimientos.ts`
-
-Mejorar `getMovimientosInventario()` para calcular mejor el costo promedio ponderado usando datos del producto asociado cuando `costo_unitario` del movimiento es 0 (para movimientos historicos sin costo guardado).
-
----
+**Archivo**: `src/components/contable/LibroMayor.tsx`
+- Usar el `loading` de `useAsientos` para mostrar un indicador mientras se cargan los datos
+- Evitar que el usuario piense que no hay datos cuando en realidad estan cargando
 
 ## Detalle Tecnico
 
-### useSupabaseProductos.ts - linea ~258
-Agregar `costo_unitario: producto.costo_unitario` al objeto de insert.
+En `useAsientos.ts`, agregar `asientos` al return:
+```
+return { getAsientos, asientos, guardarAsiento, ... }
+```
 
-### useProductosValidated.ts - linea ~410
-Agregar `costo_unitario: producto.costo_unitario` al objeto de insert.
+En `LibroMayor.tsx`:
+```
+const { getAsientos, asientos, loading } = useAsientos();
 
-### useProductosUnificado.ts - buscar insert similar
-Agregar `costo_unitario` igualmente.
+useEffect(() => {
+  generarLibroMayor();
+}, [fechaInicio, fechaFin, planCuentasSupabase, asientos]);
+```
 
-### MovementListTab.tsx
-- Nueva columna "Valor Stock" despues de "Valor Mov."
-- Fila de totales en `tfoot`
-- Mensaje "Sin movimientos registrados" cuando la lista esta vacia
-- Formato de numeros mejorado con separador de miles
+Para cuentas disponibles, al final de `generarLibroMayor`:
+```
+// Combinar cuentas con movimientos + todas las del plan
+const todasLasCuentas = new Map();
+planCuentasSupabase.forEach(c => todasLasCuentas.set(c.codigo, c.nombre));
+cuentasMayorData.forEach(c => todasLasCuentas.set(c.codigo, c.nombre));
 
-### useSupabaseMovimientos.ts
-- En `getMovimientosInventario()`, si `costo_unitario` es 0, intentar obtener el costo del producto relacionado via el join existente con `productos`
-- Agregar `precio_compra` y `costo_unitario` al select del join de productos
+const cuentasUnicas = Array.from(todasLasCuentas.entries())
+  .map(([codigo, nombre]) => ({ codigo, nombre }))
+  .sort((a, b) => a.codigo.localeCompare(b.codigo));
+setCuentasDisponibles(cuentasUnicas);
+```
 
 ## Resultado Esperado
 
-- Todos los movimientos nuevos guardan el costo unitario real
-- El historial muestra costos reales en lugar de Bs. 0.00
-- Nueva columna "Valor Stock" muestra el valor monetario del inventario tras cada movimiento
-- Fila de totales da un resumen rapido
+- Al abrir el Libro Mayor, los datos se cargan correctamente despues de que Supabase responda
+- La busqueda encuentra cualquier cuenta del Plan de Cuentas, tenga o no movimientos
+- Se muestra un indicador de carga mientras se obtienen los datos
