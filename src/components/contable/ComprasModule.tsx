@@ -87,9 +87,9 @@ const ComprasModule = () => {
 
       if (!asientoCompra) return;
 
-      nuevaCompra.items.forEach(item => {
-        actualizarStockProducto(item.productoId, item.cantidad, 'entrada');
-      });
+      for (const item of nuevaCompra.items) {
+        await actualizarStockProducto(item.productoId, item.cantidad, 'entrada');
+      }
 
       // Save to Supabase
       await crearCompra({

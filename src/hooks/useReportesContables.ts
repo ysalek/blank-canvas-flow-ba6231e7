@@ -208,7 +208,7 @@ export const useReportesContables = (productos?: any[]) => {
     const gastos = { total: 0 };
 
     // PRIMERO: Calcular INVENTARIO según normativa boliviana
-    const productosData = productos || JSON.parse(localStorage.getItem('productos') || '[]');
+    const productosData = productos || [];
     let valorInventarioFisico = 0;
     let valorInventarioContable = 0;
     

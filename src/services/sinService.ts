@@ -367,8 +367,13 @@ class SINService {
     };
   }
 
-  // Calcular incentivos DS 5503 (RND 102500000052)
-  async calcularIncentivosDS5503(datos: {
+  /**
+   * @deprecated DS 5503 fue abrogado por DS 5516 (enero 2026).
+   * Los incentivos tributarios (Hecho en Bolivia, Depreciación Acelerada,
+   * Aportes patronales como pago a cuenta IVA) ya no están vigentes.
+   * La RND 102500000052 que reglamentaba estos incentivos también queda sin efecto.
+   */
+  async calcularIncentivosDS5503(_datos: {
     esHechoEnBolivia: boolean;
     tipoActivo?: string;
     aportesPatronales?: number;
@@ -377,12 +382,14 @@ class SINService {
     depreciacionAcelerada: boolean;
     aportesComoCredito: number;
     descripcion: string;
+    vigente: boolean;
   }> {
     return {
-      incentivoHechoBolivia: datos.esHechoEnBolivia,
-      depreciacionAcelerada: datos.tipoActivo === 'maquinaria_industrial',
-      aportesComoCredito: datos.aportesPatronales || 0,
-      descripcion: 'Incentivos tributarios según DS 5503 para Reactivación Económica y Desregulación Productiva'
+      incentivoHechoBolivia: false,
+      depreciacionAcelerada: false,
+      aportesComoCredito: 0,
+      descripcion: 'ABROGADO: DS 5503 fue abrogado por DS 5516 (enero 2026). Los incentivos tributarios de Reactivación Económica ya no están vigentes. RND 102500000052 sin efecto.',
+      vigente: false
     };
   }
 
