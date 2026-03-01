@@ -39,7 +39,7 @@ export const useFacturas = () => {
       if (clienteIds.length > 0) {
         const { data: clientesData } = await supabase
           .from('clientes')
-          .select('*')
+          .select('id, nombre, nit, email, telefono, direccion, activo, created_at')
           .in('id', clienteIds);
         (clientesData || []).forEach((c: any) => { clientesMap[c.id] = c; });
       }
@@ -50,7 +50,7 @@ export const useFacturas = () => {
       if (facturaIds.length > 0) {
         const { data, error: iError } = await supabase
           .from('items_facturas')
-          .select('*')
+          .select('id, factura_id, producto_id, codigo, descripcion, cantidad, precio_unitario, descuento, subtotal, codigo_sin')
           .in('factura_id', facturaIds);
 
         if (iError) {
