@@ -38,6 +38,7 @@ export interface ContabilidadIntegrationHook {
   generarAsientoPagoCompra: (compra: Compra) => Promise<AsientoContable | null>;
   generarAsientoPagoFactura: (factura: Factura) => Promise<AsientoContable | null>;
   generarAsientoAnulacionFactura: (factura: Factura) => Promise<AsientoContable[] | null>;
+  generarAsientoCompensacionIVA: (debitoFiscal: number, creditoFiscal: number, periodo: string) => Promise<AsientoContable | null>;
   guardarAsiento: (asiento: AsientoContable) => Promise<boolean>;
   getAsientos: () => AsientoContable[];
   getLibroMayor: () => { [key: string]: { nombre: string, codigo: string, movimientos: any[], totalDebe: number, totalHaber: number } };
@@ -63,6 +64,7 @@ export const useContabilidadIntegration = (): ContabilidadIntegrationHook => {
     generarAsientoPagoCompra,
     generarAsientoPagoFactura,
     generarAsientoAnulacionFactura,
+    generarAsientoCompensacionIVA,
   } = useAsientosGenerator();
 
   const obtenerBalanceGeneral = () => {
@@ -103,6 +105,7 @@ export const useContabilidadIntegration = (): ContabilidadIntegrationHook => {
     generarAsientoPagoCompra,
     generarAsientoPagoFactura,
     generarAsientoAnulacionFactura,
+    generarAsientoCompensacionIVA,
     guardarAsiento,
     getAsientos,
     getLibroMayor: reportesHook.getLibroMayor,

@@ -116,8 +116,8 @@ export const facturasIniciales: Factura[] = [
     ],
     subtotal: 4200,
     descuentoTotal: 0,
-    iva: 546,
-    total: 4746,
+    iva: Number((4200 - 4200 / 1.13).toFixed(2)), // IVA incluido: 483.19
+    total: 4200, // En Bolivia el precio ya incluye IVA
     estado: 'enviada',
     estadoSIN: 'aceptado',
     cuf: "E0D5C1B9A8F7E6D5C4B3A2F1E0D9C8B7A6F5E4D3C2B1A0F9E8D7C6B5A4F3E2D1",
