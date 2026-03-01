@@ -185,8 +185,8 @@ export const useFacturas = () => {
           observaciones: factura.observaciones || null,
           user_id: user.id
         })
-        .select()
-        .single();
+        .select('id, numero, cliente_id, fecha, fecha_vencimiento, subtotal, descuento_total, iva, total, estado, estado_sin, cuf, cufd, punto_venta, codigo_control, observaciones, created_at, user_id')
+        .maybeSingle();
 
       if (error) throw error;
 
