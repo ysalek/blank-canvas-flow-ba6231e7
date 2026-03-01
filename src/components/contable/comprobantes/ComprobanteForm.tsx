@@ -448,9 +448,9 @@ const ComprobanteForm = ({ tipo, onSave, onCancel }: ComprobanteFormProps) => {
                     Se generará automáticamente el asiento contable con:
                   </p>
                   <ul className="text-sm text-green-700 mt-2 space-y-1">
-                    <li>• Venta (sin impuestos): Bs. {(formData.monto / 1.16).toFixed(2)}</li>
-                    <li>• IVA Débito Fiscal (13%): Bs. {((formData.monto / 1.16) * 0.13).toFixed(2)}</li>
-                    <li>• IT por Pagar (3%): Bs. {((formData.monto / 1.16) * 0.03).toFixed(2)}</li>
+                    <li>• Venta (sin impuestos): Bs. {(formData.monto / 1.13).toFixed(2)}</li>
+                    <li>• IVA Débito Fiscal (13%): Bs. {((formData.monto / 1.13) * 0.13).toFixed(2)}</li>
+                    <li>• IT por Pagar (3%): Bs. {(formData.monto * 0.03).toFixed(2)}</li>
                     <li>• Total a cobrar: Bs. {formData.monto.toFixed(2)}</li>
                   </ul>
                 </div>

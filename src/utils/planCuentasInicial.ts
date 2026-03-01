@@ -33,9 +33,8 @@ export const PLAN_CUENTAS_INICIAL = [
   { codigo: "2112", nombre: "Documentos por Pagar", tipo: "pasivo", nivel: 4, padre: "211", naturaleza: "acreedora", saldo: 10000, activa: true },
   { codigo: "2113", nombre: "IVA por Pagar", tipo: "pasivo", nivel: 4, padre: "211", naturaleza: "acreedora", saldo: 5000, activa: true },
   { codigo: "2121", nombre: "Sueldos y Salarios por Pagar", tipo: "pasivo", nivel: 4, padre: "211", naturaleza: "acreedora", saldo: 0, activa: true },
-  { codigo: "2131", nombre: "IVA Débito Fiscal", tipo: "pasivo", nivel: 4, padre: "211", naturaleza: "acreedora", saldo: 0, activa: true },
-  { codigo: "2132", nombre: "IVA Crédito Fiscal", tipo: "pasivo", nivel: 4, padre: "211", naturaleza: "acreedora", saldo: 0, activa: true },
-  { codigo: "2141", nombre: "IT por Pagar", tipo: "pasivo", nivel: 4, padre: "211", naturaleza: "acreedora", saldo: 0, activa: true },
+  { codigo: "2113", nombre: "IVA Débito Fiscal", tipo: "pasivo", nivel: 4, padre: "211", naturaleza: "acreedora", saldo: 0, activa: true },
+  { codigo: "2114", nombre: "IT por Pagar", tipo: "pasivo", nivel: 4, padre: "211", naturaleza: "acreedora", saldo: 0, activa: true },
   { codigo: "2151", nombre: "Previsiones Sociales por Pagar", tipo: "pasivo", nivel: 4, padre: "211", naturaleza: "acreedora", saldo: 0, activa: true },
   
   { codigo: "22", nombre: "PASIVO NO CORRIENTE", tipo: "pasivo", nivel: 2, padre: "2", naturaleza: "acreedora", saldo: 20000, activa: true },

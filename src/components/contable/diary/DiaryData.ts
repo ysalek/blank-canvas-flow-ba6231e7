@@ -79,7 +79,7 @@ export const planCuentas: CuentaContable[] = [
   { codigo: "5322", nombre: "Pérdidas de Inventario" },
   
   // GASTOS TRIBUTARIOS
-  { codigo: "5401", nombre: "IT Pagado" },
+  { codigo: "5261", nombre: "Impuesto a las Transacciones" },
   { codigo: "5402", nombre: "IUE Pagado" }
 ];
 
