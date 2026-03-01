@@ -57,8 +57,8 @@ export const useClientesSupabase = () => {
           activo: cliente.activo,
           user_id: user.id
         })
-        .select()
-        .single();
+        .select('id, nombre, nit, email, telefono, direccion, activo, created_at, user_id')
+        .maybeSingle();
 
       if (error) throw error;
 

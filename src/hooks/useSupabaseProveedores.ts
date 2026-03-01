@@ -64,7 +64,7 @@ export const useSupabaseProveedores = () => {
       // Cargar proveedores
       const { data: proveedoresData, error: proveedoresError } = await supabase
         .from('proveedores')
-        .select('*')
+        .select('id, codigo, nombre, nit, telefono, direccion, email, activo, saldo_deuda, user_id, created_at, updated_at')
         .eq('user_id', user.id)
         .order('nombre');
 
