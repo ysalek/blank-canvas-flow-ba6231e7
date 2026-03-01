@@ -215,6 +215,41 @@ export const useAsientosGenerator = () => {
     await guardarAsiento(asientoIT);
     console.log('✅ Asiento IT guardado:', asientoIT.numero);
 
+    // Asiento de Costo de Ventas (descarga inventario)
+    if (factura.items && factura.items.length > 0) {
+      const productos = obtenerProductos();
+      let costoTotal = 0;
+      const cuentasCosto: CuentaAsiento[] = [];
+
+      for (const item of factura.items) {
+        const producto = productos.find((p: any) => p.id === item.productoId);
+        const costoUnitario = producto?.costoUnitario || producto?.costo_unitario || 0;
+        if (costoUnitario > 0) {
+          costoTotal += item.cantidad * costoUnitario;
+        }
+      }
+
+      if (costoTotal > 0) {
+        const costoRedondeado = Number(costoTotal.toFixed(2));
+        const asientoCosto: AsientoContable = {
+          id: (Date.now() + 2).toString(),
+          numero: `CDV-${Date.now().toString().slice(-6)}`,
+          fecha,
+          concepto: `Costo de ventas factura ${factura.numero}`,
+          referencia: factura.numero,
+          debe: costoRedondeado,
+          haber: costoRedondeado,
+          estado: 'registrado',
+          cuentas: [
+            { codigo: "5111", nombre: "Costo de Productos Vendidos", debe: costoRedondeado, haber: 0 },
+            { codigo: "1131", nombre: "Inventarios", debe: 0, haber: costoRedondeado }
+          ]
+        };
+        await guardarAsiento(asientoCosto);
+        console.log('✅ Asiento Costo de Ventas guardado:', asientoCosto.numero, 'Monto:', costoRedondeado);
+      }
+    }
+
     return asientoVenta;
   };
 
@@ -375,6 +410,68 @@ export const useAsientosGenerator = () => {
     return asientosGenerados;
   };
   
+  const generarAsientoCompensacionIVA = async (debitoFiscal: number, creditoFiscal: number, periodo: string): Promise<AsientoContable | null> => {
+    const fecha = new Date().toISOString().slice(0, 10);
+    const diferencia = debitoFiscal - creditoFiscal;
+
+    if (Math.abs(diferencia) < 0.01) {
+      console.log('IVA DF y CF son iguales, no se requiere asiento de compensación');
+      return null;
+    }
+
+    const cuentas: CuentaAsiento[] = [];
+
+    // Siempre cerrar ambas cuentas de IVA
+    cuentas.push({
+      codigo: "2113",
+      nombre: "IVA Débito Fiscal",
+      debe: debitoFiscal,
+      haber: 0
+    });
+    cuentas.push({
+      codigo: "1142",
+      nombre: "IVA Crédito Fiscal",
+      debe: 0,
+      haber: creditoFiscal
+    });
+
+    if (diferencia > 0) {
+      // DF > CF: IVA por pagar al fisco
+      cuentas.push({
+        codigo: "2113",
+        nombre: "IVA por Pagar",
+        debe: 0,
+        haber: Number(diferencia.toFixed(2))
+      });
+    } else {
+      // CF > DF: Saldo a favor del contribuyente (se arrastra)
+      cuentas.push({
+        codigo: "1142",
+        nombre: "Crédito Fiscal a Favor (arrastre)",
+        debe: Number((-diferencia).toFixed(2)),
+        haber: 0
+      });
+    }
+
+    const totalDebe = cuentas.reduce((s, c) => s + c.debe, 0);
+    const totalHaber = cuentas.reduce((s, c) => s + c.haber, 0);
+
+    const asiento: AsientoContable = {
+      id: Date.now().toString(),
+      numero: `COMP-IVA-${periodo}`,
+      fecha,
+      concepto: `Compensación mensual IVA — Periodo ${periodo} (Art. 7-9 Ley 843)`,
+      referencia: `IVA-${periodo}`,
+      debe: totalDebe,
+      haber: totalHaber,
+      estado: 'registrado',
+      cuentas
+    };
+
+    const saved = await guardarAsiento(asiento);
+    return saved ? asiento : null;
+  };
+
   return {
     generarAsientoInventario,
     generarAsientoVenta,
@@ -382,5 +479,6 @@ export const useAsientosGenerator = () => {
     generarAsientoPagoCompra,
     generarAsientoPagoFactura,
     generarAsientoAnulacionFactura,
+    generarAsientoCompensacionIVA,
   };
 };

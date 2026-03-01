@@ -5,12 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useContabilidadIntegration } from '@/hooks/useContabilidadIntegration';
 import { DeclaracionIVAData } from '@/hooks/useReportesContables';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarIcon, ArrowLeft } from "lucide-react";
+import { Calendar as CalendarIcon, ArrowLeft, BookCheck } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from '@/lib/utils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { useToast } from '@/hooks/use-toast';
 
 interface DeclaracionIVAProps {
   onBack: () => void;
@@ -23,8 +24,10 @@ const DeclaracionIVA = ({ onBack }: DeclaracionIVAProps) => {
   const [fechaInicio, setFechaInicio] = useState<Date>(firstDayOfMonth);
   const [fechaFin, setFechaFin] = useState<Date>(today);
   const [ivaData, setIvaData] = useState<DeclaracionIVAData | null>(null);
+  const [generandoAsiento, setGenerandoAsiento] = useState(false);
 
-  const { getDeclaracionIVAData } = useContabilidadIntegration();
+  const { getDeclaracionIVAData, generarAsientoCompensacionIVA } = useContabilidadIntegration();
+  const { toast } = useToast();
 
   const handleGenerate = () => {
     const data = getDeclaracionIVAData({
@@ -32,6 +35,38 @@ const DeclaracionIVA = ({ onBack }: DeclaracionIVAProps) => {
       fechaFin: format(fechaFin, 'yyyy-MM-dd'),
     });
     setIvaData(data);
+  };
+
+  const handleGenerarAsientoCompensacion = async () => {
+    if (!ivaData) return;
+    setGenerandoAsiento(true);
+    try {
+      const periodo = `${format(fechaInicio, 'yyyy-MM')}`;
+      const resultado = await generarAsientoCompensacionIVA(
+        ivaData.ventas.debitoFiscal,
+        ivaData.compras.creditoFiscal,
+        periodo
+      );
+      if (resultado) {
+        toast({
+          title: 'Asiento generado',
+          description: `Compensación IVA del periodo ${periodo} registrada correctamente`,
+        });
+      } else {
+        toast({
+          title: 'Sin asiento necesario',
+          description: 'El Débito Fiscal y Crédito Fiscal son iguales, no se requiere compensación',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'No se pudo generar el asiento de compensación',
+        variant: 'destructive',
+      });
+    } finally {
+      setGenerandoAsiento(false);
+    }
   };
 
   const formatCurrency = (value: number) => `Bs. ${value.toFixed(2)}`;
@@ -130,6 +165,21 @@ const DeclaracionIVA = ({ onBack }: DeclaracionIVAProps) => {
                             </TableRow>
                         </TableBody>
                     </Table>
+
+                    <div className="mt-4 pt-4 border-t">
+                      <Button
+                        onClick={handleGenerarAsientoCompensacion}
+                        disabled={generandoAsiento}
+                        className="w-full gap-2"
+                        variant="outline"
+                      >
+                        <BookCheck className="w-4 h-4" />
+                        {generandoAsiento ? 'Generando...' : 'Generar Asiento de Compensación IVA'}
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        Art. 7, 8 y 9 Ley 843 — Cierre mensual DF vs CF
+                      </p>
+                    </div>
                 </CardContent>
             </Card>
             <div className='space-y-4 text-sm'>
@@ -140,6 +190,7 @@ const DeclaracionIVA = ({ onBack }: DeclaracionIVAProps) => {
                     <CardContent>
                         <ol className='list-decimal list-inside space-y-2 text-muted-foreground'>
                             <li>Verifique que las cifras sean correctas y coincidan con sus registros.</li>
+                            <li>Genere el <strong>asiento de compensación IVA</strong> para cerrar el periodo contable.</li>
                             <li>Utilice estos datos para llenar el <strong>Formulario 200 v.3</strong> en el portal del SIN.</li>
                             <li>Declare y pague el impuesto (si corresponde) antes de la fecha de vencimiento según la terminación de su NIT.</li>
                             <li>Guarde una copia de esta simulación y de la declaración presentada.</li>
