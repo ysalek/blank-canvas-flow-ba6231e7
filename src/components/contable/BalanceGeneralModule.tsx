@@ -29,7 +29,10 @@ const BalanceGeneralModule = () => {
     window.location.hash = `#${Date.now()}`;
   };
 
-  const balanceData = getBalanceSheetData();
+  const balanceData = getBalanceSheetData({
+    fechaInicio: format(fechaInicio, 'yyyy-MM-dd'),
+    fechaFin: format(fechaCorte, 'yyyy-MM-dd'),
+  });
   const { activos, pasivos, patrimonio, totalPasivoPatrimonio, ecuacionCuadrada } = balanceData;
 
   const exportarExcel = () => {
