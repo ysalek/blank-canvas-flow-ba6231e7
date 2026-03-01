@@ -304,8 +304,8 @@ export const useReportesContables = (productos?: any[]) => {
     };
   };
 
-  const getIncomeStatementData = (): IncomeStatementData => {
-    const { details } = getTrialBalanceData();
+  const getIncomeStatementData = (filtros?: { fechaInicio?: string, fechaFin?: string }): IncomeStatementData => {
+    const { details } = getTrialBalanceData(filtros);
     
     const ingresos = { cuentas: [] as { codigo: string, nombre: string, saldo: number }[], total: 0 };
     const gastos = { cuentas: [] as { codigo: string, nombre: string, saldo: number }[], total: 0 };

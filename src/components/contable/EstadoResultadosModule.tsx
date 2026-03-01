@@ -31,10 +31,14 @@ const EstadoResultadosModule = () => {
   };
 
   // Obtener datos reales del sistema contable integrado con comprobantes
-  const datosReales = getIncomeStatementData();
+  const filtrosFecha = {
+    fechaInicio: format(fechaInicio, 'yyyy-MM-dd'),
+    fechaFin: format(fechaFin, 'yyyy-MM-dd'),
+  };
+  const datosReales = getIncomeStatementData(filtrosFecha);
   
   // Obtener datos del balance de comprobación para el IT
-  const { details } = getTrialBalanceData();
+  const { details } = getTrialBalanceData(filtrosFecha);
   
   // Estructura de datos completa para el Estado de Resultados con subcategorías
   const estadoResultados = {
