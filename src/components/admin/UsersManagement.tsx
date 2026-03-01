@@ -67,21 +67,44 @@ const UsersManagement = () => {
 
   const changePlan = async (userId: string, newTier: string) => {
     const user = users.find(u => u.id === userId);
-    const { error } = await supabase
-      .from('subscribers')
-      .upsert({
-        user_id: userId,
-        subscription_tier: newTier,
-        subscribed: newTier === 'pro',
-        email: user?.email || '',
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' });
+    try {
+      // Check if subscriber row exists
+      const { data: existing } = await supabase
+        .from('subscribers')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
-      toast({ title: 'Plan actualizado', description: `Plan de ${user?.display_name || 'usuario'} cambiado a ${newTier}` });
-      loadUsers();
+      let error;
+      if (existing) {
+        ({ error } = await supabase
+          .from('subscribers')
+          .update({
+            subscription_tier: newTier,
+            subscribed: newTier === 'pro',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', userId));
+      } else {
+        ({ error } = await supabase
+          .from('subscribers')
+          .insert({
+            user_id: userId,
+            subscription_tier: newTier,
+            subscribed: newTier === 'pro',
+            email: user?.email || '',
+            updated_at: new Date().toISOString(),
+          }));
+      }
+
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Plan actualizado', description: `Plan de ${user?.display_name || 'usuario'} cambiado a ${newTier}` });
+        loadUsers();
+      }
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'Error desconocido', variant: 'destructive' });
     }
   };
 

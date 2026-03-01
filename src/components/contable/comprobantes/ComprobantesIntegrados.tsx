@@ -12,6 +12,7 @@ import { Plus, FileText, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft, DollarS
 import ComprobanteForm from "./ComprobanteForm";
 import ComprobantePreview from "./ComprobantePreview";
 import { inicializarPlanCuentas } from "@/utils/planCuentasInicial";
+import { useSupabasePlanCuentas } from "@/hooks/useSupabasePlanCuentas";
 
 interface CuentaContable {
   codigo: string;
@@ -64,6 +65,7 @@ const ComprobantesIntegrados = () => {
 
   const { toast } = useToast();
   const { guardarAsiento, getBalanceSheetData, getIncomeStatementData } = useContabilidadIntegration();
+  const { planCuentas: planCuentasSupabase } = useSupabasePlanCuentas();
 
   useEffect(() => {
     cargarComprobantes();
@@ -216,20 +218,22 @@ const ComprobantesIntegrados = () => {
     }
   };
 
-  const regenerarIntegracion = () => {
+  const regenerarIntegracion = async () => {
     const comprobantesData = JSON.parse(localStorage.getItem('comprobantes_integrados') || '[]');
     let regenerados = 0;
     
-    const comprobantesActualizados = comprobantesData.map((c: Comprobante) => {
+    const comprobantesActualizados = [];
+    for (const c of comprobantesData as Comprobante[]) {
       if (c.estado === 'autorizado' && !c.asientoGenerado) {
-        const asientoGenerado = generarAsientoContableIntegrado(c);
+        const asientoGenerado = await generarAsientoContableIntegrado(c);
         if (asientoGenerado) {
           regenerados++;
-          return { ...c, asientoGenerado: true, asientoId: asientoGenerado.id };
+          comprobantesActualizados.push({ ...c, asientoGenerado: true, asientoId: asientoGenerado.id });
+          continue;
         }
       }
-      return c;
-    });
+      comprobantesActualizados.push(c);
+    }
     
     setComprobantes(comprobantesActualizados);
     localStorage.setItem('comprobantes_integrados', JSON.stringify(comprobantesActualizados));
@@ -352,24 +356,25 @@ const ComprobantesIntegrados = () => {
       return false;
     }
 
-    // Validar que las cuentas existan en el plan de cuentas
-    const planCuentas = JSON.parse(localStorage.getItem('planCuentas') || '[]');
-    for (const cuenta of comprobante.cuentas) {
-      const cuentaExiste = planCuentas.find((c: any) => c.codigo === cuenta.codigo);
-      if (!cuentaExiste) {
-        toast({
-          title: "Error en el plan de cuentas",
-          description: `La cuenta ${cuenta.codigo} no existe en el plan de cuentas`,
-          variant: "destructive"
-        });
-        return false;
+    // Validar que las cuentas existan en el plan de cuentas (Supabase)
+    if (planCuentasSupabase.length > 0) {
+      for (const cuenta of comprobante.cuentas) {
+        const cuentaExiste = planCuentasSupabase.find(c => c.codigo === cuenta.codigo);
+        if (!cuentaExiste) {
+          toast({
+            title: "Error en el plan de cuentas",
+            description: `La cuenta ${cuenta.codigo} no existe en el plan de cuentas`,
+            variant: "destructive"
+          });
+          return false;
+        }
       }
     }
 
     return true;
   };
 
-  const guardarComprobante = (datos: any) => {
+  const guardarComprobante = async (datos: any) => {
     const nuevoComprobante: Comprobante = {
       ...datos,
       id: Date.now().toString(),
@@ -393,7 +398,7 @@ const ComprobantesIntegrados = () => {
 
     // Generar asiento contable automáticamente si está autorizado
     if (datos.estado === 'autorizado') {
-      const asientoGenerado = generarAsientoContableIntegrado(nuevoComprobante);
+      const asientoGenerado = await generarAsientoContableIntegrado(nuevoComprobante);
       if (asientoGenerado) {
         nuevoComprobante.asientoGenerado = true;
         nuevoComprobante.asientoId = asientoGenerado.id;
@@ -415,7 +420,7 @@ const ComprobantesIntegrados = () => {
     setShowComprobanteDialog({ open: false, tipo: null });
   };
 
-  const generarAsientoContableIntegrado = (comprobante: Comprobante) => {
+  const generarAsientoContableIntegrado = async (comprobante: Comprobante) => {
     const asiento = {
       id: `ASI-COMP-${Date.now()}`,
       numero: `COMP-${comprobante.numero}`,
@@ -433,7 +438,7 @@ const ComprobantesIntegrados = () => {
       comprobanteId: comprobante.id
     };
 
-    const exito = guardarAsiento(asiento);
+    const exito = await guardarAsiento(asiento);
     if (exito) {
       // Actualizar los saldos en el plan de cuentas
       actualizarSaldosPlanCuentas(comprobante.cuentas);
@@ -466,23 +471,25 @@ const ComprobantesIntegrados = () => {
     localStorage.setItem('planCuentas', JSON.stringify(planCuentas));
   };
 
-  const autorizarComprobante = (id: string) => {
-    const comprobantesActualizados = comprobantes.map(c => {
+  const autorizarComprobante = async (id: string) => {
+    const comprobantesActualizados = [];
+    for (const c of comprobantes) {
       if (c.id === id) {
         const comprobanteAutorizado = { ...c, estado: 'autorizado' as const };
         
         if (validarIntegridadContable(comprobanteAutorizado)) {
-          const asientoGenerado = generarAsientoContableIntegrado(comprobanteAutorizado);
+          const asientoGenerado = await generarAsientoContableIntegrado(comprobanteAutorizado);
           if (asientoGenerado) {
             comprobanteAutorizado.asientoGenerado = true;
             comprobanteAutorizado.asientoId = asientoGenerado.id;
           }
         }
         
-        return comprobanteAutorizado;
+        comprobantesActualizados.push(comprobanteAutorizado);
+      } else {
+        comprobantesActualizados.push(c);
       }
-      return c;
-    });
+    }
 
     setComprobantes(comprobantesActualizados);
     localStorage.setItem('comprobantes_integrados', JSON.stringify(comprobantesActualizados));
@@ -494,7 +501,7 @@ const ComprobantesIntegrados = () => {
     });
   };
 
-  const anularComprobante = (id: string) => {
+  const anularComprobante = async (id: string) => {
     const comprobante = comprobantes.find(c => c.id === id);
     if (!comprobante) return;
 
@@ -512,7 +519,7 @@ const ComprobantesIntegrados = () => {
         cuentas: comprobante.cuentas.map(cuenta => ({
           codigo: cuenta.codigo,
           nombre: cuenta.nombre,
-          debe: cuenta.haber, // Intercambiar debe y haber para reversión
+          debe: cuenta.haber,
           haber: cuenta.debe,
           descripcion: `Reversión - ${cuenta.nombre}`
         })),
@@ -520,7 +527,7 @@ const ComprobantesIntegrados = () => {
         comprobanteId: comprobante.id
       };
 
-      guardarAsiento(asientoReversion);
+      await guardarAsiento(asientoReversion);
       
       // Revertir los saldos
       const cuentasReversion = comprobante.cuentas.map(c => ({

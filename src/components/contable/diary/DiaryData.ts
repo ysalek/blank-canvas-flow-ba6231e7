@@ -94,9 +94,9 @@ export const asientosIniciales: AsientoContable[] = [
     haber: 1412.50,
     estado: "registrado",
     cuentas: [
-      { codigo: "1121", nombre: "Bancos", debe: 1412.50, haber: 0 },
+      { codigo: "1121", nombre: "Cuentas por Cobrar Comerciales", debe: 1412.50, haber: 0 },
       { codigo: "4111", nombre: "Ventas de Productos", debe: 0, haber: 1250.00 },
-      { codigo: "2113", nombre: "IVA por Pagar", debe: 0, haber: 162.50 }
+      { codigo: "2113", nombre: "IVA Débito Fiscal", debe: 0, haber: 162.50 }
     ]
   },
   {
@@ -109,8 +109,8 @@ export const asientosIniciales: AsientoContable[] = [
     haber: 2825.00,
     estado: "registrado",
     cuentas: [
-      { codigo: "1141", nombre: "Inventarios", debe: 2500.00, haber: 0 },
-      { codigo: "2114", nombre: "IVA Crédito Fiscal", debe: 325.00, haber: 0 },
+      { codigo: "1131", nombre: "Inventarios", debe: 2500.00, haber: 0 },
+      { codigo: "1142", nombre: "IVA Crédito Fiscal", debe: 325.00, haber: 0 },
       { codigo: "2111", nombre: "Cuentas por Pagar", debe: 0, haber: 2825.00 }
     ]
   }
