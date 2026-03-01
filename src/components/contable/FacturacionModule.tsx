@@ -70,7 +70,7 @@ const FacturacionModule = () => {
         .from('configuracion_tributaria')
         .select('*')
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       setConfiguracionTributaria(data);
