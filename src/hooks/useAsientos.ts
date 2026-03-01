@@ -68,11 +68,7 @@ export const useAsientos = () => {
       setAsientos(asientosConCuentas);
     } catch (error) {
       console.error('Error fetching asientos:', error);
-      // Fallback a localStorage si hay error de conexión
-      const localData = localStorage.getItem('asientosContables');
-      if (localData) {
-        setAsientos(JSON.parse(localData));
-      }
+      setAsientos([]);
     } finally {
       setLoading(false);
     }
@@ -112,17 +108,12 @@ export const useAsientos = () => {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
-        // Fallback a localStorage si no hay usuario autenticado
-        const asientosExistentes = JSON.parse(localStorage.getItem('asientosContables') || '[]');
-        const nuevosAsientos = [asiento, ...asientosExistentes];
-        localStorage.setItem('asientosContables', JSON.stringify(nuevosAsientos));
-        setAsientos(nuevosAsientos);
-        
         toast({
-          title: "Asiento contable registrado",
-          description: `Asiento ${asiento.numero} registrado localmente`,
+          title: "Error de autenticación",
+          description: "Debes iniciar sesión para registrar asientos contables",
+          variant: "destructive"
         });
-        return true;
+        return false;
       }
 
       // Insertar asiento en Supabase
@@ -167,10 +158,6 @@ export const useAsientos = () => {
       };
       setAsientos(prev => [asientoCompleto, ...prev]);
 
-      // También guardar en localStorage como backup
-      const asientosLocal = JSON.parse(localStorage.getItem('asientosContables') || '[]');
-      localStorage.setItem('asientosContables', JSON.stringify([asientoCompleto, ...asientosLocal]));
-
       console.log("Asiento guardado correctamente en Supabase:", nuevoAsiento);
       
       toast({
@@ -181,19 +168,12 @@ export const useAsientos = () => {
 
     } catch (error) {
       console.error('Error guardando asiento:', error);
-      
-      // Fallback a localStorage en caso de error
-      const asientosExistentes = JSON.parse(localStorage.getItem('asientosContables') || '[]');
-      const nuevosAsientos = [asiento, ...asientosExistentes];
-      localStorage.setItem('asientosContables', JSON.stringify(nuevosAsientos));
-      setAsientos(nuevosAsientos);
-      
       toast({
-        title: "Asiento guardado localmente",
-        description: "Se guardó en modo offline. Se sincronizará cuando haya conexión.",
-        variant: "default"
+        title: "Error al guardar asiento",
+        description: "No se pudo guardar el asiento en la base de datos. Intente nuevamente.",
+        variant: "destructive"
       });
-      return true;
+      return false;
     }
   };
 

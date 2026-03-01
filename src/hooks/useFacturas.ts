@@ -126,13 +126,12 @@ export const useFacturas = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        // Fallback localStorage
-        setFacturas(prev => {
-          const updated = [factura, ...prev];
-          localStorage.setItem('facturas', JSON.stringify(updated));
-          return updated;
+        toast({
+          title: "Error de autenticación",
+          description: "Debes iniciar sesión para guardar facturas",
+          variant: "destructive"
         });
-        return factura;
+        return null;
       }
 
       // Buscar cliente_id en Supabase por NIT
@@ -218,13 +217,12 @@ export const useFacturas = () => {
 
     } catch (error) {
       console.error('Error guardando factura:', error);
-      // Fallback
-      setFacturas(prev => {
-        const updated = [factura, ...prev];
-        localStorage.setItem('facturas', JSON.stringify(updated));
-        return updated;
+      toast({
+        title: "Error al guardar factura",
+        description: "No se pudo guardar la factura en la base de datos. Intente nuevamente.",
+        variant: "destructive"
       });
-      return factura;
+      return null;
     }
   };
 
@@ -243,13 +241,12 @@ export const useFacturas = () => {
       return true;
     } catch (error) {
       console.error('Error actualizando estado factura:', error);
-      // Fallback
-      setFacturas(prev => {
-        const updated = prev.map(f => f.id === facturaId ? { ...f, estado: nuevoEstado } : f);
-        localStorage.setItem('facturas', JSON.stringify(updated));
-        return updated;
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado de la factura",
+        variant: "destructive"
       });
-      return true;
+      return false;
     }
   };
 
