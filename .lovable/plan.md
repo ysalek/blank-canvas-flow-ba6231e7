@@ -1,94 +1,59 @@
 
 
-# Plan: Corregir Sistema de Roles Admin y Asignacion de Suscripciones
+# Corregir Visibilidad de Usuarios para el Administrador
 
-## Problemas Criticos Detectados
+## Problema Raiz
 
-### 1. Las suscripciones asignadas por el admin NO tienen efecto
-El problema mas grave del sistema: `usePlan.ts` (linea 68) lee el plan desde `localStorage('user_plan')`, **nunca consulta la tabla `subscribers` de Supabase**. Esto significa que cuando un admin cambia el plan de un usuario en el panel, ese cambio se guarda en la base de datos pero el usuario sigue viendo el plan que tiene en su localStorage local. La asignacion de suscripciones es completamente inoperante.
+Las politicas de seguridad (RLS) en la base de datos impiden que el administrador vea los datos de otros usuarios:
 
-### 2. Las vistas de admin no tienen proteccion de acceso
-En `Index.tsx` lineas 141-147, las vistas admin (`admin-dashboard`, `admin-users`, `admin-subscriptions`, etc.) se renderizan sin ningun control de acceso. Cualquier usuario puede navegar directamente a `/?view=admin-dashboard` y ver el panel de administracion completo.
+- **Tabla `profiles`**: La politica `"Profiles are viewable by owner"` solo permite `USING (id = auth.uid())`, por lo que el admin solo ve su propio perfil.
+- **Tabla `subscribers`**: La politica `"select_own_subscription"` solo permite `USING (user_id = auth.uid() OR email = auth.email())`, por lo que el admin solo ve su propia suscripcion.
 
-### 3. Falta el tier Enterprise en los selectores de admin
-Tanto `UsersManagement.tsx` (linea 261-263) como `SubscriptionsManager.tsx` (linea 214-217) solo muestran las opciones "Basic" y "Pro". El tier "Enterprise" no puede ser asignado por el admin.
+Esto explica por que el panel de administracion muestra solo 1 usuario en lugar de todos.
 
-### 4. La logica de `subscribed` es incorrecta
-En `changePlan`, `subscribed: newTier === 'pro'` marca como "no suscrito" a un usuario Enterprise. Deberia ser `subscribed: newTier !== 'basic'`.
+## Solucion
 
----
+Crear una migracion SQL que agregue politicas de lectura para administradores en ambas tablas, usando la funcion `has_role` que ya existe en el sistema.
 
-## Plan de Implementacion
+### Migracion SQL
 
-### Archivo 1: `src/hooks/usePlan.ts` (cambio principal)
-Modificar el hook para que cargue el plan del usuario desde la tabla `subscribers` en Supabase en lugar de `localStorage`:
+Se creara una nueva migracion con las siguientes politicas:
 
-- Importar `supabase` y `useEffect/useState`
-- Al montar, consultar `subscribers` con `eq('user_id', user.id)` para obtener `subscription_tier`
-- Usar el tier de Supabase como fuente de verdad
-- Mantener `localStorage` solo como cache/fallback mientras carga
-- Si el usuario es admin (via `user.rol === 'admin'`), darle acceso total sin importar el tier
-- Sincronizar: cuando Supabase responde, actualizar localStorage para que la UI sea consistente
+```sql
+-- Admins pueden ver TODOS los perfiles
+CREATE POLICY "Admins can view all profiles"
+ON public.profiles
+FOR SELECT
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'::app_role));
 
-```
-Flujo:
-1. Estado inicial: lee localStorage como cache temporal
-2. useEffect: consulta subscribers.subscription_tier desde Supabase
-3. Si encuentra dato -> actualiza estado y localStorage
-4. Si no encuentra -> mantiene 'basic'
-5. Si es admin -> hasAccess() siempre retorna true (ya existe)
-```
+-- Admins pueden ver TODAS las suscripciones
+CREATE POLICY "Admins can view all subscribers"
+ON public.subscribers
+FOR SELECT
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'::app_role));
 
-### Archivo 2: `src/pages/Index.tsx` (proteger vistas admin)
-Agregar verificacion de rol admin antes de renderizar vistas administrativas:
+-- Admins pueden actualizar suscripciones de cualquier usuario
+CREATE POLICY "Admins can update all subscribers"
+ON public.subscribers
+FOR UPDATE
+TO authenticated
+USING (public.has_role(auth.uid(), 'admin'::app_role))
+WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
 
-- Importar `useAdmin` hook
-- En `renderCurrentView()`, las vistas `admin-*` deben verificar `isAdmin` antes de renderizar
-- Si no es admin, mostrar un mensaje de acceso denegado o redirigir al dashboard
-
-### Archivo 3: `src/components/admin/UsersManagement.tsx` (enterprise + logica subscribed)
-- Agregar opcion "Enterprise" al Select de cambio de plan (lineas 261-263 y 366-379)
-- Corregir logica `subscribed`: cambiar `newTier === 'pro'` a `newTier !== 'basic'`
-- Agregar conteo de Enterprise en las estadisticas rapidas
-- Actualizar Badge para mostrar "Enterprise" ademas de "Pro" y "Basic"
-
-### Archivo 4: `src/components/admin/SubscriptionsManager.tsx` (enterprise + logica subscribed)
-- Agregar opcion "Enterprise" al Select de cambio de plan (linea 214-217)
-- Corregir logica `subscribed` en `changePlan` (linea 52)
-- Actualizar KPIs para contar Enterprise por separado
-- Corregir calculo de MRR para incluir Enterprise (699 Bs)
-
----
-
-## Detalle Tecnico
-
-### usePlan.ts - Nuevo flujo de carga
-```text
-usePlan()
-  |-- lee localStorage('user_plan') como estado inicial (cache)
-  |-- useEffect con user.id como dependencia
-  |     |-- supabase.from('subscribers')
-  |     |     .select('subscription_tier')
-  |     |     .eq('user_id', user.id)
-  |     |     .maybeSingle()
-  |     |-- Si data.subscription_tier existe:
-  |     |     setCurrentPlan(data.subscription_tier)
-  |     |     localStorage.setItem('user_plan', data.subscription_tier)
-  |     |-- Si no existe: mantener 'basic'
-  |-- isAdmin bypass: hasAccess() ya retorna true para admin
-```
-
-### Index.tsx - Proteccion admin
-```text
-renderCurrentView()
-  |-- case 'admin-*':
-  |     |-- if (!isAdmin) return <AccesoDenegado />
-  |     |-- else return <AdminComponent />
+-- Admins pueden insertar suscripciones para cualquier usuario
+CREATE POLICY "Admins can insert subscribers"
+ON public.subscribers
+FOR INSERT
+TO authenticated
+WITH CHECK (public.has_role(auth.uid(), 'admin'::app_role));
 ```
 
 ### Impacto
-- Los usuarios veran el plan que realmente tienen asignado en Supabase
-- El admin podra asignar Basic, Pro o Enterprise
-- Las vistas admin estaran protegidas contra acceso no autorizado
-- La logica de `subscribed` sera correcta para todos los tiers
+
+- El admin vera la lista completa de usuarios registrados en el panel de gestion
+- El admin podra cambiar planes de suscripcion de cualquier usuario
+- Los usuarios normales seguiran viendo solo sus propios datos (las politicas existentes no se modifican)
+- No se requieren cambios en el codigo frontend; `UsersManagement.tsx` y `SubscriptionsManager.tsx` ya estan preparados para mostrar todos los usuarios
 
