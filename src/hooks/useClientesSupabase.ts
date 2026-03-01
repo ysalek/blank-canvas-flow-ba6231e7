@@ -34,8 +34,6 @@ export const useClientesSupabase = () => {
       setClientes(mapped);
     } catch (error) {
       console.error('Error fetching clientes:', error);
-      const local = localStorage.getItem('clientes');
-      if (local) setClientes(JSON.parse(local));
     } finally {
       setLoading(false);
     }

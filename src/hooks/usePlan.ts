@@ -122,21 +122,46 @@ export const usePlan = () => {
   const upgradeToPro = () => setCurrentPlan('pro');
   const upgradeToEnterprise = () => setCurrentPlan('enterprise');
 
-  const transactionCount = (): number => {
-    const key = `txn_count_${new Date().toISOString().slice(0, 7)}`;
-    return parseInt(localStorage.getItem(key) || '0', 10);
-  };
+  const [monthlyTxnCount, setMonthlyTxnCount] = useState(0);
+
+  // Load monthly transaction count from Supabase
+  useEffect(() => {
+    if (!user?.id || currentPlan !== 'basic') return;
+
+    const loadTxnCount = async () => {
+      try {
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+
+        const { count, error } = await supabase
+          .from('asientos_contables')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('fecha', startOfMonth)
+          .lte('fecha', endOfMonth);
+
+        if (!error) {
+          setMonthlyTxnCount(count || 0);
+        }
+      } catch (e) {
+        console.error('Error loading txn count:', e);
+      }
+    };
+
+    loadTxnCount();
+  }, [user?.id, currentPlan]);
+
+  const transactionCount = (): number => monthlyTxnCount;
 
   const canCreateTransaction = (): boolean => {
     if (isAdmin) return true;
     if (currentPlan !== 'basic') return true;
-    return transactionCount() < features.maxTransactionsPerMonth;
+    return monthlyTxnCount < features.maxTransactionsPerMonth;
   };
 
   const incrementTransactionCount = () => {
-    const key = `txn_count_${new Date().toISOString().slice(0, 7)}`;
-    const current = parseInt(localStorage.getItem(key) || '0', 10);
-    localStorage.setItem(key, String(current + 1));
+    setMonthlyTxnCount(prev => prev + 1);
   };
 
   return {
