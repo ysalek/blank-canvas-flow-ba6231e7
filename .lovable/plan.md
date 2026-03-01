@@ -1,96 +1,86 @@
 
+# Optimizacion del Sistema - Errores Detectados y Correcciones
 
-# Analisis Contable Detallado y Actualizacion Normativa SIN Bolivia
+## Problemas Identificados
 
-## Errores de Funcionamiento Detectados
+### 1. CRITICO: Error 400 al cambiar plan de usuario (subscribers)
+**Archivo:** `src/components/admin/UsersManagement.tsx` linea 72-78
 
-### 1. CRITICO: Plan de Cuentas Inconsistente entre Modulos
-El `DiaryData.ts` define el plan de cuentas base, pero los codigos no coinciden con lo que usa `useAsientosGenerator.ts`:
+El modulo de gestion de usuarios usa `.upsert()` con `{ onConflict: 'user_id' }`, pero la tabla `subscribers` no tiene un constraint UNIQUE en la columna `user_id`. Esto genera el error 400 visible en la sesion:
 
-- **DiaryData.ts** define `1121` como "Bancos" y `1131` como "Cuentas por Cobrar"
-- **useAsientosGenerator.ts** usa `1121` como "Cuentas por Cobrar Comerciales" (linea 151)
-- **DiaryData.ts** define `2114` como "IVA Credito Fiscal" (pasivo), pero el generador usa `1142` como "IVA Credito Fiscal" (activo, que es lo correcto)
-- Cuenta `5401` (IT Pagado), `5322` (Perdidas de Inventario), `2131` no existen en el plan de cuentas base
-
-**Solucion**: Actualizar `DiaryData.ts` para alinear el plan de cuentas con la normativa boliviana y con lo que usan los generadores de asientos.
-
-### 2. CRITICO: Compras no awaita actualizacion de stock
-En `ComprasModule.tsx` linea 90-92, las llamadas a `actualizarStockProducto` no usan `await`, creando condiciones de carrera donde el stock puede no actualizarse antes de guardar la compra.
-
-**Solucion**: Agregar `await` a cada llamada de actualizacion de stock en el bucle.
-
-### 3. CRITICO: Balance General lee productos de localStorage
-En `useReportesContables.ts` linea 211, el Balance General todavia usa `localStorage` como fallback para obtener productos:
 ```
-const productosData = productos || JSON.parse(localStorage.getItem('productos') || '[]');
+"there is no unique or exclusion constraint matching the ON CONFLICT specification"
 ```
-Esto causa que el inventario en el Balance General muestre datos incorrectos o vacios.
 
-**Solucion**: Eliminar el fallback de localStorage. Si `productos` es undefined/vacio, usar array vacio.
+**Solucion:**
+- Crear una migracion SQL para agregar un constraint UNIQUE en `subscribers.user_id`
+- Esto permitira que el upsert funcione correctamente cuando un admin cambia el plan de un usuario
 
-### 4. MEDIO: Nomina y Declaraciones usan localStorage
-- `NominaBoliviana.tsx` (lineas 96-104): empleados y planillas en localStorage
-- `DeclaracionesTributariasModule.tsx` (lineas 66-71, 114): declaraciones en localStorage
+### 2. CRITICO: Datos de ejemplo en DiaryData.ts tienen codigos incorrectos
+**Archivo:** `src/components/contable/diary/DiaryData.ts` lineas 86-117
 
-Estos modulos deberian usar Supabase para persistencia, pero migrarlos es un cambio mayor. Por ahora, documentar como deuda tecnica.
+Los `asientosIniciales` contienen errores de codificacion que confunden al usuario:
+- Linea 97: `1121` etiquetado como "Bancos" (deberia ser "Cuentas por Cobrar Comerciales")
+- Linea 112: `1141` etiquetado como "Inventarios" (deberia ser `1131` para Inventarios)
+- Linea 113: `2114` etiquetado como "IVA Credito Fiscal" (deberia ser `1142` para IVA CF; `2114` es "IT por Pagar")
 
-### 5. MEDIO: Asiento de venta no registra Costo de Ventas
-`generarAsientoVenta` (linea 140-218) solo genera el asiento de ingreso (Ctas por Cobrar / Ventas / IVA DF) y el asiento de IT. El costo de ventas se genera por separado en `FacturacionModule.tsx` via `generarAsientoInventario`, pero si el producto no tiene `costo_unitario > 0`, no se genera. Esto puede dejar ventas sin su costo asociado.
+**Solucion:** Corregir los codigos y nombres en los asientos de ejemplo para que coincidan con el plan de cuentas ya actualizado en la misma seccion del archivo.
 
----
+### 3. MEDIO: guardarAsiento es async pero no se awaita en ComprobantesIntegrados
+**Archivo:** `src/components/contable/comprobantes/ComprobantesIntegrados.tsx`
 
-## Actualizaciones Normativas SIN Bolivia 2025-2026
+- Linea 436: `const exito = guardarAsiento(asiento)` - `guardarAsiento` retorna `Promise<boolean>`, pero no se usa `await`. Esto significa que el resultado siempre es truthy (un Promise object) y el asiento puede no haberse guardado realmente.
+- Linea 523: `guardarAsiento(asientoReversion)` - mismo problema en la anulacion.
 
-### 6. Porcentajes de Nomina desactualizados (etiquetados "2024")
-En `NominaBoliviana.tsx`, los porcentajes estan marcados como "normativa boliviana 2024":
-- `minimoNoImponible: 2500` -- El SMN 2026 estimado es Bs 2,500, pero el minimo no imponible para RC-IVA es 4 SMN (Bs 10,000), no 1 SMN
-- El calculo de RC-IVA (linea 134-139) resta solo 1 SMN, cuando la normativa establece que la base imponible se calcula restando 2 salarios minimos nacionales y los aportes laborales
+**Solucion:** Agregar `await` a las llamadas y hacer las funciones contenedoras `async`.
 
-**Solucion**: Actualizar constantes a 2026, corregir el calculo de RC-IVA con minimoNoImponible = 4 * SMN.
+### 4. MEDIO: ComprobantesIntegrados valida contra localStorage planCuentas
+**Archivo:** `src/components/contable/comprobantes/ComprobantesIntegrados.tsx` linea 356
 
-### 7. DS 5503 abrogado por DS 5516 - Funcion activa
-`sinService.ts` linea 370-387 tiene `calcularIncentivosDS5503()` que calcula incentivos (Hecho en Bolivia, Depreciacion Acelerada, Aportes patronales como pago a cuenta IVA). El DS 5516 de enero 2026 abrogo estos incentivos.
+La funcion `validarIntegridadContable` lee el plan de cuentas de `localStorage` en lugar de Supabase, donde ya estan los 28 cuentas del usuario. Esto causa que la validacion falle si el localStorage no tiene datos sincronizados.
 
-**Solucion**: Marcar la funcion como deprecated, retornar siempre incentivos deshabilitados, y agregar nota explicativa sobre DS 5516.
+**Solucion:** Obtener el plan de cuentas desde el hook `useSupabasePlanCuentas` en lugar de `localStorage`.
 
-### 8. RND 102500000052 referenciada pero ya sin efecto
-La RND 102500000052 reglamentaba los incentivos del DS 5503. Como el DS 5516 abrogo el DS 5503, esta RND tambien queda sin efecto. Sin embargo, `DeclaracionesTributariasModule.tsx` lista `ds_5516` como tipo de declaracion (correcto), pero no refleja que la RND 102500000052 ya no aplica.
+### 5. BAJO: ComprobantesIntegrados persiste todo en localStorage
+**Archivo:** `src/components/contable/comprobantes/ComprobantesIntegrados.tsx`
 
-### 9. Salario Minimo Nacional 2026
-El sistema usa Bs 2,500 como SMN estimado. Actualizar etiquetas de "2024" a "2026".
+Todo el modulo de comprobantes (lineas 85-93, 404-405, 488, 539) usa exclusivamente `localStorage` para persistencia. Esto es inconsistente con el resto del sistema que ya migro a Supabase, y significa que los datos se pierden al cambiar de dispositivo.
 
-### 10. UFV y tipo de cambio
-Los valores en `sinService.ts` estan correctos para 2026: UFV = 3.05, TC USD = 6.96, ISAE = 464, IEHD max = 10.40.
+**Solucion:** Documentar como deuda tecnica. No migrar en este ciclo porque requiere una tabla nueva en Supabase y refactorizacion significativa. Sin embargo, los asientos que generan los comprobantes SI se guardan en Supabase via `guardarAsiento`, lo cual es lo importante para la integridad contable.
 
 ---
 
 ## Plan de Implementacion
 
-### Archivo 1: `src/components/contable/diary/DiaryData.ts`
-Actualizar el plan de cuentas para alinearlo con los codigos usados por el sistema:
-- `1111` = Caja y Bancos (consolidar)
-- `1121` = Cuentas por Cobrar Comerciales
-- `1131` = Inventarios
-- `1142` = IVA Credito Fiscal (ACTIVO, no pasivo)
-- `2113` = IVA Debito Fiscal (pasivo)
-- `2114` = IT por Pagar
-- Agregar cuentas faltantes: `5322`, `5401`, `4211`
+### Cambio 1: Migracion SQL - Agregar UNIQUE constraint a subscribers.user_id
+Crear migracion:
+```sql
+ALTER TABLE subscribers ADD CONSTRAINT subscribers_user_id_unique UNIQUE (user_id);
+```
 
-### Archivo 2: `src/components/contable/ComprasModule.tsx`
-- Convertir el bucle de actualizacion de stock a `async` con `await` (lineas 90-92)
+### Cambio 2: Corregir asientosIniciales en DiaryData.ts
+Actualizar los asientos de ejemplo:
+- Asiento 1 (Venta): `1121` -> nombre correcto "Cuentas por Cobrar Comerciales"
+- Asiento 2 (Compra): `1141` -> cambiar a `1131` "Inventarios"; `2114` -> cambiar a `1142` "IVA Credito Fiscal"
 
-### Archivo 3: `src/hooks/useReportesContables.ts`
-- Eliminar fallback de localStorage en `getBalanceSheetData()` (linea 211)
+### Cambio 3: Await en guardarAsiento dentro de ComprobantesIntegrados
+- Hacer `generarAsientoContableIntegrado` async y agregar `await guardarAsiento(asiento)`
+- Hacer `anularComprobante` async y agregar `await guardarAsiento(asientoReversion)`
+- Actualizar las llamadas a estas funciones para que usen await
 
-### Archivo 4: `src/components/contable/nomina/NominaBoliviana.tsx`
-- Actualizar etiqueta de "normativa boliviana 2024" a "2026"
-- Corregir `minimoNoImponible` de 2500 a 10000 (4 SMN)
-- Actualizar calculo de RC-IVA: base = totalGanado - (2 * SMN) - aportes laborales
+### Cambio 4: Validacion de cuentas contra Supabase
+- Importar `useSupabasePlanCuentas` en ComprobantesIntegrados
+- Usar las cuentas de Supabase en `validarIntegridadContable` en lugar de localStorage
 
-### Archivo 5: `src/services/sinService.ts`
-- Actualizar `calcularIncentivosDS5503` para reflejar abrogacion por DS 5516
-- La funcion debe retornar incentivos deshabilitados con mensaje explicativo
+---
 
-### Archivo 6: `src/components/contable/billing/BillingData.ts`
-- Actualizar comentario del DS 5503 a DS 5516 en la seccion de sectores especiales
+## Detalle Tecnico
 
+### Migracion SQL
+La tabla `subscribers` actualmente tiene `user_id` como columna regular sin constraint unique. El upsert de PostgREST requiere un constraint unique o exclusion para resolver conflictos. Sin este constraint, cualquier intento de usar `onConflict: 'user_id'` falla con error 42P10.
+
+### Impacto de los cambios
+- Cambio 1: Resuelve el error toast que el usuario ve al administrar suscripciones
+- Cambio 2: Los datos de ejemplo se alinean con el plan de cuentas boliviano correcto
+- Cambio 3: Garantiza que los asientos de comprobantes se persistan en Supabase
+- Cambio 4: La validacion usa datos reales del plan de cuentas del usuario
