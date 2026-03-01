@@ -222,7 +222,7 @@ const ClientesModule = () => {
           <div className="border rounded-lg">
             <div className="divide-y divide-border">
                 {clientesFiltrados.map((cliente) => (
-                <div key={cliente.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <div key={cliente.id} className="p-4 table-row-interactive group">
                     <div className="flex items-start justify-between">
                     <div className="space-y-2 flex-1">
                         <div className="flex items-center gap-3">
@@ -259,7 +259,7 @@ const ClientesModule = () => {
                         </div>
                     </div>
                     
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         <Button
                         size="sm"
                         variant="outline"
@@ -293,7 +293,7 @@ const ClientesModule = () => {
                 
                 {clientesFiltrados.length === 0 && (
                 <div className="text-center py-16 text-muted-foreground">
-                    <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <Users className="w-12 h-12 mx-auto mb-4 empty-state-icon" />
                     <p className="font-semibold">No se encontraron clientes</p>
                     <p className="text-sm">Intenta con otro término de búsqueda.</p>
                 </div>

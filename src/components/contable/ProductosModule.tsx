@@ -232,7 +232,7 @@ const ProductosModule = () => {
           <div className="border rounded-lg">
             <div className="divide-y divide-border">
                 {productosFiltrados.map((producto) => (
-                <div key={producto.id} className="p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <div key={producto.id} className="p-4 table-row-interactive group">
                     <div className="flex items-start justify-between">
                     <div className="space-y-2 flex-1">
                         <div className="flex items-center gap-3">
@@ -277,7 +277,7 @@ const ProductosModule = () => {
                         </div>
                     </div>
                     
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         <Button
                         size="sm"
                         variant="outline"
@@ -311,7 +311,7 @@ const ProductosModule = () => {
                 
                 {productosFiltrados.length === 0 && !loading && (
                 <div className="text-center py-16 text-muted-foreground">
-                    <Package className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <Package className="w-16 h-16 mx-auto mb-4 empty-state-icon" />
                     <h3 className="text-lg font-semibold mb-2">No se encontraron productos</h3>
                     <p className="text-sm mb-4">
                       {searchTerm 

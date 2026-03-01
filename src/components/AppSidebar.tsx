@@ -158,7 +158,7 @@ const AppSidebar = () => {
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center flex-shrink-0 shadow-md">
+              <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center flex-shrink-0 shadow-md transition-transform duration-300 hover:scale-110">
                 <Calculator className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -253,7 +253,7 @@ const AppSidebar = () => {
           <div className="mt-auto pt-4 px-3 border-t border-border/60">
             <button
               onClick={() => window.dispatchEvent(new Event('open-upgrade-modal'))}
-              className="w-full p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/15 text-center hover:from-primary/15 hover:to-primary/10 transition-all duration-300"
+              className="w-full p-4 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/15 text-center hover:from-primary/15 hover:to-primary/10 transition-all duration-300 animate-pulse-glow"
             >
               <p className="text-sm font-semibold text-primary">
                 {currentPlan === 'basic' ? 'Actualizar a Pro' : 'Actualizar a Enterprise'}

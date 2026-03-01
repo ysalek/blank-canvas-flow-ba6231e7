@@ -431,28 +431,28 @@ const FacturacionModule = () => {
 
       {/* KPIs en línea compacta */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card">
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card animate-slide-up stagger-1 hover-lift">
           <div className="p-2 rounded-lg bg-primary/10"><FileText className="w-4 h-4 text-primary" /></div>
           <div>
             <p className="text-xl font-bold">{facturas.length}</p>
             <p className="text-xs text-muted-foreground">Total</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card">
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card animate-slide-up stagger-2 hover-lift">
           <div className="p-2 rounded-lg bg-success/10"><DollarSign className="w-4 h-4 text-success" /></div>
           <div>
             <p className="text-xl font-bold">Bs {ingresosMes.toLocaleString()}</p>
             <p className="text-xs text-muted-foreground">Cobrado</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card">
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card animate-slide-up stagger-3 hover-lift">
           <div className="p-2 rounded-lg bg-warning/10"><AlertCircle className="w-4 h-4 text-warning" /></div>
           <div>
             <p className="text-xl font-bold">{facturasEnviadas}</p>
             <p className="text-xs text-muted-foreground">Pendientes</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card">
+        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card animate-slide-up stagger-4 hover-lift">
           <div className="p-2 rounded-lg bg-success/10"><CheckCircle className="w-4 h-4 text-success" /></div>
           <div>
             <p className="text-xl font-bold">{facturas.length > 0 ? (((facturas.length - facturasRechazadas) / facturas.length) * 100).toFixed(0) : 100}%</p>

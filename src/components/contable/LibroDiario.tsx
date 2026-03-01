@@ -293,7 +293,7 @@ const LibroDiario = () => {
 
           {/* Resumen mejorado */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card className="border-l-4 border-l-success">
+            <Card className="border-l-4 border-l-success animate-slide-up stagger-1 hover-lift">
               <CardContent className="p-4 text-center">
                 <div className="text-2xl font-bold text-success">
                   Bs. {totalDebe.toFixed(2)}
@@ -301,7 +301,7 @@ const LibroDiario = () => {
                 <div className="text-sm text-muted-foreground">Total Debe</div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-destructive">
+            <Card className="border-l-4 border-l-destructive animate-slide-up stagger-2 hover-lift">
               <CardContent className="p-4 text-center">
                 <div className="text-2xl font-bold text-destructive">
                   Bs. {totalHaber.toFixed(2)}
@@ -309,7 +309,7 @@ const LibroDiario = () => {
                 <div className="text-sm text-muted-foreground">Total Haber</div>
               </CardContent>
             </Card>
-            <Card className={`border-l-4 ${Math.abs(totalDebe - totalHaber) < 0.01 ? 'border-l-success bg-success/5' : 'border-l-destructive bg-destructive/5'}`}>
+            <Card className={`border-l-4 animate-slide-up stagger-3 hover-lift ${Math.abs(totalDebe - totalHaber) < 0.01 ? 'border-l-success bg-success/5' : 'border-l-destructive bg-destructive/5'}`}>
               <CardContent className="p-4 text-center">
                 <div className={`text-2xl font-bold ${Math.abs(totalDebe - totalHaber) < 0.01 ? 'text-success' : 'text-destructive'}`}>
                   Bs. {Math.abs(totalDebe - totalHaber).toFixed(2)}
@@ -337,7 +337,7 @@ const LibroDiario = () => {
             </TableHeader>
             <TableBody>
               {asientosFiltrados.map((asiento) => (
-                <TableRow key={asiento.id}>
+                <TableRow key={asiento.id} className="table-row-interactive group">
                   <TableCell>{new Date(asiento.fecha).toLocaleDateString('es-BO')}</TableCell>
                   <TableCell className="font-mono">{asiento.numero}</TableCell>
                   <TableCell>{asiento.concepto}</TableCell>
@@ -410,7 +410,7 @@ const LibroDiario = () => {
 
       {/* Dialog de detalle */}
       <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto dialog-animated">
           <DialogHeader>
             <DialogTitle>Detalle del Asiento Contable</DialogTitle>
             <DialogDescription>
@@ -509,7 +509,7 @@ const LibroDiario = () => {
 
       {/* Dialog de edición */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl dialog-animated">
           <DialogHeader>
             <DialogTitle>Editar Asiento Contable</DialogTitle>
             <DialogDescription>
