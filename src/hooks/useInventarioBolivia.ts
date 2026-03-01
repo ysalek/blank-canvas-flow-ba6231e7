@@ -203,10 +203,8 @@ export const useInventarioBolivia = () => {
   /**
    * Valida la integridad contable del inventario según normativa boliviana
    */
-  const validarIntegridadContable = () => {
+  const validarIntegridadContable = (asientos: any[] = [], productos: any[] = []) => {
     try {
-      const asientos = JSON.parse(localStorage.getItem('asientosContables') || '[]');
-      const productos = JSON.parse(localStorage.getItem('productos') || '[]');
       
       let saldoInventarioContable = 0;
       let totalCostoVentas = 0;

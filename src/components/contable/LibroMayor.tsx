@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { BookOpenCheck, Calendar, Filter, Download, Search } from 'lucide-react';
 import { useAsientos } from '@/hooks/useAsientos';
+import { useSupabasePlanCuentas } from '@/hooks/useSupabasePlanCuentas';
 import { AsientoContable } from './diary/DiaryData';
 
 interface MovimientoCuenta {
@@ -39,14 +40,15 @@ const LibroMayor = () => {
   const [cuentasDisponibles, setCuentasDisponibles] = useState<{codigo: string, nombre: string}[]>([]);
   
   const { getAsientos } = useAsientos();
+  const { planCuentas: planCuentasSupabase } = useSupabasePlanCuentas();
 
   useEffect(() => {
     generarLibroMayor();
-  }, [fechaInicio, fechaFin]);
+  }, [fechaInicio, fechaFin, planCuentasSupabase]);
 
   const generarLibroMayor = () => {
     const asientos = getAsientos();
-    const planCuentas = JSON.parse(localStorage.getItem('planCuentas') || '[]');
+    const planCuentas = planCuentasSupabase;
     
     // Filtrar asientos por fecha
     const asientosFiltrados = asientos.filter(asiento => {
