@@ -1,104 +1,91 @@
 
 
-# Limpieza de Codigo Muerto y Mejoras de Interfaz
+# Mejora Profesional de Interfaces: Animaciones e Interactividad
 
-## Parte 1: Eliminacion de Codigo Muerto
+## Resumen
 
-### Archivos sin ninguna referencia (a eliminar)
-
-| Archivo | Razon |
-|---------|-------|
-| `src/App.css` | No importado en ningun archivo |
-| `src/components/contable/BalanceComprobacion.tsx` | Reemplazado por `BalanceComprobacionModule.tsx`, sin imports |
-| `src/components/contable/NotificationsCenter.tsx` | Sin imports (se usa `notifications/NotificationCenter.tsx`) |
-| `src/components/debug/AuthDebugInfo.tsx` | Sin imports |
-| `src/components/contable/dashboard/OnboardingTour.tsx` | Sin imports |
-| `src/components/contable/dashboard/AlertsDemo.tsx` | Sin imports |
-| `src/components/contable/dashboard/SystemStats.tsx` | Sin imports |
-| `src/components/contable/dashboard/SystemValidation.tsx` | Sin imports |
-| `src/components/contable/dashboard/SearchableSidebar.tsx` | Sin imports |
-| `src/components/contable/reports/ReportesContablesAvanzados.tsx` | Sin imports |
-| `src/components/contable/billing/NotasEntregaModule.tsx` | Sin imports |
-| `src/components/contable/inventory/EnhancedInventoryHeader.tsx` | Sin imports |
-| `src/components/contable/tutorial/TutorialInteractivo.tsx` | Sin imports |
-| `src/components/contable/auditoria/AuditoriaIntegral.tsx` | Sin imports |
-| `src/components/contable/auditoria/AuditoriaTransacciones.tsx` | Sin imports |
-| `src/components/contable/finanzas/FlujoCaja.tsx` | Sin imports (se usa `cashflow/AdvancedCashFlowModule`) |
-| `src/components/contable/nomina/RecursosHumanosUnificado.tsx` | Sin imports |
-| `src/components/contable/nomina/NominaBoliviana.tsx` | Sin imports |
-| `src/services/sinService.ts` | Sin imports |
-| `src/hooks/useProductosSimple.ts` | Sin imports |
-| `src/hooks/useProductos.ts` | Sin imports |
-| `src/hooks/usePWA.ts` | Sin imports |
-| `src/utils/inicializarDatosDemo.ts` | Sin imports |
-| `src/utils/inicializarSistema.ts` | Solo importa otros archivos muertos, nunca se usa |
-
-**Total: 24 archivos muertos a eliminar**
+Mejorar las interfaces principales del sistema para que sean mas profesionales, interactivas y animadas. Los cambios se enfocan en: entradas animadas escalonadas, hover effects mejorados, transiciones suaves en tablas/formularios, y consistencia visual usando los componentes `EnhancedLayout` existentes en modulos que aun no los usan.
 
 ---
 
-## Parte 2: Mejoras de Interfaz - Animaciones e Interactividad
+## Modulos a mejorar
 
-### 2.1 Sidebar con animaciones de hover y transiciones
+### 1. Proveedores (`proveedores/ProveedoresModule.tsx`) -- Rediseno completo
+Actualmente tiene un diseno basico sin animaciones ni estructura `EnhancedLayout`. Cambios:
+- Usar `EnhancedHeader`, `Section`, `MetricGrid`, `EnhancedMetricCard` como en Clientes
+- Agregar `animate-slide-up` con stagger a las tarjetas metricas
+- Agregar `table-row-interactive` a las filas de la tabla
+- Dialog de creacion con `animate-scale-in`
+- Empty state con icono animado (`animate-float`)
 
-**Archivo:** `src/components/AppSidebar.tsx`
-- Agregar animacion `scale-in` al cargar los grupos del menu
-- Efecto hover mas pronunciado con `transition-all duration-200` y `hover:translate-x-1`
-- Icono activo con animacion `pulse` sutil
-- Animacion de expansion/colapso suave en los grupos
+### 2. Libro Diario (`LibroDiario.tsx`) -- Tablas interactivas
+- Agregar `table-row-interactive` a todas las filas de `TableRow` en el body
+- Agregar `animate-fade-in` al contenido de los dialogs de detalle y edicion
+- Agregar `animate-slide-up` escalonado a las 3 tarjetas de resumen (Debe/Haber/Balance)
+- Boton Registrar con transicion de hover mas visible
 
-### 2.2 Dashboard con entradas escalonadas
+### 3. Clientes (`ClientesModule.tsx`) -- Mejoras incrementales
+- Agregar `animate-slide-up` con stagger a las `EnhancedMetricCard`
+- Agregar `table-row-interactive` a las filas del listado (`.divide-y` items)
+- Hover con `group` para mostrar botones de accion con transicion de opacidad
+- Empty state con `animate-float`
 
-**Archivo:** `src/components/contable/Dashboard.tsx`
-- Agregar entrada escalonada (staggered) a las tarjetas KPI usando `animate-fade-in` con `animation-delay`
-- Efecto `hover:scale-[1.02]` en las tarjetas de acceso rapido
-- Animacion de entrada para las alertas
-- Numeros que se animan al cargar (counter animation via CSS)
+### 4. Productos (`ProductosModule.tsx`) -- Animaciones
+- Agregar `animate-slide-up` con stagger a metricas
+- Agregar `table-row-interactive` a filas de productos
+- Iconos con `group-hover:scale-110` en las tarjetas
 
-### 2.3 Tablas interactivas con hover mejorado
+### 5. Facturacion (`FacturacionModule.tsx`) -- Animaciones en metricas
+- Agregar `animate-slide-up` escalonado a las `EnhancedMetricCard`
+- Lista de facturas con `table-row-interactive` en filas
+- Estados de carga con animacion `animate-pulse` mejorada
 
-**Archivos:** `ProveedoresModule.tsx`, `ClientesModule.tsx`, `LibroDiario.tsx`, `LibroMayor.tsx`
-- Agregar `hover:bg-accent/50 transition-colors duration-150` a las filas
-- Efecto de highlight al hacer clic en una fila
-- Animacion de entrada `animate-fade-in` para filas nuevas
-- Mejor feedback visual al eliminar (animacion de salida)
+### 6. Plan de Cuentas (`PlanCuentasModule.tsx`) -- Estructura EnhancedLayout
+- Migrar a usar `EnhancedHeader` para el header
+- Agregar `table-row-interactive` a las filas
+- Dialog con `animate-scale-in`
 
-### 2.4 Formularios con transiciones
+### 7. Landing Page (`Landing.tsx`) -- Pulido final
+- Agregar `animate-float` al Stats Card del hero
+- Testimonios con hover lift y sombra animada
+- Smooth scroll CSS para navegacion por anclas
 
-**Archivos:** Dialogos de creacion (ClienteForm, ProveedorForm, etc.)
-- Agregar `animate-scale-in` al abrir dialogos
-- Feedback visual en inputs con `focus:ring-2 focus:ring-primary/20 transition-all`
-- Boton de guardar con estado de carga animado (spinner)
-
-### 2.5 Tarjetas metricas con micro-interacciones
-
-**Archivo:** `src/components/contable/dashboard/EnhancedMetricCard.tsx`
-- Hover con sombra elevada `hover:shadow-lg transition-shadow duration-300`
-- Icono que rota sutilmente al hover
-- Indicador de tendencia con animacion pulsante
-
-### 2.6 Tabs con transicion de contenido
-
-**Archivos:** Modulos con Tabs (Reportes, Cumplimiento, etc.)
-- Agregar `animate-fade-in` al contenido de cada tab al cambiar
-- Transicion suave entre pestanas
-
-### 2.7 CSS global: nuevas utilidades de animacion
-
-**Archivo:** `src/index.css`
-- Agregar clases de animacion escalonada: `.stagger-1`, `.stagger-2`, etc. con `animation-delay`
-- Clase `.animate-slide-up` para entradas desde abajo
-- Clase `.animate-number` para contadores
-- Clase `.hover-lift` para efecto de elevacion hover
+### 8. Sidebar (`AppSidebar.tsx`) -- Micro-interacciones
+- Agregar `group` hover al logo para sutil scale
+- Icono activo con sutil animacion `animate-pulse` (solo el punto verde de "Sistema Activo")
+- CTA de upgrade con `animate-pulse-glow` sutil
 
 ---
 
-## Secuencia de implementacion
+## Cambios en CSS global (`src/index.css`)
 
-1. Eliminar los 24 archivos muertos
-2. Agregar utilidades CSS de animacion en `index.css`
-3. Mejorar el Dashboard con entradas escalonadas y hover
-4. Mejorar el Sidebar con transiciones
-5. Mejorar tablas y formularios con feedback interactivo
-6. Mejorar tarjetas metricas con micro-interacciones
+Agregar nuevas utilidades:
+- `.glass-effect` -- efecto glassmorphism para filtros y barras de herramientas
+- `.card-kpi` -- estilo unificado para tarjetas metricas con hover animado
+- `.empty-state-icon` -- animacion float para iconos de estados vacios
+- `.dialog-animated` -- entrada con scale-in para dialogos
+
+---
+
+## Archivos a modificar
+
+| Archivo | Tipo de cambio |
+|---------|---------------|
+| `src/index.css` | Agregar utilidades CSS (glass-effect, card-kpi, empty-state-icon) |
+| `src/components/contable/proveedores/ProveedoresModule.tsx` | Rediseno con EnhancedLayout + animaciones |
+| `src/components/contable/LibroDiario.tsx` | table-row-interactive + animaciones stagger |
+| `src/components/contable/ClientesModule.tsx` | Animaciones stagger + hover interactivo |
+| `src/components/contable/ProductosModule.tsx` | Animaciones stagger + table-row-interactive |
+| `src/components/contable/FacturacionModule.tsx` | Animaciones stagger en metricas |
+| `src/components/contable/PlanCuentasModule.tsx` | EnhancedHeader + table-row-interactive |
+| `src/components/contable/dashboard/EnhancedLayout.tsx` | Agregar animaciones a MetricGrid y EnhancedMetricCard |
+| `src/pages/Landing.tsx` | Float animation + smooth scroll |
+| `src/components/AppSidebar.tsx` | Micro-interacciones hover en logo y CTA |
+
+## Resultado esperado
+- Todas las interfaces tendran entradas animadas escalonadas
+- Las tablas seran interactivas con hover feedback visual
+- Los dialogos tendran transiciones de entrada suaves
+- Los estados vacios tendran iconos animados
+- Consistencia visual en todos los modulos usando el sistema de diseno existente
 
