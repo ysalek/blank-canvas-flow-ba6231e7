@@ -144,7 +144,7 @@ export const useAsientosGenerator = () => {
     const totalConIVA = factura.total;
     const ventaSinIVA = Number((totalConIVA / 1.13).toFixed(2));
     const ivaVenta = Number((totalConIVA - ventaSinIVA).toFixed(2));
-    const itVenta = Number((ventaSinIVA * 0.03).toFixed(2));
+    const itVenta = Number((totalConIVA * 0.03).toFixed(2)); // IT 3% sobre ingreso bruto (total con IVA)
 
     cuentas.push({
       codigo: "1121",
@@ -198,8 +198,8 @@ export const useAsientosGenerator = () => {
       estado: 'registrado',
       cuentas: [
         {
-          codigo: "5401",
-          nombre: "IT Pagado",
+          codigo: "5261",
+          nombre: "Impuesto a las Transacciones",
           debe: itVenta,
           haber: 0
         },
@@ -305,7 +305,7 @@ export const useAsientosGenerator = () => {
   const generarAsientoAnulacionFactura = async (factura: Factura): Promise<AsientoContable[] | null> => {
     const ventaSinIVA = Number((factura.total / 1.13).toFixed(2));
     const ivaVenta = Number((factura.total - ventaSinIVA).toFixed(2));
-    const itVenta = Number((ventaSinIVA * 0.03).toFixed(2));
+    const itVenta = Number((factura.total * 0.03).toFixed(2)); // IT 3% sobre ingreso bruto
     
     const asientoVentaReversion: AsientoContable = {
       id: Date.now().toString(),
@@ -336,7 +336,7 @@ export const useAsientosGenerator = () => {
       estado: 'registrado',
       cuentas: [
         { codigo: "2114", nombre: "IT por Pagar", debe: itVenta, haber: 0 },
-        { codigo: "5401", nombre: "IT Pagado", debe: 0, haber: itVenta }
+        { codigo: "5261", nombre: "Impuesto a las Transacciones", debe: 0, haber: itVenta }
       ]
     };
     await guardarAsiento(asientoITReversion);

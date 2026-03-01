@@ -138,6 +138,7 @@ export const useSupabasePlanCuentas = () => {
         { codigo: "1212", nombre: "Equipos de Computación", tipo: "activo", naturaleza: "deudora", saldo: 0, activa: true },
         { codigo: "2111", nombre: "Cuentas por Pagar Comerciales", tipo: "pasivo", naturaleza: "acreedora", saldo: 0, activa: true },
         { codigo: "2113", nombre: "IVA por Pagar", tipo: "pasivo", naturaleza: "acreedora", saldo: 0, activa: true },
+        { codigo: "2114", nombre: "IT por Pagar", tipo: "pasivo", naturaleza: "acreedora", saldo: 0, activa: true },
         { codigo: "2121", nombre: "Sueldos y Salarios por Pagar", tipo: "pasivo", naturaleza: "acreedora", saldo: 0, activa: true },
         { codigo: "3111", nombre: "Capital Social", tipo: "patrimonio", naturaleza: "acreedora", saldo: 100000, activa: true },
         { codigo: "3211", nombre: "Utilidades Acumuladas", tipo: "patrimonio", naturaleza: "acreedora", saldo: 0, activa: true },
