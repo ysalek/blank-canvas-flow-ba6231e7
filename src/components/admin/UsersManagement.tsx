@@ -81,7 +81,7 @@ const UsersManagement = () => {
           .from('subscribers')
           .update({
             subscription_tier: newTier,
-            subscribed: newTier === 'pro',
+            subscribed: newTier !== 'basic',
             updated_at: new Date().toISOString(),
           })
           .eq('user_id', userId));
@@ -91,7 +91,7 @@ const UsersManagement = () => {
           .insert({
             user_id: userId,
             subscription_tier: newTier,
-            subscribed: newTier === 'pro',
+            subscribed: newTier !== 'basic',
             email: user?.email || '',
             updated_at: new Date().toISOString(),
           }));
@@ -122,6 +122,7 @@ const UsersManagement = () => {
     all: users.length,
     basic: users.filter(u => (u.subscription_tier || 'basic') === 'basic').length,
     pro: users.filter(u => u.subscription_tier === 'pro').length,
+    enterprise: users.filter(u => u.subscription_tier === 'enterprise').length,
   };
 
   return (
@@ -142,7 +143,7 @@ const UsersManagement = () => {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilterPlan('all')}>
           <CardContent className="pt-4 pb-4">
             <p className="text-xs text-muted-foreground">Todos</p>
@@ -159,6 +160,12 @@ const UsersManagement = () => {
           <CardContent className="pt-4 pb-4">
             <p className="text-xs text-muted-foreground">Plan Pro</p>
             <p className="text-2xl font-bold">{planCounts.pro}</p>
+          </CardContent>
+        </Card>
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilterPlan('enterprise')}>
+          <CardContent className="pt-4 pb-4">
+            <p className="text-xs text-muted-foreground">Plan Enterprise</p>
+            <p className="text-2xl font-bold">{planCounts.enterprise}</p>
           </CardContent>
         </Card>
       </div>
@@ -183,6 +190,7 @@ const UsersManagement = () => {
             <SelectItem value="all">Todos los planes</SelectItem>
             <SelectItem value="basic">Basic</SelectItem>
             <SelectItem value="pro">Pro</SelectItem>
+            <SelectItem value="enterprise">Enterprise</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filterRole} onValueChange={setFilterRole}>
@@ -243,8 +251,8 @@ const UsersManagement = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={user.subscription_tier === 'pro' ? 'default' : 'outline'} className="text-xs">
-                        {user.subscription_tier === 'pro' ? 'Pro' : 'Basic'}
+                      <Badge variant={user.subscription_tier === 'enterprise' ? 'default' : user.subscription_tier === 'pro' ? 'default' : 'outline'} className={`text-xs ${user.subscription_tier === 'enterprise' ? 'bg-amber-600' : ''}`}>
+                        {user.subscription_tier === 'enterprise' ? 'Enterprise' : user.subscription_tier === 'pro' ? 'Pro' : 'Basic'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
@@ -261,6 +269,7 @@ const UsersManagement = () => {
                         <SelectContent>
                           <SelectItem value="basic">Basic</SelectItem>
                           <SelectItem value="pro">Pro</SelectItem>
+                          <SelectItem value="enterprise">Enterprise</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>
@@ -332,8 +341,8 @@ const UsersManagement = () => {
                 </div>
                 <div>
                   <p className="text-muted-foreground">Plan</p>
-                  <Badge variant={selectedUser.subscription_tier === 'pro' ? 'default' : 'outline'}>
-                    {selectedUser.subscription_tier === 'pro' ? 'Profesional' : 'Gratuito'}
+                  <Badge variant={selectedUser.subscription_tier === 'enterprise' ? 'default' : selectedUser.subscription_tier === 'pro' ? 'default' : 'outline'} className={selectedUser.subscription_tier === 'enterprise' ? 'bg-amber-600' : ''}>
+                    {selectedUser.subscription_tier === 'enterprise' ? 'Enterprise' : selectedUser.subscription_tier === 'pro' ? 'Profesional' : 'Gratuito'}
                   </Badge>
                 </div>
                 <div>
@@ -365,7 +374,7 @@ const UsersManagement = () => {
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    variant={selectedUser.subscription_tier === 'basic' ? 'default' : 'outline'}
+                    variant={selectedUser.subscription_tier === 'basic' || !selectedUser.subscription_tier ? 'default' : 'outline'}
                     onClick={() => { changePlan(selectedUser.id, 'basic'); setSelectedUser(null); }}
                   >
                     Basic
@@ -376,6 +385,14 @@ const UsersManagement = () => {
                     onClick={() => { changePlan(selectedUser.id, 'pro'); setSelectedUser(null); }}
                   >
                     Pro
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={selectedUser.subscription_tier === 'enterprise' ? 'default' : 'outline'}
+                    className={selectedUser.subscription_tier === 'enterprise' ? 'bg-amber-600 hover:bg-amber-700' : ''}
+                    onClick={() => { changePlan(selectedUser.id, 'enterprise'); setSelectedUser(null); }}
+                  >
+                    Enterprise
                   </Button>
                 </div>
               </div>

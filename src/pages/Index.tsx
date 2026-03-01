@@ -6,11 +6,13 @@ import AppSidebar from '@/components/AppSidebar';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Bell, User, LogOut, Settings } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Bell, User, LogOut, Settings, Shield } from 'lucide-react';
 import NotificationCenter from '@/components/contable/notifications/NotificationCenter';
 import PlanGate from '@/components/PlanGate';
 import OnboardingWizard from '@/components/onboarding/OnboardingWizard';
 import PlanUpgradeModal from '@/components/PlanUpgradeModal';
+import { useAdmin } from '@/hooks/useAdmin';
 // Lazy load components - Core (Basic plan)
 const Dashboard = lazy(() => import('@/components/contable/Dashboard'));
 const LibroDiario = lazy(() => import('@/components/contable/LibroDiario'));
@@ -66,6 +68,7 @@ const ActivityLogs = lazy(() => import('@/components/admin/ActivityLogs'));
 const PaymentRequestsManager = lazy(() => import('@/components/admin/PaymentRequestsManager'));
 const Index = () => {
   const { hasPermission, user, logout } = useAuth();
+  const { isAdmin } = useAdmin();
   const [openNotifications, setOpenNotifications] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => {
@@ -137,13 +140,29 @@ const Index = () => {
   }, []);
 
   const renderCurrentView = () => {
-    // Admin views (no plan gate needed)
-    switch (currentView) {
-      case 'admin-dashboard': return <AdminDashboard />;
-      case 'admin-users': return <UsersManagementAdmin />;
-      case 'admin-subscriptions': return <SubscriptionsManager />;
-      case 'admin-logs': return <ActivityLogs />;
-      case 'admin-payments': return <PaymentRequestsManager />;
+    // Admin views - protected
+    const adminViews = ['admin-dashboard', 'admin-users', 'admin-subscriptions', 'admin-logs', 'admin-payments'];
+    if (adminViews.includes(currentView)) {
+      if (!isAdmin) {
+        return (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <Card className="max-w-md w-full text-center border-destructive/30">
+              <CardContent className="pt-8 pb-8 space-y-3">
+                <Shield className="w-12 h-12 text-destructive mx-auto" />
+                <h3 className="text-xl font-bold">Acceso Denegado</h3>
+                <p className="text-muted-foreground text-sm">No tienes permisos de administrador para acceder a esta sección.</p>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      }
+      switch (currentView) {
+        case 'admin-dashboard': return <AdminDashboard />;
+        case 'admin-users': return <UsersManagementAdmin />;
+        case 'admin-subscriptions': return <SubscriptionsManager />;
+        case 'admin-logs': return <ActivityLogs />;
+        case 'admin-payments': return <PaymentRequestsManager />;
+      }
     }
 
     // Pro-gated modules

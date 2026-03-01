@@ -49,7 +49,7 @@ const SubscriptionsManager = () => {
       .from('subscribers')
       .update({
         subscription_tier: newTier,
-        subscribed: newTier === 'pro',
+        subscribed: newTier !== 'basic',
         updated_at: new Date().toISOString(),
       })
       .eq('id', subId);
@@ -63,7 +63,8 @@ const SubscriptionsManager = () => {
   };
 
   const proCount = subscribers.filter(s => s.subscribed && s.subscription_tier === 'pro').length;
-  const totalRevenue = proCount * 29;
+  const enterpriseCount = subscribers.filter(s => s.subscribed && s.subscription_tier === 'enterprise').length;
+  const totalRevenue = (proCount * 199) + (enterpriseCount * 699);
   const activeCount = subscribers.filter(s => s.subscribed).length;
 
   const expiringSoon = subscribers.filter(s => {
@@ -214,6 +215,7 @@ const SubscriptionsManager = () => {
                         <SelectContent>
                           <SelectItem value="basic">Basic</SelectItem>
                           <SelectItem value="pro">Pro</SelectItem>
+                          <SelectItem value="enterprise">Enterprise</SelectItem>
                         </SelectContent>
                       </Select>
                     </TableCell>
