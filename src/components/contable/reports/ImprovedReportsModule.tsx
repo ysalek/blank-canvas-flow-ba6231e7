@@ -6,7 +6,7 @@ import { FileText, Users, Package, DollarSign, TrendingUp } from "lucide-react";
 import CustomerAccountsReceivable from "../customers/CustomerAccountsReceivable";
 import InventoryAnalysis from "../inventory/InventoryAnalysis";
 import AdvancesManagement from "../advances/AdvancesManagement";
-import BalanceComprobacion from "../BalanceComprobacion";
+import BalanceComprobacionModule from "../BalanceComprobacionModule";
 import DeclaracionIVA from "../DeclaracionIVA";
 
 const ImprovedReportsModule = () => {
@@ -56,7 +56,7 @@ const ImprovedReportsModule = () => {
         </TabsContent>
 
         <TabsContent value="balance">
-          <BalanceComprobacion />
+          <BalanceComprobacionModule />
         </TabsContent>
 
         <TabsContent value="tax">

@@ -198,8 +198,8 @@ export const useReportesContables = (productos?: any[]) => {
     return { details, totals };
   };
 
-  const getBalanceSheetData = (): BalanceSheetData => {
-    const { details } = getTrialBalanceData();
+  const getBalanceSheetData = (filtros?: { fechaInicio?: string, fechaFin?: string }): BalanceSheetData => {
+    const { details } = getTrialBalanceData(filtros);
 
     const activos = { cuentas: [] as BalanceSheetAccount[], total: 0 };
     const pasivos = { cuentas: [] as BalanceSheetAccount[], total: 0 };
