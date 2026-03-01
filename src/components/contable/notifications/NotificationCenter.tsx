@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell, AlertTriangle, CheckCircle, Info, X, Archive } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useProductosValidated } from "@/hooks/useProductosValidated";
+import { useFacturas } from "@/hooks/useFacturas";
+import { useAsientos } from "@/hooks/useAsientos";
 
 interface Notification {
   id: string;
@@ -24,27 +27,27 @@ const NotificationCenter = () => {
   const [filter, setFilter] = useState<'all' | 'unread' | 'warnings'>('all');
   const { toast } = useToast();
 
+  const { productos } = useProductosValidated();
+  const { facturas } = useFacturas();
+  const { getAsientos } = useAsientos();
+
+  // Regenerar notificaciones cuando cambian los datos de Supabase
   useEffect(() => {
     generateSystemNotifications();
-    
-    // Actualizar notificaciones cada 5 minutos
-    const interval = setInterval(generateSystemNotifications, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [productos, facturas]);
 
   const generateSystemNotifications = () => {
     const newNotifications: Notification[] = [];
 
     try {
-      // Verificar productos con stock bajo
-      const productos = JSON.parse(localStorage.getItem('productos') || '[]');
-      const productosStockBajo = productos.filter((p: any) => 
-        p.stockActual <= p.stockMinimo && p.activo
+      // Verificar productos con stock bajo (datos de Supabase)
+      const productosStockBajo = productos.filter(p =>
+        p.stock_actual <= p.stock_minimo && p.activo
       );
 
       if (productosStockBajo.length > 0) {
         newNotifications.push({
-          id: 'stock-bajo-' + Date.now(),
+          id: 'stock-bajo',
           type: 'warning',
           title: 'Stock Bajo',
           message: `${productosStockBajo.length} productos con stock bajo o agotado`,
@@ -52,22 +55,18 @@ const NotificationCenter = () => {
           read: false,
           action: {
             label: 'Ver Productos',
-            onClick: () => {
-              // Navegar a inventario donde están los productos
-              window.location.hash = '#inventario';
-            }
+            onClick: () => { window.location.hash = '#inventario'; }
           },
           module: 'inventario'
         });
       }
 
-      // Verificar facturas pendientes
-      const facturas = JSON.parse(localStorage.getItem('facturas') || '[]');
-      const facturasPendientes = facturas.filter((f: any) => f.estado === 'enviada');
+      // Verificar facturas pendientes (datos de Supabase)
+      const facturasPendientes = facturas.filter(f => f.estado === 'enviada');
 
       if (facturasPendientes.length > 0) {
         newNotifications.push({
-          id: 'facturas-pendientes-' + Date.now(),
+          id: 'facturas-pendientes',
           type: 'info',
           title: 'Facturas Pendientes',
           message: `${facturasPendientes.length} facturas esperando pago`,
@@ -75,75 +74,46 @@ const NotificationCenter = () => {
           read: false,
           action: {
             label: 'Ver Facturas',
-            onClick: () => {
-              window.location.hash = '#facturacion';
-            }
+            onClick: () => { window.location.hash = '#facturacion'; }
           },
           module: 'facturacion'
         });
       }
 
-      // Verificar cuentas por cobrar vencidas
-      const cuentasPorCobrar = JSON.parse(localStorage.getItem('cuentasPorCobrar') || '[]');
-      const cuentasVencidas = cuentasPorCobrar.filter((c: any) => {
-        const fechaVencimiento = new Date(c.fechaVencimiento);
-        return fechaVencimiento < new Date() && c.estado === 'pendiente';
-      });
+      // Verificar balance contable (datos de Supabase)
+      const asientos = getAsientos();
+      const asientosRegistrados = asientos.filter(a => a.estado === 'registrado');
 
-      if (cuentasVencidas.length > 0) {
-        newNotifications.push({
-          id: 'cuentas-vencidas-' + Date.now(),
-          type: 'error',
-          title: 'Cuentas Vencidas',
-          message: `${cuentasVencidas.length} cuentas por cobrar vencidas`,
-          timestamp: new Date(),
-          read: false,
-          action: {
-            label: 'Ver Cuentas',
-            onClick: () => {
-              window.location.hash = '#cuentas-cobrar-pagar';
-            }
-          },
-          module: 'cobranzas'
-        });
-      }
-
-      // Verificar balance contable
-      const asientos = JSON.parse(localStorage.getItem('asientosContables') || '[]');
-      const asientosRegistrados = asientos.filter((a: any) => a.estado === 'registrado');
-      
       if (asientosRegistrados.length > 0) {
         let totalDebe = 0;
         let totalHaber = 0;
-        
-        asientosRegistrados.forEach((asiento: any) => {
-          asiento.cuentas.forEach((cuenta: any) => {
+
+        asientosRegistrados.forEach(asiento => {
+          asiento.cuentas.forEach(cuenta => {
             totalDebe += cuenta.debe;
             totalHaber += cuenta.haber;
           });
         });
 
         const diferencia = Math.abs(totalDebe - totalHaber);
-        
+
         if (diferencia > 0.01) {
           newNotifications.push({
-            id: 'balance-desbalanceado-' + Date.now(),
+            id: 'balance-desbalanceado',
             type: 'error',
             title: 'Balance Desbalanceado',
             message: `Diferencia de Bs. ${diferencia.toFixed(2)} en el balance contable`,
             timestamp: new Date(),
             read: false,
-          action: {
-            label: 'Ver Balance',
-            onClick: () => {
-              window.location.hash = '#balance-comprobacion';
-            }
-          },
+            action: {
+              label: 'Ver Balance',
+              onClick: () => { window.location.hash = '#balance-comprobacion'; }
+            },
             module: 'contabilidad'
           });
         } else {
           newNotifications.push({
-            id: 'balance-ok-' + Date.now(),
+            id: 'balance-ok',
             type: 'success',
             title: 'Balance Correcto',
             message: 'El balance contable está cuadrado correctamente',
@@ -154,11 +124,11 @@ const NotificationCenter = () => {
         }
       }
 
-      // Recordatorio de backup
+      // Recordatorio de backup (mantiene localStorage - es preferencia local)
       const ultimoBackup = localStorage.getItem('ultimo-backup');
       if (!ultimoBackup) {
         newNotifications.push({
-          id: 'backup-reminder-' + Date.now(),
+          id: 'backup-reminder',
           type: 'warning',
           title: 'Realizar Backup',
           message: 'No se ha realizado ningún respaldo del sistema',
@@ -166,19 +136,17 @@ const NotificationCenter = () => {
           read: false,
           action: {
             label: 'Crear Backup',
-            onClick: () => {
-              window.location.hash = '#backup';
-            }
+            onClick: () => { window.location.hash = '#backup'; }
           },
           module: 'backup'
         });
       } else {
         const fechaUltimoBackup = new Date(ultimoBackup);
         const diasSinBackup = Math.floor((new Date().getTime() - fechaUltimoBackup.getTime()) / (1000 * 60 * 60 * 24));
-        
+
         if (diasSinBackup > 7) {
           newNotifications.push({
-            id: 'backup-old-' + Date.now(),
+            id: 'backup-old',
             type: 'warning',
             title: 'Backup Desactualizado',
             message: `Último respaldo hace ${diasSinBackup} días`,
@@ -186,19 +154,21 @@ const NotificationCenter = () => {
             read: false,
             action: {
               label: 'Crear Backup',
-              onClick: () => {
-                window.location.hash = '#backup';
-              }
+              onClick: () => { window.location.hash = '#backup'; }
             },
             module: 'backup'
           });
         }
       }
 
-      // Actualizar notificaciones manteniendo las existentes no leídas
       setNotifications(prev => {
         const existingUnread = prev.filter(n => !n.read);
-        return [...newNotifications, ...existingUnread].slice(0, 20); // Máximo 20 notificaciones
+        // Merge: keep read state of existing notifications
+        const merged = newNotifications.map(nn => {
+          const existing = existingUnread.find(e => e.id === nn.id);
+          return existing ? { ...nn, read: existing.read } : nn;
+        });
+        return merged.slice(0, 20);
       });
 
     } catch (error) {
@@ -252,7 +222,6 @@ const NotificationCenter = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Bell className="w-6 h-6 text-primary" />
@@ -283,32 +252,18 @@ const NotificationCenter = () => {
         </div>
       </div>
 
-      {/* Filtros */}
       <div className="flex gap-2">
-        <Button
-          variant={filter === 'all' ? 'default' : 'outline'}
-          onClick={() => setFilter('all')}
-          size="sm"
-        >
+        <Button variant={filter === 'all' ? 'default' : 'outline'} onClick={() => setFilter('all')} size="sm">
           Todas ({notifications.length})
         </Button>
-        <Button
-          variant={filter === 'unread' ? 'default' : 'outline'}
-          onClick={() => setFilter('unread')}
-          size="sm"
-        >
+        <Button variant={filter === 'unread' ? 'default' : 'outline'} onClick={() => setFilter('unread')} size="sm">
           No leídas ({unreadCount})
         </Button>
-        <Button
-          variant={filter === 'warnings' ? 'default' : 'outline'}
-          onClick={() => setFilter('warnings')}
-          size="sm"
-        >
+        <Button variant={filter === 'warnings' ? 'default' : 'outline'} onClick={() => setFilter('warnings')} size="sm">
           Alertas ({notifications.filter(n => n.type === 'warning' || n.type === 'error').length})
         </Button>
       </div>
 
-      {/* Lista de notificaciones */}
       <div className="space-y-3">
         {filteredNotifications.length === 0 ? (
           <Card>
@@ -336,20 +291,14 @@ const NotificationCenter = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <h4 className="font-semibold">{notification.title}</h4>
                       {!notification.read && (
-                        <Badge variant="secondary" className="text-xs">
-                          Nuevo
-                        </Badge>
+                        <Badge variant="secondary" className="text-xs">Nuevo</Badge>
                       )}
                       {notification.module && (
-                        <Badge variant="outline" className="text-xs">
-                          {notification.module}
-                        </Badge>
+                        <Badge variant="outline" className="text-xs">{notification.module}</Badge>
                       )}
                     </div>
                     
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {notification.message}
-                    </p>
+                    <p className="text-sm text-muted-foreground mb-2">{notification.message}</p>
                     
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
@@ -371,20 +320,12 @@ const NotificationCenter = () => {
                         )}
                         
                         {!notification.read && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => markAsRead(notification.id)}
-                          >
+                          <Button variant="ghost" size="sm" onClick={() => markAsRead(notification.id)}>
                             <CheckCircle className="w-4 h-4" />
                           </Button>
                         )}
                         
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteNotification(notification.id)}
-                        >
+                        <Button variant="ghost" size="sm" onClick={() => deleteNotification(notification.id)}>
                           <X className="w-4 h-4" />
                         </Button>
                       </div>
