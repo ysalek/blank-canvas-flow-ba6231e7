@@ -26,22 +26,32 @@ export interface CuentaContable {
 }
 
 export const planCuentas: CuentaContable[] = [
-  // ACTIVOS
+  // ACTIVOS CORRIENTES
   { codigo: "1111", nombre: "Caja" },
   { codigo: "1112", nombre: "Caja Chica" },
-  { codigo: "1121", nombre: "Bancos" },
-  { codigo: "1131", nombre: "Cuentas por Cobrar" },
-  { codigo: "1132", nombre: "Documentos por Cobrar" },
-  { codigo: "1141", nombre: "Inventarios" },
+  { codigo: "1113", nombre: "Bancos" },
+  { codigo: "1121", nombre: "Cuentas por Cobrar Comerciales" },
+  { codigo: "1122", nombre: "Documentos por Cobrar" },
+  { codigo: "1131", nombre: "Inventarios" },
+  { codigo: "1141", nombre: "Anticipos a Proveedores" },
+  { codigo: "1142", nombre: "IVA Crédito Fiscal" },
+  
+  // ACTIVOS NO CORRIENTES
   { codigo: "1211", nombre: "Muebles y Enseres" },
   { codigo: "1212", nombre: "Equipos de Computación" },
   { codigo: "1213", nombre: "Vehículos" },
+  { codigo: "1214", nombre: "Maquinaria y Equipo" },
+  { codigo: "1291", nombre: "Depreciación Acumulada" },
   
-  // PASIVOS
+  // PASIVOS CORRIENTES
   { codigo: "2111", nombre: "Cuentas por Pagar" },
   { codigo: "2112", nombre: "Documentos por Pagar" },
-  { codigo: "2113", nombre: "IVA por Pagar" },
-  { codigo: "2114", nombre: "IVA Crédito Fiscal" },
+  { codigo: "2113", nombre: "IVA Débito Fiscal" },
+  { codigo: "2114", nombre: "IT por Pagar" },
+  { codigo: "2115", nombre: "IUE por Pagar" },
+  { codigo: "2131", nombre: "Impuestos por Pagar" },
+  
+  // PASIVOS NO CORRIENTES
   { codigo: "2211", nombre: "Préstamos Bancarios LP" },
   
   // PATRIMONIO
@@ -54,15 +64,23 @@ export const planCuentas: CuentaContable[] = [
   { codigo: "4112", nombre: "Ventas de Servicios" },
   { codigo: "4211", nombre: "Otros Ingresos" },
   
-  // GASTOS
+  // COSTOS
   { codigo: "5111", nombre: "Costo de Productos Vendidos" },
+  { codigo: "5112", nombre: "Costo de Servicios" },
+  
+  // GASTOS OPERATIVOS
   { codigo: "5211", nombre: "Sueldos y Salarios" },
   { codigo: "5212", nombre: "Servicios Básicos" },
   { codigo: "5213", nombre: "Alquileres" },
   { codigo: "5214", nombre: "Seguros" },
   { codigo: "5221", nombre: "Gastos de Ventas" },
   { codigo: "5222", nombre: "Publicidad" },
-  { codigo: "5223", nombre: "Comisiones" }
+  { codigo: "5223", nombre: "Comisiones" },
+  { codigo: "5322", nombre: "Pérdidas de Inventario" },
+  
+  // GASTOS TRIBUTARIOS
+  { codigo: "5401", nombre: "IT Pagado" },
+  { codigo: "5402", nombre: "IUE Pagado" }
 ];
 
 export const asientosIniciales: AsientoContable[] = [

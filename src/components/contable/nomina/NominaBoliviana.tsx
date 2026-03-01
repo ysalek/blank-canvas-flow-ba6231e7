@@ -67,7 +67,8 @@ const NominaBoliviana = () => {
   const [mesGeneracion, setMesGeneracion] = useState(new Date().getMonth() + 1);
   const [anioGeneracion, setAnioGeneracion] = useState(new Date().getFullYear());
 
-  // Porcentajes según normativa boliviana 2024
+  // Porcentajes según normativa boliviana 2026
+  const SMN_2026 = 2500; // Salario Mínimo Nacional 2026
   const PORCENTAJES_BOLIVIA = {
     aporteLaboral: 12.21, // Para la gestora de pensiones
     aportePatronal: 14.42, // Aporte patronal
@@ -75,10 +76,10 @@ const NominaBoliviana = () => {
     riesgoProfesional: 1.71, // Riesgo profesional
     provivienda: 2, // Pro vivienda
     rcIva: 13, // RC-IVA (sobre el monto excedente)
-    minimoNoImponible: 2500 // Mínimo no imponible para RC-IVA
+    minimoNoImponible: SMN_2026 * 4 // 4 SMN = Bs 10,000 - Mínimo no imponible para RC-IVA
   };
 
-  // Gestora de pensiones vigente en Bolivia (2024)
+  // Gestora de pensiones vigente en Bolivia (2026)
   const GESTORAS_PENSIONES = [
     { 
       id: 'GESTORA_PUBLICA', 
@@ -130,10 +131,11 @@ const NominaBoliviana = () => {
     const riesgoProfesional = totalGanado * (PORCENTAJES_BOLIVIA.riesgoProfesional / 100);
     const provivienda = totalGanado * (PORCENTAJES_BOLIVIA.provivienda / 100);
     
-    // RC-IVA solo se aplica si el salario supera el mínimo no imponible
+    // RC-IVA según normativa 2026: base = totalGanado - (2 SMN) - aportes laborales
     let impuestoRcIva = 0;
     if (totalGanado > PORCENTAJES_BOLIVIA.minimoNoImponible) {
-      const baseImponible = totalGanado - PORCENTAJES_BOLIVIA.minimoNoImponible - aporteGestora;
+      const dosSmn = SMN_2026 * 2;
+      const baseImponible = totalGanado - dosSmn - aporteGestora - solidario;
       if (baseImponible > 0) {
         impuestoRcIva = baseImponible * (PORCENTAJES_BOLIVIA.rcIva / 100);
       }
@@ -315,7 +317,7 @@ const NominaBoliviana = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-foreground">Nómina - Normativa Boliviana</h2>
-          <p className="text-muted-foreground">Gestión de sueldos según normativa boliviana 2024 - Gestora Pública de Seguridad Social</p>
+          <p className="text-muted-foreground">Gestión de sueldos según normativa boliviana 2026 - Gestora Pública de Seguridad Social</p>
         </div>
         <div className="flex gap-2">
           <Dialog open={modalEmpleado} onOpenChange={setModalEmpleado}>
