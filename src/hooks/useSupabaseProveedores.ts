@@ -70,26 +70,34 @@ export const useSupabaseProveedores = () => {
 
       if (proveedoresError) throw proveedoresError;
 
-      // Cargar compras
-      const { data: comprasData, error: comprasError } = await supabase
-        .from('compras')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('fecha', { ascending: false });
+      setProveedores(proveedoresData || []);
 
-      if (comprasError) throw comprasError;
+      // Cargar compras (separado para no bloquear proveedores si falla)
+      try {
+        const { data: comprasData, error: comprasError } = await supabase
+          .from('compras')
+          .select('id, user_id, numero, proveedor_id, fecha, fecha_vencimiento, subtotal, descuento_total, iva, total, estado, tipo_pago, monto_pagado, saldo_pendiente, observaciones, created_at, updated_at')
+          .eq('user_id', user.id)
+          .order('fecha', { ascending: false });
+
+        if (comprasError) {
+          console.warn('⚠️ [Proveedores] Error al cargar compras:', comprasError.message);
+          setCompras([]);
+        } else {
+          setCompras((comprasData || []).map(c => ({
+            ...c,
+            estado: c.estado as 'pendiente' | 'recibida' | 'pagada' | 'anulada',
+            tipo_pago: c.tipo_pago as 'contado' | 'credito'
+          })));
+        }
+      } catch (comprasErr) {
+        console.warn('⚠️ [Proveedores] Error inesperado en compras:', comprasErr);
+        setCompras([]);
+      }
 
       console.log('✅ [Proveedores] Datos cargados:', {
-        proveedores: proveedoresData?.length || 0,
-        compras: comprasData?.length || 0
+        proveedores: proveedoresData?.length || 0
       });
-
-      setProveedores(proveedoresData || []);
-      setCompras((comprasData || []).map(c => ({
-        ...c,
-        estado: c.estado as 'pendiente' | 'recibida' | 'pagada' | 'anulada',
-        tipo_pago: c.tipo_pago as 'contado' | 'credito'
-      })));
     } catch (error: any) {
       console.error('❌ [Proveedores] Error:', error);
       toast({
