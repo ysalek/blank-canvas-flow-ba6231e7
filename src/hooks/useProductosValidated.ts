@@ -67,6 +67,8 @@ export const useProductosValidated = () => {
   const { toast } = useToast();
   const loadingRef = useRef(false);
   const mountedRef = useRef(true);
+  const requestIdRef = useRef(0);
+  const lastAuthLoadRef = useRef(0);
 
   // Validar conectividad
   const validateConnectivity = useCallback(async (): Promise<ConnectivityStatus> => {
@@ -142,20 +144,23 @@ export const useProductosValidated = () => {
   const loadData = useCallback(async (force: boolean = false) => {
     console.log('🚀 [ProductosValidated] Iniciando carga de datos...', { force, loading: loadingRef.current });
     
-    if (loadingRef.current && !force) {
-      console.log('🛑 [ProductosValidated] Carga ya en proceso...');
+    // Block concurrent loads even with force
+    if (loadingRef.current) {
+      console.log('🛑 [ProductosValidated] Carga ya en proceso, ignorando');
       return;
     }
     
+    const currentRequestId = ++requestIdRef.current;
     loadingRef.current = true;
     setLoading(true);
     setError(null);
     
-    // Timeout de seguridad para evitar que loading se quede en true indefinidamente
+    // Timeout de seguridad
     const timeoutId = setTimeout(() => {
-      if (mountedRef.current && loadingRef.current) {
+      if (mountedRef.current && loadingRef.current && requestIdRef.current === currentRequestId) {
         console.warn('⏱️ [ProductosValidated] Timeout de carga alcanzado (15s)');
         setLoading(false);
+        setError('Tiempo de espera agotado. Pulse Reintentar.');
         loadingRef.current = false;
       }
     }, 15000);
@@ -227,7 +232,7 @@ export const useProductosValidated = () => {
         transformarProducto(producto, categoriasMap)
       );
       
-      if (mountedRef.current) {
+      if (mountedRef.current && requestIdRef.current === currentRequestId) {
         setCategorias(categoriasData);
         setProductos(productosTransformados);
         setError(null);
@@ -464,12 +469,26 @@ export const useProductosValidated = () => {
     };
   }, []);
 
-  // Auto-reconexión en cambios de auth
+  // Auto-reconexión en cambios de auth (throttled)
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log(`🔐 [ProductosValidated] Auth change: ${event}`);
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        await loadData(true);
+      if (event === 'SIGNED_IN') {
+        // Non-blocking, deferred reload
+        setTimeout(() => {
+          if (mountedRef.current) loadData();
+        }, 100);
+      } else if (event === 'TOKEN_REFRESHED') {
+        // Throttle: max once every 30s
+        const now = Date.now();
+        if (now - lastAuthLoadRef.current > 30000) {
+          lastAuthLoadRef.current = now;
+          setTimeout(() => {
+            if (mountedRef.current) loadData();
+          }, 100);
+        } else {
+          console.log('🛑 [ProductosValidated] TOKEN_REFRESHED throttled');
+        }
       }
     });
 
