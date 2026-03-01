@@ -1,38 +1,58 @@
 
-# Fix: Categorias no aparecen despues de crearlas en ProductoForm
+# Revision Completa del Sistema - Estado de Conexiones
 
-## Problema Raiz
+## Estado General: FUNCIONAL con detalles pendientes
 
-`ProductoForm` tiene **dos fuentes de datos en conflicto**:
+Los hooks criticos de Supabase estan correctamente conectados:
+- `useAsientos` - OK (sin localStorage)
+- `useFacturas` - OK (select explicito para evitar error 25006)
+- `useClientesSupabase` - OK (sin fallback localStorage)
+- `useSupabaseProductos` - OK (categorias y productos desde Supabase)
+- `useProductosValidated` - OK (reintentos, validacion de conectividad)
+- `useSupabasePlanCuentas` - OK (plan de cuentas desde Supabase)
+- `usePlan` - OK (plan y contador de transacciones desde Supabase)
+- `LibroMayor` - OK (usa useSupabasePlanCuentas)
 
-1. **Props del padre** (`categorias` en linea 17) - usadas por el `Select` en linea 247
-2. **Hook interno** (`useSupabaseProductos()` en linea 23) - usado por `crearCategoria` y `refetch`
+---
 
-Cuando se crea una categoria:
-- Se inserta correctamente en Supabase (toast de exito aparece)
-- `refetch()` actualiza las categorias del hook **interno** del form
-- Pero el `Select` sigue leyendo las categorias de las **props del padre**, que nunca se actualizan
-- Resultado: la categoria existe en la BD pero no aparece en el dropdown
+## Problemas Encontrados (por prioridad)
 
-## Solucion
+### 1. MEDIO: NotificationCenter lee de localStorage vacio
+**Archivo:** `src/components/contable/notifications/NotificationCenter.tsx`
 
-Eliminar la duplicacion de datos. El formulario debe usar **una sola fuente**: las categorias del hook interno. Cambiar el `Select` para que lea de las categorias del hook en vez de las props.
+El centro de notificaciones lee productos, facturas, asientos y cuentas por cobrar desde `localStorage` (lineas 40, 65, 87, 112). Como los datos ahora viven en Supabase, todas estas lecturas retornan arrays vacios. Resultado: **las notificaciones de stock bajo, facturas pendientes y alertas contables nunca se generan**.
 
-## Cambios
+**Correccion:** Migrar a usar los hooks de Supabase (`useProductosValidated`, `useFacturas`, `useAsientos`) en vez de `localStorage`.
 
-### `src/components/contable/products/ProductoForm.tsx`
+### 2. BAJO: upgradeToPro/upgradeToEnterprise no persisten
+**Archivo:** `src/hooks/usePlan.ts` (lineas 122-123)
 
-1. Desestructurar `categorias` del hook interno (linea 23) con un nombre diferente para evitar conflicto con la prop: `categorias: categoriasHook`
-2. Cambiar el `Select` de categorias (linea 247) para usar `categoriasHook` en vez de la prop `categorias`
-3. Esto asegura que despues de `crearCategoria` + `refetch`, el dropdown se actualiza inmediatamente
+Las funciones `upgradeToPro()` y `upgradeToEnterprise()` solo hacen `setCurrentPlan()` en estado local. No actualizan la tabla `subscribers` en Supabase. El cambio de plan se pierde al recargar la pagina.
 
-El cambio es minimo: solo renombrar la variable del hook y actualizar el `.map()` del Select.
+**Correccion:** Actualizar la tabla `subscribers` en Supabase cuando se cambia de plan. Esto asegura que el upgrade persista entre sesiones.
 
-## Detalles Tecnicos
+### 3. INFORMATIVO: 44 archivos con localStorage residual
+Modulos como Presupuestos, Anticipos, Comprobantes Integrados, POS, Kardex, Nomina y otros siguen usando localStorage como almacenamiento primario. Los datos de estos modulos se pierden al cambiar de navegador/dispositivo. Esto es deuda tecnica conocida que requiere nuevas tablas en Supabase -- fuera de alcance para esta iteracion.
 
-```text
-Linea 23: agregar "categorias: categoriasHook" a la desestructuracion del hook
-Linea 247: cambiar "categorias.map" por "categoriasHook.map"
-```
+---
 
-La prop `categorias` seguira existiendo en la interfaz por compatibilidad pero no se usara para el renderizado del Select.
+## Plan de Correccion
+
+### Archivo 1: `src/components/contable/notifications/NotificationCenter.tsx`
+- Importar `useProductosValidated`, `useFacturas`, `useAsientos`
+- Reemplazar las 5 lecturas de `localStorage` (lineas 40, 65, 87, 112, 158) por datos de los hooks
+- Productos con stock bajo: usar `productos` del hook filtrados por `stock_actual <= stock_minimo`
+- Facturas pendientes: usar `facturas` del hook filtradas por `estado === 'enviada'`
+- Asientos contables: usar `getAsientos()` del hook
+- Cuentas por cobrar: se mantiene sin datos hasta que exista hook dedicado (no hay tabla)
+- Backup reminder: mantener en localStorage (es preferencia local, no dato critico)
+
+### Archivo 2: `src/hooks/usePlan.ts`
+- Modificar `upgradeToPro` y `upgradeToEnterprise` para hacer `upsert` en la tabla `subscribers` con el nuevo `subscription_tier`
+- Si el registro no existe, crearlo con `user_id` y el tier seleccionado
+- Mantener la actualizacion local (`setCurrentPlan`) para respuesta inmediata en la UI
+
+## Resultado Esperado
+- Las notificaciones de stock bajo, facturas pendientes y alertas contables funcionaran con datos reales de Supabase
+- Los cambios de plan (upgrade) persistiran entre sesiones y dispositivos
+- El error 25006 en facturas sigue requiriendo accion manual en Supabase SQL Editor (trigger problematico)
