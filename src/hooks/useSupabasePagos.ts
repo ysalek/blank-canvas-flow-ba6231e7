@@ -59,8 +59,8 @@ export const useSupabasePagos = () => {
       const { data, error } = await supabase
         .from('pagos')
         .insert([{ ...pago, user_id: user.user.id }])
-        .select()
-        .single();
+        .select('id, tipo, factura_id, compra_id, fecha, monto, metodo_pago, numero_comprobante, observaciones, estado, user_id, created_at')
+        .maybeSingle();
 
       if (error) throw error;
       
@@ -92,9 +92,9 @@ export const useSupabasePagos = () => {
         .from('pagos')
         .update(updates)
         .eq('id', id)
-        .eq('user_id', user.id) // SECURITY FIX: Verificar propiedad del pago
-        .select()
-        .single();
+        .eq('user_id', user.id)
+        .select('id, tipo, factura_id, compra_id, fecha, monto, metodo_pago, numero_comprobante, observaciones, estado, user_id, created_at')
+        .maybeSingle();
 
       if (error) throw error;
       
