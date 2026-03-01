@@ -14,6 +14,7 @@ import ProductSearchCombobox from "../billing/ProductSearchCombobox";
 import ProveedorSearchCombobox from "./ProveedorSearchCombobox";
 import ProveedorForm from "./ProveedorForm";
 import { CostosAdicionalesDialog } from './CostosAdicionalesDialog';
+import QuickProductForm from "../products/QuickProductForm";
 
 interface CompraFormProps {
   proveedores: Proveedor[];
@@ -41,6 +42,8 @@ const CompraForm = ({ proveedores, productos, compras, onSave, onCancel, onAddPr
   const [showProveedorForm, setShowProveedorForm] = useState(false);
   const [costosAdicionales, setCostosAdicionales] = useState<any[]>([]);
   const [showCostosDialog, setShowCostosDialog] = useState(false);
+  const [showQuickProductForm, setShowQuickProductForm] = useState(false);
+  const [quickProductTargetIndex, setQuickProductTargetIndex] = useState<number | null>(null);
   const { toast } = useToast();
 
   const validateForm = () => {
@@ -171,7 +174,12 @@ const CompraForm = ({ proveedores, productos, compras, onSave, onCancel, onAddPr
             <div key={item.id} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end p-4 border rounded-lg bg-slate-50/50">
               <div className="md:col-span-2">
                 <Label>Producto</Label>
-                <ProductSearchCombobox productos={productos} value={item.productoId} onChange={(id) => updateItem(index, 'productoId', id)} />
+                <ProductSearchCombobox
+                  productos={productos}
+                  value={item.productoId}
+                  onChange={(id) => updateItem(index, 'productoId', id)}
+                  onCreateProduct={() => { setQuickProductTargetIndex(index); setShowQuickProductForm(true); }}
+                />
               </div>
               <div>
                 <Label>Cantidad</Label>
@@ -272,6 +280,18 @@ const CompraForm = ({ proveedores, productos, compras, onSave, onCancel, onAddPr
         onOpenChange={setShowCostosDialog}
         onSave={(costos) => setCostosAdicionales(costos)}
         costosIniciales={costosAdicionales}
+      />
+      
+      <QuickProductForm
+        open={showQuickProductForm}
+        onOpenChange={setShowQuickProductForm}
+        onProductCreated={(producto) => {
+          // Add to productos list and select in target item
+          if (quickProductTargetIndex !== null) {
+            updateItem(quickProductTargetIndex, 'productoId', producto.id);
+          }
+          setQuickProductTargetIndex(null);
+        }}
       />
     </Card>
   );
