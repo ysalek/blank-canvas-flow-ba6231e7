@@ -1,0 +1,80 @@
+version: '3.8'
+
+# ============================================================
+# CONFIGURACIÓN DOCKER PARA MIGRACIÓN A VPS
+# Sistema Contable Boliviano - Fiscal Bloom
+# ============================================================
+# 
+# INSTRUCCIONES:
+# 1. Instalar Docker y Docker Compose en tu VPS
+# 2. Copiar esta carpeta (vps-migration/) al VPS
+# 3. Editar las variables de entorno abajo
+# 4. Ejecutar: docker-compose up -d
+# 5. Ejecutar el script de migración: bash migrate.sh
+# ============================================================
+
+services:
+  # ── Base de Datos PostgreSQL ──────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: contable_db
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: contable_boliviano
+      POSTGRES_USER: contable_admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-CambiarEstaContraseña2025!}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/01-init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U contable_admin -d contable_boliviano"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── pgAdmin (Administración visual) ──────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: contable_pgadmin
+    restart: always
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@tuempresa.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+# ============================================================
+# DATOS DE CONEXIÓN (después de levantar):
+# 
+# PostgreSQL:
+#   Host: localhost (o IP del VPS)
+#   Puerto: 5432
+#   Base de datos: contable_boliviano
+#   Usuario: contable_admin
+#   Contraseña: (la que configures en DB_PASSWORD)
+#
+# pgAdmin (panel web):
+#   URL: http://IP_DEL_VPS:5050
+#   Email: admin@tuempresa.com
+#   Contraseña: admin123
+#
+# Supabase actual (origen de datos):
+#   Project ID: mfhgekyriwabgksreszy
+#   URL: https://mfhgekyriwabgksreszy.supabase.co
+#   Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+#   Connection String (obtener del dashboard de Supabase):
+#     postgresql://postgres.[ref]:[password]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres
+# ============================================================
