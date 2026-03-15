@@ -333,17 +333,21 @@ const NominaModule = () => {
     };
   };
 
-  const calcularConcepto = (concepto: ConceptoNomina, salarioBase: number): number => {
+  const calcularConcepto = (concepto: ConceptoNomina, salarioBase: number, totalGanado: number): number => {
     try {
       if (concepto.montoFijo) {
         return concepto.montoFijo;
       }
       
-      if (concepto.porcentaje) {
-        return salarioBase * (concepto.porcentaje / 100);
+      // Si la fórmula usa totalGanado (descuentos y aportes se calculan sobre total ganado)
+      if (concepto.formula.includes('totalGanado') && concepto.porcentaje) {
+        return Number((totalGanado * (concepto.porcentaje / 100)).toFixed(2));
       }
       
-      // Evaluar fórmula simple
+      if (concepto.porcentaje) {
+        return Number((salarioBase * (concepto.porcentaje / 100)).toFixed(2));
+      }
+      
       if (concepto.formula.includes('salarioBase')) {
         const formula = concepto.formula.replace(/salarioBase/g, salarioBase.toString());
         return eval(formula);
