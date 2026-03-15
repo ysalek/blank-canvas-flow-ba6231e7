@@ -278,26 +278,33 @@ const NominaModule = () => {
         salarioNeto: 0
       };
 
-      // Calcular ingresos
+      // Calcular Total Ganado (ingresos) primero
       const conceptosIngresos = conceptos.filter(c => c.tipo === 'ingreso' && c.activo);
       conceptosIngresos.forEach(concepto => {
-        const monto = calcularConcepto(concepto, empleado.salarioBase);
+        let monto: number;
+        if (concepto.id === 'bono_antiguedad') {
+          monto = calcularBonoAntiguedad(empleado.fechaIngreso);
+        } else {
+          monto = calcularConcepto(concepto, empleado.salarioBase, 0);
+        }
         detalle.ingresos[concepto.id] = monto;
         detalle.totalIngresos += monto;
       });
 
-      // Calcular descuentos
+      const totalGanado = detalle.totalIngresos;
+
+      // Descuentos laborales se calculan sobre Total Ganado
       const conceptosDescuentos = conceptos.filter(c => c.tipo === 'descuento' && c.activo);
       conceptosDescuentos.forEach(concepto => {
-        const monto = calcularConcepto(concepto, empleado.salarioBase);
+        const monto = calcularConcepto(concepto, empleado.salarioBase, totalGanado);
         detalle.descuentos[concepto.id] = monto;
         detalle.totalDescuentos += monto;
       });
 
-      // Calcular aportes patronales
+      // Aportes patronales sobre Total Ganado
       const conceptosAportes = conceptos.filter(c => c.tipo === 'aporte_patronal' && c.activo);
       conceptosAportes.forEach(concepto => {
-        const monto = calcularConcepto(concepto, empleado.salarioBase);
+        const monto = calcularConcepto(concepto, empleado.salarioBase, totalGanado);
         detalle.aportesPatronales[concepto.id] = monto;
         detalle.totalAportesPatronales += monto;
       });
