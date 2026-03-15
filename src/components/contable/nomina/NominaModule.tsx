@@ -404,32 +404,32 @@ const NominaModule = () => {
       estado: 'registrado' as const,
       cuentas: [
         {
-          codigo: "5111",
+          codigo: "6111",
           nombre: "Sueldos y Salarios",
           debe: planilla.totalIngresos,
           haber: 0
         },
         {
-          codigo: "5112", 
+          codigo: "6112", 
           nombre: "Cargas Sociales Patronales",
           debe: planilla.totalAportesPatronales,
           haber: 0
         },
         {
-          codigo: "2111",
+          codigo: "2151",
           nombre: "Sueldos por Pagar",
           debe: 0,
           haber: planilla.totalNeto
         },
         {
-          codigo: "2112",
-          nombre: "Retenciones Laborales por Pagar (AFP, Solidario)",
+          codigo: "2152",
+          nombre: "Retenciones Laborales por Pagar (AFP 12.71%, Solidario 0.5%)",
           debe: 0,
           haber: planilla.totalDescuentos
         },
         {
-          codigo: "2113",
-          nombre: "Aportes Patronales por Pagar (Caja Salud, Riesgo, Vivienda)",
+          codigo: "2153",
+          nombre: "Aportes Patronales por Pagar (CNS, RP, Vivienda, INFOCAL, Solidario)",
           debe: 0,
           haber: planilla.totalAportesPatronales
         }

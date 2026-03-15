@@ -446,8 +446,8 @@ export const useAsientosGenerator = () => {
     } else {
       // CF > DF: Saldo a favor del contribuyente (se arrastra)
       cuentas.push({
-        codigo: "1142",
-        nombre: "Crédito Fiscal a Favor (arrastre)",
+        codigo: "1143",
+        nombre: "Crédito Fiscal IVA a Favor",
         debe: Number((-diferencia).toFixed(2)),
         haber: 0
       });
