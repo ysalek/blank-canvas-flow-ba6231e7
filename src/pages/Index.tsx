@@ -71,9 +71,7 @@ const Index = () => {
   const { isAdmin } = useAdmin();
   const [openNotifications, setOpenNotifications] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(() => {
-    return !localStorage.getItem('onboarding_complete');
-  });
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const UserProfileMenu = () => (
     <DropdownMenu>
