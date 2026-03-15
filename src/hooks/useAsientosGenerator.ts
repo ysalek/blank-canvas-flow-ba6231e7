@@ -438,8 +438,8 @@ export const useAsientosGenerator = () => {
     if (diferencia > 0) {
       // DF > CF: IVA por pagar al fisco
       cuentas.push({
-        codigo: "2113",
-        nombre: "IVA por Pagar",
+        codigo: "2115",
+        nombre: "IVA por Pagar al Fisco",
         debe: 0,
         haber: Number(diferencia.toFixed(2))
       });
