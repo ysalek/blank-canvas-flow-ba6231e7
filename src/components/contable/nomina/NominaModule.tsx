@@ -75,6 +75,29 @@ interface DetalleNomina {
   salarioNeto: number;
 }
 
+// Bono de Antigüedad según DS 21060 - Tabla oficial sobre 3 SMN (Bs 2,500 × 3 = Bs 7,500 para 2026)
+const TABLA_BONO_ANTIGUEDAD = [
+  { desde: 2, hasta: 4, porcentaje: 5 },
+  { desde: 5, hasta: 7, porcentaje: 11 },
+  { desde: 8, hasta: 10, porcentaje: 18 },
+  { desde: 11, hasta: 14, porcentaje: 26 },
+  { desde: 15, hasta: 19, porcentaje: 34 },
+  { desde: 20, hasta: 24, porcentaje: 42 },
+  { desde: 25, hasta: 99, porcentaje: 50 },
+];
+
+const SMN_2026 = 2500; // Salario Mínimo Nacional estimado 2026
+
+const calcularBonoAntiguedad = (fechaIngreso: string): number => {
+  const ingreso = new Date(fechaIngreso);
+  const hoy = new Date();
+  const anios = Math.floor((hoy.getTime() - ingreso.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+  const tramo = TABLA_BONO_ANTIGUEDAD.find(t => anios >= t.desde && anios <= t.hasta);
+  if (!tramo) return 0;
+  // Se calcula sobre 3 SMN, no sobre el salario base
+  return (SMN_2026 * 3) * (tramo.porcentaje / 100);
+};
+
 const conceptosBasicos: ConceptoNomina[] = [
   {
     id: 'haber_basico',
@@ -87,19 +110,37 @@ const conceptosBasicos: ConceptoNomina[] = [
   {
     id: 'bono_antiguedad',
     codigo: 'BA',
-    nombre: 'Bono de Antigüedad',
+    nombre: 'Bono de Antigüedad (DS 21060)',
     tipo: 'ingreso',
-    formula: 'salarioBase * 0.05',
-    porcentaje: 5,
+    formula: 'bonoAntiguedad', // Calculado por tabla, no por porcentaje fijo
+    activo: true
+  },
+  // ── DESCUENTOS LABORALES (total 12.71%) ──
+  {
+    id: 'afp_jubilacion',
+    codigo: 'AFP-JUB',
+    nombre: 'AFP Aporte Vejez (10%)',
+    tipo: 'descuento',
+    formula: 'totalGanado * 0.10',
+    porcentaje: 10,
     activo: true
   },
   {
-    id: 'afp',
-    codigo: 'AFP',
-    nombre: 'Aporte AFP (12.21%)',
+    id: 'afp_riesgo_comun',
+    codigo: 'AFP-RC',
+    nombre: 'AFP Riesgo Común (1.71%)',
     tipo: 'descuento',
-    formula: 'salarioBase * 0.1221',
-    porcentaje: 12.21,
+    formula: 'totalGanado * 0.0171',
+    porcentaje: 1.71,
+    activo: true
+  },
+  {
+    id: 'afp_comision',
+    codigo: 'AFP-COM',
+    nombre: 'AFP Comisión (0.5%)',
+    tipo: 'descuento',
+    formula: 'totalGanado * 0.005',
+    porcentaje: 0.5,
     activo: true
   },
   {
@@ -107,34 +148,26 @@ const conceptosBasicos: ConceptoNomina[] = [
     codigo: 'SOL',
     nombre: 'Aporte Solidario (0.5%)',
     tipo: 'descuento',
-    formula: 'salarioBase * 0.005',
+    formula: 'totalGanado * 0.005',
     porcentaje: 0.5,
     activo: true
   },
-  {
-    id: 'riesgo_profesional',
-    codigo: 'RP',
-    nombre: 'Riesgo Profesional (1.71%)',
-    tipo: 'descuento',
-    formula: 'salarioBase * 0.0171',
-    porcentaje: 1.71,
-    activo: true
-  },
+  // ── APORTES PATRONALES ──
   {
     id: 'caja_salud',
-    codigo: 'CS',
-    nombre: 'Caja de Salud (10%)',
+    codigo: 'CNS',
+    nombre: 'Caja Nacional de Salud (10%)',
     tipo: 'aporte_patronal',
-    formula: 'salarioBase * 0.10',
+    formula: 'totalGanado * 0.10',
     porcentaje: 10,
     activo: true
   },
   {
-    id: 'riesgo_patronal',
-    codigo: 'RP_PAT',
-    nombre: 'Riesgo Patronal (1.71%)',
+    id: 'riesgo_profesional',
+    codigo: 'RP-PAT',
+    nombre: 'Riesgo Profesional (1.71%)',
     tipo: 'aporte_patronal',
-    formula: 'salarioBase * 0.0171',
+    formula: 'totalGanado * 0.0171',
     porcentaje: 1.71,
     activo: true
   },
@@ -143,8 +176,26 @@ const conceptosBasicos: ConceptoNomina[] = [
     codigo: 'VIV',
     nombre: 'Pro Vivienda (2%)',
     tipo: 'aporte_patronal',
-    formula: 'salarioBase * 0.02',
+    formula: 'totalGanado * 0.02',
     porcentaje: 2,
+    activo: true
+  },
+  {
+    id: 'infocal',
+    codigo: 'INF',
+    nombre: 'INFOCAL (1%)',
+    tipo: 'aporte_patronal',
+    formula: 'totalGanado * 0.01',
+    porcentaje: 1,
+    activo: true
+  },
+  {
+    id: 'solidario_patronal',
+    codigo: 'SOL-PAT',
+    nombre: 'Aporte Solidario Patronal (3%)',
+    tipo: 'aporte_patronal',
+    formula: 'totalGanado * 0.03',
+    porcentaje: 3,
     activo: true
   }
 ];
@@ -227,26 +278,33 @@ const NominaModule = () => {
         salarioNeto: 0
       };
 
-      // Calcular ingresos
+      // Calcular Total Ganado (ingresos) primero
       const conceptosIngresos = conceptos.filter(c => c.tipo === 'ingreso' && c.activo);
       conceptosIngresos.forEach(concepto => {
-        const monto = calcularConcepto(concepto, empleado.salarioBase);
+        let monto: number;
+        if (concepto.id === 'bono_antiguedad') {
+          monto = calcularBonoAntiguedad(empleado.fechaIngreso);
+        } else {
+          monto = calcularConcepto(concepto, empleado.salarioBase, 0);
+        }
         detalle.ingresos[concepto.id] = monto;
         detalle.totalIngresos += monto;
       });
 
-      // Calcular descuentos
+      const totalGanado = detalle.totalIngresos;
+
+      // Descuentos laborales se calculan sobre Total Ganado
       const conceptosDescuentos = conceptos.filter(c => c.tipo === 'descuento' && c.activo);
       conceptosDescuentos.forEach(concepto => {
-        const monto = calcularConcepto(concepto, empleado.salarioBase);
+        const monto = calcularConcepto(concepto, empleado.salarioBase, totalGanado);
         detalle.descuentos[concepto.id] = monto;
         detalle.totalDescuentos += monto;
       });
 
-      // Calcular aportes patronales
+      // Aportes patronales sobre Total Ganado
       const conceptosAportes = conceptos.filter(c => c.tipo === 'aporte_patronal' && c.activo);
       conceptosAportes.forEach(concepto => {
-        const monto = calcularConcepto(concepto, empleado.salarioBase);
+        const monto = calcularConcepto(concepto, empleado.salarioBase, totalGanado);
         detalle.aportesPatronales[concepto.id] = monto;
         detalle.totalAportesPatronales += monto;
       });
@@ -275,17 +333,21 @@ const NominaModule = () => {
     };
   };
 
-  const calcularConcepto = (concepto: ConceptoNomina, salarioBase: number): number => {
+  const calcularConcepto = (concepto: ConceptoNomina, salarioBase: number, totalGanado: number): number => {
     try {
       if (concepto.montoFijo) {
         return concepto.montoFijo;
       }
       
-      if (concepto.porcentaje) {
-        return salarioBase * (concepto.porcentaje / 100);
+      // Si la fórmula usa totalGanado (descuentos y aportes se calculan sobre total ganado)
+      if (concepto.formula.includes('totalGanado') && concepto.porcentaje) {
+        return Number((totalGanado * (concepto.porcentaje / 100)).toFixed(2));
       }
       
-      // Evaluar fórmula simple
+      if (concepto.porcentaje) {
+        return Number((salarioBase * (concepto.porcentaje / 100)).toFixed(2));
+      }
+      
       if (concepto.formula.includes('salarioBase')) {
         const formula = concepto.formula.replace(/salarioBase/g, salarioBase.toString());
         return eval(formula);
@@ -342,32 +404,32 @@ const NominaModule = () => {
       estado: 'registrado' as const,
       cuentas: [
         {
-          codigo: "5111",
+          codigo: "6111",
           nombre: "Sueldos y Salarios",
           debe: planilla.totalIngresos,
           haber: 0
         },
         {
-          codigo: "5112", 
+          codigo: "6112", 
           nombre: "Cargas Sociales Patronales",
           debe: planilla.totalAportesPatronales,
           haber: 0
         },
         {
-          codigo: "2111",
+          codigo: "2151",
           nombre: "Sueldos por Pagar",
           debe: 0,
           haber: planilla.totalNeto
         },
         {
-          codigo: "2112",
-          nombre: "Retenciones Laborales por Pagar (AFP, Solidario)",
+          codigo: "2152",
+          nombre: "Retenciones Laborales por Pagar (AFP 12.71%, Solidario 0.5%)",
           debe: 0,
           haber: planilla.totalDescuentos
         },
         {
-          codigo: "2113",
-          nombre: "Aportes Patronales por Pagar (Caja Salud, Riesgo, Vivienda)",
+          codigo: "2153",
+          nombre: "Aportes Patronales por Pagar (CNS, RP, Vivienda, INFOCAL, Solidario)",
           debe: 0,
           haber: planilla.totalAportesPatronales
         }
