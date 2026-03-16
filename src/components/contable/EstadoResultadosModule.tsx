@@ -371,6 +371,8 @@ const EstadoResultadosModule = () => {
       ['UTILIDAD BRUTA', utilidadBruta.toFixed(2), `${margenBruto.toFixed(1)}%`],
        ['(-) GASTOS OPERATIVOS', `(${estadoResultados.gastosOperativos.totalGastosOperativos.toFixed(2)})`,
         estadoResultados.ingresos.totalIngresos > 0 ? `${((estadoResultados.gastosOperativos.totalGastosOperativos / estadoResultados.ingresos.totalIngresos) * 100).toFixed(1)}%` : '0.0%'],
+       ['(-) GASTOS DE PERSONAL', `(${estadoResultados.gastosPersonal.totalGastosPersonal.toFixed(2)})`,
+        estadoResultados.ingresos.totalIngresos > 0 ? `${((estadoResultados.gastosPersonal.totalGastosPersonal / estadoResultados.ingresos.totalIngresos) * 100).toFixed(1)}%` : '0.0%'],
        ['(-) IMPUESTO A LAS TRANSACCIONES', `(${estadoResultados.impuestoTransacciones.total.toFixed(2)})`,
         estadoResultados.ingresos.totalIngresos > 0 ? `${((estadoResultados.impuestoTransacciones.total / estadoResultados.ingresos.totalIngresos) * 100).toFixed(1)}%` : '0.0%'],
        ['UTILIDAD OPERATIVA', utilidadOperativa.toFixed(2), `${margenOperativo.toFixed(1)}%`],
