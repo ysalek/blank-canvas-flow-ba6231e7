@@ -263,6 +263,11 @@ const NominaModule = () => {
     if (planillasGuardadas) {
       setPlanillas(JSON.parse(planillasGuardadas));
     }
+
+    const facturasGuardadas = localStorage.getItem('facturasRCIVA');
+    if (facturasGuardadas) {
+      setFacturasRCIVA(JSON.parse(facturasGuardadas));
+    }
   };
 
   const guardarEmpleado = (empleado: Empleado) => {
