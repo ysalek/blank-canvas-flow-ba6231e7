@@ -617,6 +617,7 @@ const NominaModule = () => {
           <TabsTrigger value="empleados">Empleados</TabsTrigger>
           <TabsTrigger value="planillas">Planillas</TabsTrigger>
           <TabsTrigger value="conceptos">Conceptos</TabsTrigger>
+          <TabsTrigger value="rciva">RC-IVA (F-110)</TabsTrigger>
         </TabsList>
 
         <TabsContent value="empleados">
