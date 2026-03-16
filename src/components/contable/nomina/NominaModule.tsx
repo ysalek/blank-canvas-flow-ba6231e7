@@ -541,7 +541,58 @@ const NominaModule = () => {
     });
   };
 
-  const empleadosActivos = empleados.filter(e => e.estado === 'activo').length;
+  // Exportar Formulario 110 RC-IVA (Agentes de Retención) formato SIAT
+  const exportarFormulario110 = () => {
+    const empleadosActivos2 = empleados.filter(e => e.estado === 'activo');
+    const datos = [
+      ['FORMULARIO 110 - RC-IVA AGENTES DE RETENCIÓN'],
+      [`Período: ${facturaPeriodo}`],
+      [`Fecha de generación: ${new Date().toLocaleDateString('es-BO')}`],
+      [''],
+      ['Nº', 'CI', 'Nombre Completo', 'Total Ganado (Bs)', 'Mínimo No Imponible (2 SMN)', 'Aportes Laborales (Bs)', 
+       'Base Imponible (Bs)', 'Impuesto RC-IVA 13%', 'Crédito Fiscal Facturas (Bs)', 'Saldo a Favor Fisco (Bs)', 
+       'Saldo a Favor Dependiente (Bs)', 'Importe Retenido (Bs)']
+    ];
+
+    let totalRetenido = 0;
+    empleadosActivos2.forEach((emp, idx) => {
+      const totalGanado = emp.salarioBase + calcularBonoAntiguedad(emp.fechaIngreso);
+      const aportesLab = Number((totalGanado * 0.1271).toFixed(2));
+      const facturasEmp = facturasRCIVA.filter(f => f.empleadoId === emp.id && f.periodo === facturaPeriodo);
+      const creditoFacturas = facturasEmp.reduce((s, f) => s + f.importeTotal, 0);
+      const rc = calcularRCIVA(totalGanado, aportesLab, creditoFacturas);
+      totalRetenido += rc.saldoPagar;
+
+      datos.push([
+        (idx + 1).toString(),
+        emp.ci,
+        `${emp.apellido} ${emp.nombre}`,
+        totalGanado.toFixed(2),
+        (SMN_2026 * 2).toFixed(2),
+        aportesLab.toFixed(2),
+        rc.baseImponible.toFixed(2),
+        rc.impuesto.toFixed(2),
+        rc.creditoFiscal.toFixed(2),
+        rc.saldoPagar > 0 ? rc.saldoPagar.toFixed(2) : '0.00',
+        rc.saldoPagar <= 0 ? Math.abs(rc.saldoPagar).toFixed(2) : '0.00',
+        rc.saldoPagar > 0 ? rc.saldoPagar.toFixed(2) : '0.00'
+      ]);
+    });
+
+    datos.push(['']);
+    datos.push(['', '', 'TOTAL RETENIDO', '', '', '', '', '', '', '', '', totalRetenido.toFixed(2)]);
+
+    const ws = XLSX.utils.aoa_to_sheet(datos);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'F-110 RC-IVA');
+    XLSX.writeFile(wb, `Formulario_110_RCIVA_${facturaPeriodo}.xlsx`);
+
+    toast({
+      title: "Formulario 110 exportado",
+      description: `RC-IVA período ${facturaPeriodo} — Total retenido: Bs ${totalRetenido.toFixed(2)}`,
+    });
+  };
+
   const totalNominaActual = planillas.length > 0 ? planillas[planillas.length - 1].totalNeto : 0;
 
   return (
