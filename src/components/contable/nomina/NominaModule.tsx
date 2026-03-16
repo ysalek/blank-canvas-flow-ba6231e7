@@ -325,6 +325,13 @@ const NominaModule = () => {
         detalle.totalAportesPatronales += monto;
       });
 
+      // RC-IVA: 13% sobre ingresos > 4 SMN (Ley 843, Art. 19)
+      const rciva = calcularRCIVA(totalGanado, detalle.totalDescuentos, 0);
+      if (rciva.saldoPagar > 0) {
+        detalle.descuentos['rc_iva'] = rciva.saldoPagar;
+        detalle.totalDescuentos += rciva.saldoPagar;
+      }
+
       detalle.salarioNeto = detalle.totalIngresos - detalle.totalDescuentos;
       
       totalIngresos += detalle.totalIngresos;
