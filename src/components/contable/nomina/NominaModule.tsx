@@ -593,6 +593,7 @@ const NominaModule = () => {
     });
   };
 
+  const empleadosActivos = empleados.filter(e => e.estado === 'activo').length;
   const totalNominaActual = planillas.length > 0 ? planillas[planillas.length - 1].totalNeto : 0;
 
   return (
