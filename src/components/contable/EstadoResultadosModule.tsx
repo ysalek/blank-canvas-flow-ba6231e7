@@ -562,6 +562,18 @@ const EstadoResultadosModule = () => {
                 'text-orange-700 bg-orange-50'
               )}
 
+              {/* GASTOS DE PERSONAL */}
+              {renderMainSection(
+                'gastosPersonal',
+                '(-) GASTOS DE PERSONAL',
+                estadoResultados.gastosPersonal.totalGastosPersonal,
+                estadoResultados.gastosPersonal,
+                estadoResultados.gastosPersonal.todasLasCuentas,
+                estadoResultados.ingresos.totalIngresos > 0 ? `${((estadoResultados.gastosPersonal.totalGastosPersonal / estadoResultados.ingresos.totalIngresos) * 100).toFixed(1)}%` : '0.0%',
+                true,
+                'text-indigo-700 bg-indigo-50'
+              )}
+
               {/* IMPUESTO A LAS TRANSACCIONES */}
               {renderMainSection(
                 'impuestoTransacciones',
