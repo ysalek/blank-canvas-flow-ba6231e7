@@ -1235,4 +1235,79 @@ const PlanillaForm = ({ open, onOpenChange, onGenerar }: {
   );
 };
 
+// Componente para registrar facturas RC-IVA
+const FacturaRCIVAForm = ({ empleados, periodo, onSave }: {
+  empleados: Empleado[];
+  periodo: string;
+  onSave: (factura: FacturaRCIVA) => void;
+}) => {
+  const [formData, setFormData] = useState({
+    empleadoId: '',
+    numeroFactura: '',
+    nitProveedor: '',
+    razonSocial: '',
+    fecha: new Date().toISOString().slice(0, 10),
+    importeTotal: 0,
+    codigoControl: ''
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      id: Date.now().toString(),
+      periodo,
+      ...formData
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label>Empleado</Label>
+        <Select value={formData.empleadoId} onValueChange={v => setFormData(p => ({ ...p, empleadoId: v }))}>
+          <SelectTrigger><SelectValue placeholder="Seleccionar empleado" /></SelectTrigger>
+          <SelectContent>
+            {empleados.map(e => (
+              <SelectItem key={e.id} value={e.id}>{e.nombre} {e.apellido}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Nº Factura</Label>
+          <Input value={formData.numeroFactura} onChange={e => setFormData(p => ({ ...p, numeroFactura: e.target.value }))} required />
+        </div>
+        <div>
+          <Label>NIT Proveedor</Label>
+          <Input value={formData.nitProveedor} onChange={e => setFormData(p => ({ ...p, nitProveedor: e.target.value }))} required />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Razón Social</Label>
+          <Input value={formData.razonSocial} onChange={e => setFormData(p => ({ ...p, razonSocial: e.target.value }))} required />
+        </div>
+        <div>
+          <Label>Fecha</Label>
+          <Input type="date" value={formData.fecha} onChange={e => setFormData(p => ({ ...p, fecha: e.target.value }))} required />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Importe Total (Bs)</Label>
+          <Input type="number" step="0.01" value={formData.importeTotal} onChange={e => setFormData(p => ({ ...p, importeTotal: parseFloat(e.target.value) || 0 }))} required />
+        </div>
+        <div>
+          <Label>Código de Control</Label>
+          <Input value={formData.codigoControl} onChange={e => setFormData(p => ({ ...p, codigoControl: e.target.value }))} />
+        </div>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="submit" disabled={!formData.empleadoId}>Registrar Factura</Button>
+      </div>
+    </form>
+  );
+};
+
 export default NominaModule;
