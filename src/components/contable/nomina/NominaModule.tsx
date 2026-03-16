@@ -790,6 +790,114 @@ const NominaModule = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="rciva">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>RC-IVA — Formulario 110</span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setShowFacturaForm(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Registrar Factura
+                  </Button>
+                  <Button size="sm" onClick={exportarFormulario110}>
+                    <Download className="w-4 h-4 mr-2" />
+                    Exportar F-110
+                  </Button>
+                </div>
+              </CardTitle>
+              <CardDescription>
+                Gestión de facturas de compras personales de empleados para compensar RC-IVA (Ley 843, Art. 31). 
+                Mínimo no imponible: 4 SMN = Bs {MINIMO_NO_IMPONIBLE_RCIVA.toLocaleString()}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4 flex gap-4 items-end">
+                <div>
+                  <Label>Período</Label>
+                  <Input type="month" value={facturaPeriodo} onChange={e => setFacturaPeriodo(e.target.value)} className="w-48" />
+                </div>
+              </div>
+
+              {/* Resumen RC-IVA por empleado */}
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Empleado</TableHead>
+                    <TableHead className="text-right">Total Ganado</TableHead>
+                    <TableHead className="text-right">Base Imponible</TableHead>
+                    <TableHead className="text-right">RC-IVA 13%</TableHead>
+                    <TableHead className="text-right">Crédito Fiscal</TableHead>
+                    <TableHead className="text-right">Saldo a Retener</TableHead>
+                    <TableHead className="text-right">Facturas</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {empleados.filter(e => e.estado === 'activo').map(empleado => {
+                    const totalGanado = empleado.salarioBase + calcularBonoAntiguedad(empleado.fechaIngreso);
+                    const aportesLab = totalGanado * 0.1271;
+                    const facturasEmp = facturasRCIVA.filter(f => f.empleadoId === empleado.id && f.periodo === facturaPeriodo);
+                    const creditoFacturas = facturasEmp.reduce((s, f) => s + f.importeTotal, 0);
+                    const rc = calcularRCIVA(totalGanado, aportesLab, creditoFacturas);
+                    
+                    return (
+                      <TableRow key={empleado.id}>
+                        <TableCell>{empleado.nombre} {empleado.apellido}</TableCell>
+                        <TableCell className="text-right">Bs {totalGanado.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">Bs {rc.baseImponible.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">Bs {rc.impuesto.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">Bs {rc.creditoFiscal.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-bold">
+                          {rc.saldoPagar > 0 ? (
+                            <span className="text-destructive">Bs {rc.saldoPagar.toFixed(2)}</span>
+                          ) : (
+                            <span className="text-muted-foreground">Bs 0.00</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">{facturasEmp.length}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+
+              {/* Lista de facturas del período */}
+              {facturasRCIVA.filter(f => f.periodo === facturaPeriodo).length > 0 && (
+                <div className="mt-6">
+                  <h4 className="font-semibold mb-2">Facturas registradas — {facturaPeriodo}</h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Empleado</TableHead>
+                        <TableHead>Nº Factura</TableHead>
+                        <TableHead>NIT Proveedor</TableHead>
+                        <TableHead>Razón Social</TableHead>
+                        <TableHead>Fecha</TableHead>
+                        <TableHead className="text-right">Importe</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {facturasRCIVA.filter(f => f.periodo === facturaPeriodo).map(factura => {
+                        const emp = empleados.find(e => e.id === factura.empleadoId);
+                        return (
+                          <TableRow key={factura.id}>
+                            <TableCell>{emp ? `${emp.nombre} ${emp.apellido}` : 'N/A'}</TableCell>
+                            <TableCell>{factura.numeroFactura}</TableCell>
+                            <TableCell>{factura.nitProveedor}</TableCell>
+                            <TableCell>{factura.razonSocial}</TableCell>
+                            <TableCell>{factura.fecha}</TableCell>
+                            <TableCell className="text-right">Bs {factura.importeTotal.toFixed(2)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Formularios */}
@@ -805,6 +913,29 @@ const NominaModule = () => {
         onOpenChange={setShowPlanillaForm}
         onGenerar={generarPlanilla}
       />
+
+      {/* Formulario de factura RC-IVA */}
+      <Dialog open={showFacturaForm} onOpenChange={setShowFacturaForm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar Factura RC-IVA</DialogTitle>
+            <DialogDescription>
+              Factura de compra personal del empleado para compensar RC-IVA
+            </DialogDescription>
+          </DialogHeader>
+          <FacturaRCIVAForm
+            empleados={empleados.filter(e => e.estado === 'activo')}
+            periodo={facturaPeriodo}
+            onSave={(factura) => {
+              const nuevas = [...facturasRCIVA, factura];
+              setFacturasRCIVA(nuevas);
+              localStorage.setItem('facturasRCIVA', JSON.stringify(nuevas));
+              setShowFacturaForm(false);
+              toast({ title: "Factura registrada", description: `Factura ${factura.numeroFactura} registrada para RC-IVA` });
+            }}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
