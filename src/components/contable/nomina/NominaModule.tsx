@@ -62,6 +62,18 @@ interface PlanillaNomina {
   empleados: DetalleNomina[];
 }
 
+interface FacturaRCIVA {
+  id: string;
+  empleadoId: string;
+  periodo: string; // YYYY-MM
+  numeroFactura: string;
+  nitProveedor: string;
+  razonSocial: string;
+  fecha: string;
+  importeTotal: number;
+  codigoControl: string;
+}
+
 interface DetalleNomina {
   empleadoId: string;
   empleado: Empleado;
@@ -73,6 +85,7 @@ interface DetalleNomina {
   totalDescuentos: number;
   totalAportesPatronales: number;
   salarioNeto: number;
+  rciva?: { baseImponible: number; impuesto: number; creditoFiscal: number; saldoPagar: number };
 }
 
 // Bono de Antigüedad según DS 21060 - Tabla oficial sobre 3 SMN (Bs 2,500 × 3 = Bs 7,500 para 2026)
