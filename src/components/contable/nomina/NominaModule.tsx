@@ -87,6 +87,7 @@ const TABLA_BONO_ANTIGUEDAD = [
 ];
 
 const SMN_2026 = 2500; // Salario Mínimo Nacional estimado 2026
+const MINIMO_NO_IMPONIBLE_RCIVA = SMN_2026 * 4; // 4 SMN = Bs 10,000
 
 const calcularBonoAntiguedad = (fechaIngreso: string): number => {
   const ingreso = new Date(fechaIngreso);
@@ -96,6 +97,21 @@ const calcularBonoAntiguedad = (fechaIngreso: string): number => {
   if (!tramo) return 0;
   // Se calcula sobre 3 SMN, no sobre el salario base
   return (SMN_2026 * 3) * (tramo.porcentaje / 100);
+};
+
+// RC-IVA: 13% sobre (Total Ganado - 2 SMN - Aportes Laborales) si Total Ganado > 4 SMN
+// El empleado puede compensar con facturas de compras personales (Crédito Fiscal)
+const calcularRCIVA = (totalGanado: number, aportesLaborales: number, creditoFiscalFacturas: number = 0): { baseImponible: number; impuesto: number; creditoFiscal: number; saldoPagar: number } => {
+  if (totalGanado <= MINIMO_NO_IMPONIBLE_RCIVA) {
+    return { baseImponible: 0, impuesto: 0, creditoFiscal: 0, saldoPagar: 0 };
+  }
+  // Base imponible = Total Ganado - 2 SMN - Aportes laborales
+  const baseImponible = Math.max(0, totalGanado - (SMN_2026 * 2) - aportesLaborales);
+  const impuesto = Number((baseImponible * 0.13).toFixed(2));
+  // El 13% de 2 SMN se compensa automáticamente (mínimo no imponible)
+  const creditoFiscal13Porciento = Number((creditoFiscalFacturas * 0.13).toFixed(2));
+  const saldoPagar = Math.max(0, Number((impuesto - creditoFiscal13Porciento).toFixed(2)));
+  return { baseImponible, impuesto, creditoFiscal: creditoFiscal13Porciento, saldoPagar };
 };
 
 const conceptosBasicos: ConceptoNomina[] = [
@@ -309,6 +325,13 @@ const NominaModule = () => {
         detalle.totalAportesPatronales += monto;
       });
 
+      // RC-IVA: 13% sobre ingresos > 4 SMN (Ley 843, Art. 19)
+      const rciva = calcularRCIVA(totalGanado, detalle.totalDescuentos, 0);
+      if (rciva.saldoPagar > 0) {
+        detalle.descuentos['rc_iva'] = rciva.saldoPagar;
+        detalle.totalDescuentos += rciva.saldoPagar;
+      }
+
       detalle.salarioNeto = detalle.totalIngresos - detalle.totalDescuentos;
       
       totalIngresos += detalle.totalIngresos;
@@ -392,7 +415,54 @@ const NominaModule = () => {
     const planilla = planillas.find(p => p.id === planillaId);
     if (!planilla) return;
 
+    // Separar RC-IVA del total de descuentos para el asiento contable
+    const totalRCIVA = planilla.empleados.reduce((sum, d) => sum + (d.descuentos['rc_iva'] || 0), 0);
+    const totalRetencionesAFP = planilla.totalDescuentos - totalRCIVA;
+
     // Generar asiento contable integrado según normativa boliviana
+    const cuentasAsiento = [
+      {
+        codigo: "6111",
+        nombre: "Sueldos y Salarios",
+        debe: planilla.totalIngresos,
+        haber: 0
+      },
+      {
+        codigo: "6112", 
+        nombre: "Cargas Sociales Patronales",
+        debe: planilla.totalAportesPatronales,
+        haber: 0
+      },
+      {
+        codigo: "2151",
+        nombre: "Sueldos por Pagar",
+        debe: 0,
+        haber: planilla.totalNeto
+      },
+      {
+        codigo: "2152",
+        nombre: "Retenciones Laborales por Pagar (AFP 12.71%)",
+        debe: 0,
+        haber: totalRetencionesAFP
+      },
+      {
+        codigo: "2153",
+        nombre: "Aportes Patronales por Pagar (CNS, RP, Vivienda, INFOCAL, Solidario)",
+        debe: 0,
+        haber: planilla.totalAportesPatronales
+      }
+    ];
+
+    // Agregar RC-IVA si aplica
+    if (totalRCIVA > 0) {
+      cuentasAsiento.push({
+        codigo: "2154",
+        nombre: "RC-IVA Retenido por Pagar",
+        debe: 0,
+        haber: totalRCIVA
+      });
+    }
+
     const asiento = {
       id: Date.now().toString(),
       numero: `NOM-${planilla.periodo}`,
@@ -402,38 +472,7 @@ const NominaModule = () => {
       debe: planilla.totalIngresos + planilla.totalAportesPatronales,
       haber: planilla.totalIngresos + planilla.totalAportesPatronales,
       estado: 'registrado' as const,
-      cuentas: [
-        {
-          codigo: "6111",
-          nombre: "Sueldos y Salarios",
-          debe: planilla.totalIngresos,
-          haber: 0
-        },
-        {
-          codigo: "6112", 
-          nombre: "Cargas Sociales Patronales",
-          debe: planilla.totalAportesPatronales,
-          haber: 0
-        },
-        {
-          codigo: "2151",
-          nombre: "Sueldos por Pagar",
-          debe: 0,
-          haber: planilla.totalNeto
-        },
-        {
-          codigo: "2152",
-          nombre: "Retenciones Laborales por Pagar (AFP 12.71%, Solidario 0.5%)",
-          debe: 0,
-          haber: planilla.totalDescuentos
-        },
-        {
-          codigo: "2153",
-          nombre: "Aportes Patronales por Pagar (CNS, RP, Vivienda, INFOCAL, Solidario)",
-          debe: 0,
-          haber: planilla.totalAportesPatronales
-        }
-      ]
+      cuentas: cuentasAsiento
     };
 
     const success = guardarAsiento(asiento);

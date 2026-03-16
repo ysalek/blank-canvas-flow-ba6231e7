@@ -76,8 +76,8 @@ const EstadoResultadosModule = () => {
     },
     gastosOperativos: {
       gastosAdministrativos: {
-        total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('521') && c.codigo !== '5211').reduce((sum, c) => sum + c.saldo, 0),
-        cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('521') && c.codigo !== '5211')
+        total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('521')).reduce((sum, c) => sum + c.saldo, 0),
+        cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('521'))
       },
       gastosVentas: {
         total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('522')).reduce((sum, c) => sum + c.saldo, 0),
@@ -91,8 +91,32 @@ const EstadoResultadosModule = () => {
         total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('524')).reduce((sum, c) => sum + c.saldo, 0),
         cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('524'))
       },
-      totalGastosOperativos: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('52') && c.codigo !== '5211').reduce((sum, c) => sum + c.saldo, 0),
-      todasLasCuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('52') && c.codigo !== '5261')
+      perdidasInventario: {
+        total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('53')).reduce((sum, c) => sum + c.saldo, 0),
+        cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('53'))
+      },
+      totalGastosOperativos: datosReales.gastos.cuentas.filter(c => 
+        (c.codigo.startsWith('52') && c.codigo !== '5261') || c.codigo.startsWith('53')
+      ).reduce((sum, c) => sum + c.saldo, 0),
+      todasLasCuentas: datosReales.gastos.cuentas.filter(c => 
+        (c.codigo.startsWith('52') && c.codigo !== '5261') || c.codigo.startsWith('53')
+      )
+    },
+    gastosPersonal: {
+      sueldosSalarios: {
+        total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('611')).reduce((sum, c) => sum + c.saldo, 0),
+        cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('611'))
+      },
+      cargasSociales: {
+        total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('612')).reduce((sum, c) => sum + c.saldo, 0),
+        cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('612'))
+      },
+      otrosGastosPersonal: {
+        total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('61') && !c.codigo.startsWith('611') && !c.codigo.startsWith('612')).reduce((sum, c) => sum + c.saldo, 0),
+        cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('61') && !c.codigo.startsWith('611') && !c.codigo.startsWith('612'))
+      },
+      totalGastosPersonal: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('61')).reduce((sum, c) => sum + c.saldo, 0),
+      todasLasCuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('61'))
     },
     impuestoTransacciones: {
       total: datosReales.gastos.cuentas.filter(c => c.codigo === '5261').reduce((sum, c) => sum + c.saldo, 0),
@@ -136,8 +160,8 @@ const EstadoResultadosModule = () => {
     }
   };
 
-  const utilidadBruta = estadoResultados.ingresos.totalIngresos - estadoResultados.costosVentas.totalCostos;
-  const utilidadOperativa = utilidadBruta - estadoResultados.gastosOperativos.totalGastosOperativos - estadoResultados.impuestoTransacciones.total;
+   const utilidadBruta = estadoResultados.ingresos.totalIngresos - estadoResultados.costosVentas.totalCostos;
+  const utilidadOperativa = utilidadBruta - estadoResultados.gastosOperativos.totalGastosOperativos - estadoResultados.gastosPersonal.totalGastosPersonal - estadoResultados.impuestoTransacciones.total;
   const utilidadAntesImpuestos = utilidadOperativa + estadoResultados.otrosIngresos.totalOtrosIngresos - estadoResultados.otrosGastos.totalOtrosGastos;
   const utilidadNeta = utilidadAntesImpuestos - estadoResultados.impuestos.totalImpuestos;
 
@@ -316,6 +340,11 @@ const EstadoResultadosModule = () => {
       gastosVentas: 'Gastos de Ventas',
       gastosGenerales: 'Gastos Generales',
       depreciacion: 'Depreciación y Amortización',
+      perdidasInventario: 'Pérdidas y Faltantes de Inventario',
+      // Gastos de Personal
+      sueldosSalarios: 'Sueldos y Salarios',
+      cargasSociales: 'Cargas Sociales Patronales',
+      otrosGastosPersonal: 'Otros Gastos de Personal',
       // Otros
       ingresosFinancieros: 'Ingresos Financieros',
       ingresosExtraordinarios: 'Ingresos Extraordinarios',
@@ -342,6 +371,8 @@ const EstadoResultadosModule = () => {
       ['UTILIDAD BRUTA', utilidadBruta.toFixed(2), `${margenBruto.toFixed(1)}%`],
        ['(-) GASTOS OPERATIVOS', `(${estadoResultados.gastosOperativos.totalGastosOperativos.toFixed(2)})`,
         estadoResultados.ingresos.totalIngresos > 0 ? `${((estadoResultados.gastosOperativos.totalGastosOperativos / estadoResultados.ingresos.totalIngresos) * 100).toFixed(1)}%` : '0.0%'],
+       ['(-) GASTOS DE PERSONAL', `(${estadoResultados.gastosPersonal.totalGastosPersonal.toFixed(2)})`,
+        estadoResultados.ingresos.totalIngresos > 0 ? `${((estadoResultados.gastosPersonal.totalGastosPersonal / estadoResultados.ingresos.totalIngresos) * 100).toFixed(1)}%` : '0.0%'],
        ['(-) IMPUESTO A LAS TRANSACCIONES', `(${estadoResultados.impuestoTransacciones.total.toFixed(2)})`,
         estadoResultados.ingresos.totalIngresos > 0 ? `${((estadoResultados.impuestoTransacciones.total / estadoResultados.ingresos.totalIngresos) * 100).toFixed(1)}%` : '0.0%'],
        ['UTILIDAD OPERATIVA', utilidadOperativa.toFixed(2), `${margenOperativo.toFixed(1)}%`],
@@ -531,6 +562,18 @@ const EstadoResultadosModule = () => {
                 estadoResultados.ingresos.totalIngresos > 0 ? `${((estadoResultados.gastosOperativos.totalGastosOperativos / estadoResultados.ingresos.totalIngresos) * 100).toFixed(1)}%` : '0.0%',
                 true,
                 'text-orange-700 bg-orange-50'
+              )}
+
+              {/* GASTOS DE PERSONAL */}
+              {renderMainSection(
+                'gastosPersonal',
+                '(-) GASTOS DE PERSONAL',
+                estadoResultados.gastosPersonal.totalGastosPersonal,
+                estadoResultados.gastosPersonal,
+                estadoResultados.gastosPersonal.todasLasCuentas,
+                estadoResultados.ingresos.totalIngresos > 0 ? `${((estadoResultados.gastosPersonal.totalGastosPersonal / estadoResultados.ingresos.totalIngresos) * 100).toFixed(1)}%` : '0.0%',
+                true,
+                'text-indigo-700 bg-indigo-50'
               )}
 
               {/* IMPUESTO A LAS TRANSACCIONES */}
