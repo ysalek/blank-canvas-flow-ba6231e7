@@ -415,7 +415,54 @@ const NominaModule = () => {
     const planilla = planillas.find(p => p.id === planillaId);
     if (!planilla) return;
 
+    // Separar RC-IVA del total de descuentos para el asiento contable
+    const totalRCIVA = planilla.empleados.reduce((sum, d) => sum + (d.descuentos['rc_iva'] || 0), 0);
+    const totalRetencionesAFP = planilla.totalDescuentos - totalRCIVA;
+
     // Generar asiento contable integrado según normativa boliviana
+    const cuentasAsiento = [
+      {
+        codigo: "6111",
+        nombre: "Sueldos y Salarios",
+        debe: planilla.totalIngresos,
+        haber: 0
+      },
+      {
+        codigo: "6112", 
+        nombre: "Cargas Sociales Patronales",
+        debe: planilla.totalAportesPatronales,
+        haber: 0
+      },
+      {
+        codigo: "2151",
+        nombre: "Sueldos por Pagar",
+        debe: 0,
+        haber: planilla.totalNeto
+      },
+      {
+        codigo: "2152",
+        nombre: "Retenciones Laborales por Pagar (AFP 12.71%)",
+        debe: 0,
+        haber: totalRetencionesAFP
+      },
+      {
+        codigo: "2153",
+        nombre: "Aportes Patronales por Pagar (CNS, RP, Vivienda, INFOCAL, Solidario)",
+        debe: 0,
+        haber: planilla.totalAportesPatronales
+      }
+    ];
+
+    // Agregar RC-IVA si aplica
+    if (totalRCIVA > 0) {
+      cuentasAsiento.push({
+        codigo: "2154",
+        nombre: "RC-IVA Retenido por Pagar",
+        debe: 0,
+        haber: totalRCIVA
+      });
+    }
+
     const asiento = {
       id: Date.now().toString(),
       numero: `NOM-${planilla.periodo}`,
@@ -425,38 +472,7 @@ const NominaModule = () => {
       debe: planilla.totalIngresos + planilla.totalAportesPatronales,
       haber: planilla.totalIngresos + planilla.totalAportesPatronales,
       estado: 'registrado' as const,
-      cuentas: [
-        {
-          codigo: "6111",
-          nombre: "Sueldos y Salarios",
-          debe: planilla.totalIngresos,
-          haber: 0
-        },
-        {
-          codigo: "6112", 
-          nombre: "Cargas Sociales Patronales",
-          debe: planilla.totalAportesPatronales,
-          haber: 0
-        },
-        {
-          codigo: "2151",
-          nombre: "Sueldos por Pagar",
-          debe: 0,
-          haber: planilla.totalNeto
-        },
-        {
-          codigo: "2152",
-          nombre: "Retenciones Laborales por Pagar (AFP 12.71%, Solidario 0.5%)",
-          debe: 0,
-          haber: planilla.totalDescuentos
-        },
-        {
-          codigo: "2153",
-          nombre: "Aportes Patronales por Pagar (CNS, RP, Vivienda, INFOCAL, Solidario)",
-          debe: 0,
-          haber: planilla.totalAportesPatronales
-        }
-      ]
+      cuentas: cuentasAsiento
     };
 
     const success = guardarAsiento(asiento);
