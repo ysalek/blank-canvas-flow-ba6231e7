@@ -87,6 +87,7 @@ const TABLA_BONO_ANTIGUEDAD = [
 ];
 
 const SMN_2026 = 2500; // Salario Mínimo Nacional estimado 2026
+const MINIMO_NO_IMPONIBLE_RCIVA = SMN_2026 * 4; // 4 SMN = Bs 10,000
 
 const calcularBonoAntiguedad = (fechaIngreso: string): number => {
   const ingreso = new Date(fechaIngreso);
@@ -96,6 +97,21 @@ const calcularBonoAntiguedad = (fechaIngreso: string): number => {
   if (!tramo) return 0;
   // Se calcula sobre 3 SMN, no sobre el salario base
   return (SMN_2026 * 3) * (tramo.porcentaje / 100);
+};
+
+// RC-IVA: 13% sobre (Total Ganado - 2 SMN - Aportes Laborales) si Total Ganado > 4 SMN
+// El empleado puede compensar con facturas de compras personales (Crédito Fiscal)
+const calcularRCIVA = (totalGanado: number, aportesLaborales: number, creditoFiscalFacturas: number = 0): { baseImponible: number; impuesto: number; creditoFiscal: number; saldoPagar: number } => {
+  if (totalGanado <= MINIMO_NO_IMPONIBLE_RCIVA) {
+    return { baseImponible: 0, impuesto: 0, creditoFiscal: 0, saldoPagar: 0 };
+  }
+  // Base imponible = Total Ganado - 2 SMN - Aportes laborales
+  const baseImponible = Math.max(0, totalGanado - (SMN_2026 * 2) - aportesLaborales);
+  const impuesto = Number((baseImponible * 0.13).toFixed(2));
+  // El 13% de 2 SMN se compensa automáticamente (mínimo no imponible)
+  const creditoFiscal13Porciento = Number((creditoFiscalFacturas * 0.13).toFixed(2));
+  const saldoPagar = Math.max(0, Number((impuesto - creditoFiscal13Porciento).toFixed(2)));
+  return { baseImponible, impuesto, creditoFiscal: creditoFiscal13Porciento, saldoPagar };
 };
 
 const conceptosBasicos: ConceptoNomina[] = [
