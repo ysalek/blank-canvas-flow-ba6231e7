@@ -237,6 +237,10 @@ const NominaModule = () => {
   const [showPlanillaForm, setShowPlanillaForm] = useState(false);
   const [editingEmpleado, setEditingEmpleado] = useState<Empleado | null>(null);
   const [selectedPlanilla, setSelectedPlanilla] = useState<PlanillaNomina | null>(null);
+  const [facturasRCIVA, setFacturasRCIVA] = useState<FacturaRCIVA[]>([]);
+  const [showFacturaForm, setShowFacturaForm] = useState(false);
+  const [facturaEmpleadoId, setFacturaEmpleadoId] = useState<string>('');
+  const [facturaPeriodo, setFacturaPeriodo] = useState(new Date().toISOString().slice(0, 7));
   const { toast } = useToast();
   const { guardarAsiento } = useContabilidadIntegration();
 
