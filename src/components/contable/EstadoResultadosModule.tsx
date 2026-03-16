@@ -340,6 +340,11 @@ const EstadoResultadosModule = () => {
       gastosVentas: 'Gastos de Ventas',
       gastosGenerales: 'Gastos Generales',
       depreciacion: 'Depreciación y Amortización',
+      perdidasInventario: 'Pérdidas y Faltantes de Inventario',
+      // Gastos de Personal
+      sueldosSalarios: 'Sueldos y Salarios',
+      cargasSociales: 'Cargas Sociales Patronales',
+      otrosGastosPersonal: 'Otros Gastos de Personal',
       // Otros
       ingresosFinancieros: 'Ingresos Financieros',
       ingresosExtraordinarios: 'Ingresos Extraordinarios',
