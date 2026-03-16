@@ -76,8 +76,8 @@ const EstadoResultadosModule = () => {
     },
     gastosOperativos: {
       gastosAdministrativos: {
-        total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('521') && c.codigo !== '5211').reduce((sum, c) => sum + c.saldo, 0),
-        cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('521') && c.codigo !== '5211')
+        total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('521')).reduce((sum, c) => sum + c.saldo, 0),
+        cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('521'))
       },
       gastosVentas: {
         total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('522')).reduce((sum, c) => sum + c.saldo, 0),
@@ -91,8 +91,32 @@ const EstadoResultadosModule = () => {
         total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('524')).reduce((sum, c) => sum + c.saldo, 0),
         cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('524'))
       },
-      totalGastosOperativos: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('52') && c.codigo !== '5211').reduce((sum, c) => sum + c.saldo, 0),
-      todasLasCuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('52') && c.codigo !== '5261')
+      perdidasInventario: {
+        total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('53')).reduce((sum, c) => sum + c.saldo, 0),
+        cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('53'))
+      },
+      totalGastosOperativos: datosReales.gastos.cuentas.filter(c => 
+        (c.codigo.startsWith('52') && c.codigo !== '5261') || c.codigo.startsWith('53')
+      ).reduce((sum, c) => sum + c.saldo, 0),
+      todasLasCuentas: datosReales.gastos.cuentas.filter(c => 
+        (c.codigo.startsWith('52') && c.codigo !== '5261') || c.codigo.startsWith('53')
+      )
+    },
+    gastosPersonal: {
+      sueldosSalarios: {
+        total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('611')).reduce((sum, c) => sum + c.saldo, 0),
+        cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('611'))
+      },
+      cargasSociales: {
+        total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('612')).reduce((sum, c) => sum + c.saldo, 0),
+        cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('612'))
+      },
+      otrosGastosPersonal: {
+        total: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('61') && !c.codigo.startsWith('611') && !c.codigo.startsWith('612')).reduce((sum, c) => sum + c.saldo, 0),
+        cuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('61') && !c.codigo.startsWith('611') && !c.codigo.startsWith('612'))
+      },
+      totalGastosPersonal: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('61')).reduce((sum, c) => sum + c.saldo, 0),
+      todasLasCuentas: datosReales.gastos.cuentas.filter(c => c.codigo.startsWith('61'))
     },
     impuestoTransacciones: {
       total: datosReales.gastos.cuentas.filter(c => c.codigo === '5261').reduce((sum, c) => sum + c.saldo, 0),
