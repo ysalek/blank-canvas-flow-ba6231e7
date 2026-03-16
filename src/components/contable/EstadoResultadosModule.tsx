@@ -160,8 +160,8 @@ const EstadoResultadosModule = () => {
     }
   };
 
-  const utilidadBruta = estadoResultados.ingresos.totalIngresos - estadoResultados.costosVentas.totalCostos;
-  const utilidadOperativa = utilidadBruta - estadoResultados.gastosOperativos.totalGastosOperativos - estadoResultados.impuestoTransacciones.total;
+   const utilidadBruta = estadoResultados.ingresos.totalIngresos - estadoResultados.costosVentas.totalCostos;
+  const utilidadOperativa = utilidadBruta - estadoResultados.gastosOperativos.totalGastosOperativos - estadoResultados.gastosPersonal.totalGastosPersonal - estadoResultados.impuestoTransacciones.total;
   const utilidadAntesImpuestos = utilidadOperativa + estadoResultados.otrosIngresos.totalOtrosIngresos - estadoResultados.otrosGastos.totalOtrosGastos;
   const utilidadNeta = utilidadAntesImpuestos - estadoResultados.impuestos.totalImpuestos;
 
