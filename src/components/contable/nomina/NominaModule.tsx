@@ -231,7 +231,7 @@ const conceptosBasicos: ConceptoNomina[] = [
 ];
 
 const NominaModule = () => {
-  const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const { empleados: empleadosSupabase, loading: loadingEmpleados, crearEmpleado, actualizarEmpleado } = useSupabaseEmpleados();
   const [conceptos, setConceptos] = useState<ConceptoNomina[]>(conceptosBasicos);
   const [planillas, setPlanillas] = useState<PlanillaNomina[]>([]);
   const [showEmpleadoForm, setShowEmpleadoForm] = useState(false);
@@ -245,21 +245,24 @@ const NominaModule = () => {
   const { toast } = useToast();
   const { guardarAsiento } = useContabilidadIntegration();
 
+  // Mapear empleados de Supabase al formato interno de Nómina
+  const empleados: Empleado[] = empleadosSupabase.map(emp => ({
+    id: emp.id,
+    nombre: emp.nombres,
+    apellido: emp.apellidos,
+    ci: emp.ci,
+    cargo: emp.cargo,
+    departamento: emp.departamento,
+    fechaIngreso: emp.fecha_ingreso,
+    salarioBase: emp.salario_base,
+    telefono: emp.telefono || '',
+    email: emp.email || '',
+    cuentaBancaria: '',
+    estado: (emp.estado === 'activo' || emp.estado === 'inactivo') ? emp.estado : 'activo',
+    tipoContrato: 'indefinido'
+  }));
+
   useEffect(() => {
-    cargarDatos();
-  }, []);
-
-  const cargarDatos = () => {
-    const empleadosGuardados = localStorage.getItem('empleados');
-    if (empleadosGuardados) {
-      setEmpleados(JSON.parse(empleadosGuardados));
-    }
-
-    const conceptosGuardados = localStorage.getItem('conceptosNomina');
-    if (conceptosGuardados) {
-      setConceptos(JSON.parse(conceptosGuardados));
-    }
-
     const planillasGuardadas = localStorage.getItem('planillasNomina');
     if (planillasGuardadas) {
       setPlanillas(JSON.parse(planillasGuardadas));
@@ -269,7 +272,7 @@ const NominaModule = () => {
     if (facturasGuardadas) {
       setFacturasRCIVA(JSON.parse(facturasGuardadas));
     }
-  };
+  }, []);
 
   const guardarEmpleado = (empleado: Empleado) => {
     let nuevosEmpleados;
