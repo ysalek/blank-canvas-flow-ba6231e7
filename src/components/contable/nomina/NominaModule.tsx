@@ -303,6 +303,9 @@ const NominaModule = () => {
           telefono: empleado.telefono || null,
           email: empleado.email || null,
           estado: empleado.estado,
+          genero: null,
+          estado_civil: null,
+          beneficios: null,
         });
       }
     } catch (error) {
