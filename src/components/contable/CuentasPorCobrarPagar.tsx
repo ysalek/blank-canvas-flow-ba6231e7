@@ -284,7 +284,7 @@ const CuentasPorCobrarPagar = () => {
           <CreditCard className="w-6 h-6 text-primary" />
           <div>
             <h2 className="text-2xl font-bold">Cuentas por Cobrar y Pagar</h2>
-            <p className="text-slate-600">
+            <p className="text-muted-foreground">
               Gestión de cartera y obligaciones financieras
             </p>
           </div>
