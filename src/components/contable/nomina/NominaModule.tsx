@@ -274,25 +274,40 @@ const NominaModule = () => {
     }
   }, []);
 
-  const guardarEmpleado = (empleado: Empleado) => {
-    let nuevosEmpleados;
-    
-    if (editingEmpleado) {
-      nuevosEmpleados = empleados.map(e => e.id === empleado.id ? empleado : e);
-      toast({
-        title: "Empleado actualizado",
-        description: `${empleado.nombre} ${empleado.apellido} ha sido actualizado`,
-      });
-    } else {
-      nuevosEmpleados = [...empleados, { ...empleado, id: Date.now().toString() }];
-      toast({
-        title: "Empleado creado",
-        description: `${empleado.nombre} ${empleado.apellido} ha sido registrado`,
-      });
+  const guardarEmpleado = async (empleado: Empleado) => {
+    try {
+      if (editingEmpleado) {
+        await actualizarEmpleado(empleado.id, {
+          nombres: empleado.nombre,
+          apellidos: empleado.apellido,
+          ci: empleado.ci,
+          cargo: empleado.cargo,
+          departamento: empleado.departamento,
+          fecha_ingreso: empleado.fechaIngreso,
+          salario_base: empleado.salarioBase,
+          telefono: empleado.telefono || null,
+          email: empleado.email || null,
+          estado: empleado.estado,
+        });
+      } else {
+        await crearEmpleado({
+          numero_empleado: `EMP-${Date.now().toString().slice(-4)}`,
+          nombres: empleado.nombre,
+          apellidos: empleado.apellido,
+          ci: empleado.ci,
+          cargo: empleado.cargo,
+          departamento: empleado.departamento,
+          fecha_ingreso: empleado.fechaIngreso,
+          fecha_nacimiento: '1990-01-01',
+          salario_base: empleado.salarioBase,
+          telefono: empleado.telefono || null,
+          email: empleado.email || null,
+          estado: empleado.estado,
+        });
+      }
+    } catch (error) {
+      console.error('Error guardando empleado:', error);
     }
-    
-    setEmpleados(nuevosEmpleados);
-    localStorage.setItem('empleados', JSON.stringify(nuevosEmpleados));
     setShowEmpleadoForm(false);
     setEditingEmpleado(null);
   };
