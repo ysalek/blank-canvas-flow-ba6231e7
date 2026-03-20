@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
+import { useSupabaseEmpleados, EmpleadoSupabase } from "@/hooks/useSupabaseEmpleados";
 import { 
   Users, 
   Plus, 
@@ -230,7 +231,7 @@ const conceptosBasicos: ConceptoNomina[] = [
 ];
 
 const NominaModule = () => {
-  const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const { empleados: empleadosSupabase, loading: loadingEmpleados, crearEmpleado, actualizarEmpleado } = useSupabaseEmpleados();
   const [conceptos, setConceptos] = useState<ConceptoNomina[]>(conceptosBasicos);
   const [planillas, setPlanillas] = useState<PlanillaNomina[]>([]);
   const [showEmpleadoForm, setShowEmpleadoForm] = useState(false);
@@ -244,21 +245,24 @@ const NominaModule = () => {
   const { toast } = useToast();
   const { guardarAsiento } = useContabilidadIntegration();
 
+  // Mapear empleados de Supabase al formato interno de Nómina
+  const empleados: Empleado[] = empleadosSupabase.map(emp => ({
+    id: emp.id,
+    nombre: emp.nombres,
+    apellido: emp.apellidos,
+    ci: emp.ci,
+    cargo: emp.cargo,
+    departamento: emp.departamento,
+    fechaIngreso: emp.fecha_ingreso,
+    salarioBase: emp.salario_base,
+    telefono: emp.telefono || '',
+    email: emp.email || '',
+    cuentaBancaria: '',
+    estado: (emp.estado === 'activo' || emp.estado === 'inactivo') ? emp.estado : 'activo',
+    tipoContrato: 'indefinido'
+  }));
+
   useEffect(() => {
-    cargarDatos();
-  }, []);
-
-  const cargarDatos = () => {
-    const empleadosGuardados = localStorage.getItem('empleados');
-    if (empleadosGuardados) {
-      setEmpleados(JSON.parse(empleadosGuardados));
-    }
-
-    const conceptosGuardados = localStorage.getItem('conceptosNomina');
-    if (conceptosGuardados) {
-      setConceptos(JSON.parse(conceptosGuardados));
-    }
-
     const planillasGuardadas = localStorage.getItem('planillasNomina');
     if (planillasGuardadas) {
       setPlanillas(JSON.parse(planillasGuardadas));
@@ -268,27 +272,45 @@ const NominaModule = () => {
     if (facturasGuardadas) {
       setFacturasRCIVA(JSON.parse(facturasGuardadas));
     }
-  };
+  }, []);
 
-  const guardarEmpleado = (empleado: Empleado) => {
-    let nuevosEmpleados;
-    
-    if (editingEmpleado) {
-      nuevosEmpleados = empleados.map(e => e.id === empleado.id ? empleado : e);
-      toast({
-        title: "Empleado actualizado",
-        description: `${empleado.nombre} ${empleado.apellido} ha sido actualizado`,
-      });
-    } else {
-      nuevosEmpleados = [...empleados, { ...empleado, id: Date.now().toString() }];
-      toast({
-        title: "Empleado creado",
-        description: `${empleado.nombre} ${empleado.apellido} ha sido registrado`,
-      });
+  const guardarEmpleado = async (empleado: Empleado) => {
+    try {
+      if (editingEmpleado) {
+        await actualizarEmpleado(empleado.id, {
+          nombres: empleado.nombre,
+          apellidos: empleado.apellido,
+          ci: empleado.ci,
+          cargo: empleado.cargo,
+          departamento: empleado.departamento,
+          fecha_ingreso: empleado.fechaIngreso,
+          salario_base: empleado.salarioBase,
+          telefono: empleado.telefono || null,
+          email: empleado.email || null,
+          estado: empleado.estado,
+        });
+      } else {
+        await crearEmpleado({
+          numero_empleado: `EMP-${Date.now().toString().slice(-4)}`,
+          nombres: empleado.nombre,
+          apellidos: empleado.apellido,
+          ci: empleado.ci,
+          cargo: empleado.cargo,
+          departamento: empleado.departamento,
+          fecha_ingreso: empleado.fechaIngreso,
+          fecha_nacimiento: '1990-01-01',
+          salario_base: empleado.salarioBase,
+          telefono: empleado.telefono || null,
+          email: empleado.email || null,
+          estado: empleado.estado,
+          genero: null,
+          estado_civil: null,
+          beneficios: null,
+        });
+      }
+    } catch (error) {
+      console.error('Error guardando empleado:', error);
     }
-    
-    setEmpleados(nuevosEmpleados);
-    localStorage.setItem('empleados', JSON.stringify(nuevosEmpleados));
     setShowEmpleadoForm(false);
     setEditingEmpleado(null);
   };

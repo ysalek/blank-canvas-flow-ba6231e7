@@ -591,7 +591,7 @@ const ComprobantesIntegrados = () => {
           <FileText className="w-6 h-6 text-primary" />
           <div>
             <h2 className="text-2xl font-bold">Comprobantes Integrados</h2>
-            <p className="text-slate-600">
+            <p className="text-muted-foreground">
               Sistema integrado de comprobantes con generación automática de asientos contables
             </p>
           </div>
