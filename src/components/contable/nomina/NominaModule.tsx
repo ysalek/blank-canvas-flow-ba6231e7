@@ -603,7 +603,7 @@ const NominaModule = () => {
           <Users className="w-6 h-6 text-primary" />
           <div>
             <h2 className="text-2xl font-bold">Gestión de Nómina</h2>
-            <p className="text-slate-600">
+            <p className="text-muted-foreground">
               Administración de empleados y planillas de sueldos
             </p>
           </div>
