@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
+import { useSupabaseEmpleados, EmpleadoSupabase } from "@/hooks/useSupabaseEmpleados";
 import { 
   Users, 
   Plus, 
