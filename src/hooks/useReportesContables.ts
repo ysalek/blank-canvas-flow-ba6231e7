@@ -263,7 +263,7 @@ export const useReportesContables = (productos?: any[]) => {
         patrimonio.total -= saldo;
       } else if (cuenta.codigo.startsWith('4')) { // Ingresos
         ingresos.total -= saldo; // Ingresos son acreedores
-      } else if (cuenta.codigo.startsWith('5')) { // Gastos
+      } else if (cuenta.codigo.startsWith('5') || cuenta.codigo.startsWith('6')) { // Gastos (operativos + personal)
         gastos.total += saldo; // Gastos son deudores
       }
     });
