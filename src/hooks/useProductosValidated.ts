@@ -470,26 +470,20 @@ export const useProductosValidated = () => {
     };
   }, []);
 
-  // Auto-reconexión en cambios de auth (throttled)
+  // Auto-reconexión en cambios de auth (throttled globally)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log(`🔐 [ProductosValidated] Auth change: ${event}`);
-      if (event === 'SIGNED_IN') {
-        // Non-blocking, deferred reload
+      const now = Date.now();
+      // Throttle all auth-triggered reloads to max once every 5s
+      if (now - lastAuthLoadRef.current < 5000) {
+        return;
+      }
+      
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        lastAuthLoadRef.current = now;
         setTimeout(() => {
           if (mountedRef.current) loadData();
-        }, 100);
-      } else if (event === 'TOKEN_REFRESHED') {
-        // Throttle: max once every 30s
-        const now = Date.now();
-        if (now - lastAuthLoadRef.current > 30000) {
-          lastAuthLoadRef.current = now;
-          setTimeout(() => {
-            if (mountedRef.current) loadData();
-          }, 100);
-        } else {
-          console.log('🛑 [ProductosValidated] TOKEN_REFRESHED throttled');
-        }
+        }, 150);
       }
     });
 
