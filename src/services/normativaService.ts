@@ -34,7 +34,68 @@ class NormativaService {
   // Normativas actualizadas hasta febrero 2026 según RND vigentes del SIN y DS 5516
   private inicializarNormativas(): void {
     this.normativas = [
-      // === RNDs DICIEMBRE 2025 - NUEVAS ===
+      // === RNDs MARZO 2026 - NUEVAS ===
+      {
+        codigo: 'RND-102600000006',
+        titulo: 'Puntos de Control Fronterizos - Facturas en Línea',
+        descripcion: 'Para el traslado de mercancías compradas en mercado interno a través de puntos de control fronterizos, es obligatorio presentar facturas emitidas mediante modalidades en línea (Electrónica, Computarizada o Portal Web) registradas ante la Administración Tributaria.',
+        fechaVigencia: '2026-03-15',
+        fechaActualizacion: '2026-03-15',
+        categoria: 'facturacion',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102600000005',
+        titulo: 'Depreciación Acelerada y Alícuotas ICE (DS 5563)',
+        descripcion: 'Reglamenta la Depreciación Acelerada de Bienes de Activo Fijo y actualiza las alícuotas específicas de bebidas alcohólicas y no alcohólicas gravadas por el ICE, aplicable desde el 9 de marzo de 2026 según DS 5563.',
+        fechaVigencia: '2026-03-09',
+        fechaActualizacion: '2026-03-09',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102600000004',
+        titulo: 'Prórroga Homologación Productos RNC hasta 29/05/2026',
+        descripcion: 'Prorroga hasta el 29 de mayo de 2026 el plazo para que sujetos pasivos del IVA realicen la homologación de productos en sistemas de facturación con actividades económicas del RNC.',
+        fechaVigencia: '2026-05-29',
+        fechaActualizacion: '2026-02-23',
+        categoria: 'facturacion',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102600000003',
+        titulo: 'Crédito Fiscal IVA Sector Transporte',
+        descripcion: 'Modifica y amplía el artículo 4 de la RND 10-0019-16 para precisar qué gastos del sector transporte pueden computarse como Crédito Fiscal IVA conforme a la Ley 843.',
+        fechaVigencia: '2026-02-15',
+        fechaActualizacion: '2026-02-15',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102600000002',
+        titulo: 'Modificaciones al RNC - Eliminación Inspección In Situ',
+        descripcion: 'Modifica art. 8 de RND 102500000017. Elimina la Inspección In Situ del proceso de inscripción al RNC. Obtener el NIT es más rápido: en plataformas SIN se genera al instante, en línea solo requiere una validación presencial.',
+        fechaVigencia: '2026-01-22',
+        fechaActualizacion: '2026-01-22',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      {
+        codigo: 'RND-102600000001',
+        titulo: 'Abrogación RND 102500000052 - Transición DS 5503/5516',
+        descripcion: 'Abroga la RND 102500000052. Mantiene beneficios transitorios del DS 5503: depreciación acelerada voluntaria para activos adquiridos entre 1-12 enero 2026 (declarar en F-605), y reconocimiento excepcional de aportes patronales diciembre 2025 pagados hasta 12/01/2026 como pagos a cuenta del IVA.',
+        fechaVigencia: '2026-01-13',
+        fechaActualizacion: '2026-01-13',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'SIN'
+      },
+      // === RNDs DICIEMBRE 2025 ===
       {
         codigo: 'RND-102500000053',
         titulo: 'Prórroga RAU Gestión 2024',
