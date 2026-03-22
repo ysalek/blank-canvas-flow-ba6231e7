@@ -168,7 +168,6 @@ export const useProductosValidated = () => {
         throw new Error('Usuario no autenticado');
       }
       
-      console.log('✅ [ProductosValidated] Usuario autenticado, cargando datos...');
       
       // Cargar datos en paralelo con reintentos
       let categoriasData: CategoriaProducto[] = [];
