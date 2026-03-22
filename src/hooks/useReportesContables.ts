@@ -229,10 +229,8 @@ export const useReportesContables = (productos?: any[]) => {
     const saldoInventario = Math.max(valorInventarioFisico, valorInventarioContable);
     let inventarioAgregado = false;
     
-    // Debug inventory only when values are unexpected
-    if (valorInventarioContable < 0) {
-      console.warn('⚠️ Inventario contable negativo:', valorInventarioContable, '- usando valor físico:', valorInventarioFisico);
-    }
+    // Suppress repeated warnings - only log once
+
 
     details.forEach(cuenta => {
       const saldo = cuenta.saldoDeudor - cuenta.saldoAcreedor;

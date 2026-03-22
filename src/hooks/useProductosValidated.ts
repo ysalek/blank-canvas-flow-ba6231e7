@@ -70,9 +70,7 @@ export const useProductosValidated = () => {
   const requestIdRef = useRef(0);
   const lastAuthLoadRef = useRef(0);
 
-  // Validar conectividad
   const validateConnectivity = useCallback(async (): Promise<ConnectivityStatus> => {
-    console.log('🔍 [ProductosValidated] Validando conectividad...');
     
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
