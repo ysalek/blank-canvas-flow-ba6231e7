@@ -368,9 +368,19 @@ class NormativaService {
         organismo: 'SIN'
       },
       {
+        codigo: 'DS-5563',
+        titulo: 'Decreto Supremo 5563 - Depreciación Acelerada e ICE',
+        descripcion: 'Publicado marzo 2026. Establece depreciación acelerada de bienes de activo fijo y actualización de alícuotas ICE para bebidas alcohólicas y no alcohólicas. Reglamentado por RND 102600000005.',
+        fechaVigencia: '2026-03-09',
+        fechaActualizacion: '2026-03-09',
+        categoria: 'tributaria',
+        estado: 'vigente',
+        organismo: 'Ministerio_Economia'
+      },
+      {
         codigo: 'DS-5516',
         titulo: 'Decreto Supremo 5516 - Reemplaza DS 5503',
-        descripcion: 'Publicado 13/01/2026. Abroga DS 5503. Mantiene eliminación subvención combustibles y bonos sociales. Diferimiento de créditos (6 meses). Los incentivos tributarios de DS 5503 (Hecho en Bolivia, Depreciación Acelerada, Aportes patronales IVA) quedan sin efecto.',
+        descripcion: 'Publicado 13/01/2026. Abroga DS 5503. Mantiene eliminación subvención combustibles y bonos sociales. Diferimiento de créditos (6 meses). Incentivos transitorios reconocidos por RND 102600000001.',
         fechaVigencia: '2026-01-13',
         fechaActualizacion: '2026-01-13',
         categoria: 'tributaria',
