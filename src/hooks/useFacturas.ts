@@ -1,7 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import type { Factura, Cliente, ItemFactura } from "@/components/contable/billing/BillingData";
+
+type FacturaElectronicaUpdate = Partial<
+  Pick<Factura, "estado" | "estadoSIN" | "cuf" | "cufd" | "puntoVenta" | "codigoControl" | "observaciones">
+>;
+
+type FacturaRow = Database["public"]["Tables"]["facturas"]["Row"];
+type ClienteRow = Database["public"]["Tables"]["clientes"]["Row"];
+type ItemFacturaRow = Database["public"]["Tables"]["items_facturas"]["Row"];
 
 export const useFacturas = () => {
   const [facturas, setFacturas] = useState<Factura[]>([]);
@@ -34,19 +43,19 @@ export const useFacturas = () => {
       console.log('✅ [Facturas] Facturas encontradas:', facturasData?.length || 0);
 
       // Fetch related clients
-      const clienteIds: string[] = [...new Set((facturasData || []).map((f: any) => f.cliente_id).filter(Boolean))] as string[];
-      let clientesMap: Record<string, any> = {};
+      const clienteIds = [...new Set((facturasData || []).map((factura) => factura.cliente_id).filter(Boolean))] as string[];
+      const clientesMap: Record<string, ClienteRow> = {};
       if (clienteIds.length > 0) {
         const { data: clientesData } = await supabase
           .from('clientes')
           .select('id, nombre, nit, email, telefono, direccion, activo, created_at')
           .in('id', clienteIds);
-        (clientesData || []).forEach((c: any) => { clientesMap[c.id] = c; });
+        (clientesData || []).forEach((cliente) => { clientesMap[cliente.id] = cliente; });
       }
 
       // Fetch related items
-      const facturaIds = (facturasData || []).map((f: any) => f.id);
-      let itemsData: any[] = [];
+      const facturaIds = (facturasData || []).map((factura) => factura.id);
+      let itemsData: ItemFacturaRow[] = [];
       if (facturaIds.length > 0) {
         const { data, error: iError } = await supabase
           .from('items_facturas')
@@ -60,7 +69,7 @@ export const useFacturas = () => {
         }
       }
 
-      const mapped: Factura[] = (facturasData || []).map((f: any) => {
+      const mapped: Factura[] = ((facturasData || []) as FacturaRow[]).map((f) => {
         const clienteData = f.cliente_id ? clientesMap[f.cliente_id] : null;
         const cliente: Cliente = clienteData ? {
           id: clienteData.id,
@@ -74,8 +83,8 @@ export const useFacturas = () => {
         } : { id: '', nombre: 'Cliente eliminado', nit: '', email: '', telefono: '', direccion: '', activo: false, fechaCreacion: '' };
 
         const items: ItemFactura[] = (itemsData)
-          .filter((item: any) => item.factura_id === f.id)
-          .map((item: any) => ({
+          .filter((item) => item.factura_id === f.id)
+          .map((item) => ({
             id: item.id,
             productoId: item.producto_id || '',
             codigo: item.codigo,
@@ -251,5 +260,57 @@ export const useFacturas = () => {
     }
   };
 
-  return { facturas, loading, guardarFactura, actualizarEstadoFactura, refetch: fetchFacturas };
+  const actualizarFacturaElectronica = async (
+    facturaId: string,
+    updates: FacturaElectronicaUpdate
+  ): Promise<boolean> => {
+    try {
+      const payload: Record<string, unknown> = {};
+
+      if (updates.estado !== undefined) payload.estado = updates.estado;
+      if (updates.estadoSIN !== undefined) payload.estado_sin = updates.estadoSIN;
+      if (updates.cuf !== undefined) payload.cuf = updates.cuf || null;
+      if (updates.cufd !== undefined) payload.cufd = updates.cufd || null;
+      if (updates.puntoVenta !== undefined) payload.punto_venta = updates.puntoVenta;
+      if (updates.codigoControl !== undefined) payload.codigo_control = updates.codigoControl || null;
+      if (updates.observaciones !== undefined) payload.observaciones = updates.observaciones || null;
+
+      const { error } = await supabase
+        .from("facturas")
+        .update(payload)
+        .eq("id", facturaId);
+
+      if (error) throw error;
+
+      setFacturas((prev) =>
+        prev.map((factura) =>
+          factura.id === facturaId
+            ? {
+                ...factura,
+                ...updates,
+              }
+            : factura
+        )
+      );
+
+      return true;
+    } catch (error) {
+      console.error("Error actualizando datos electronicos de factura:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado electronico de la factura.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  return {
+    facturas,
+    loading,
+    guardarFactura,
+    actualizarEstadoFactura,
+    actualizarFacturaElectronica,
+    refetch: fetchFacturas,
+  };
 };
