@@ -10,7 +10,7 @@ import {
 import InventoryMovementDialog from "./inventory/InventoryMovementDialog";
 import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
 import { useInventarioBolivia } from "@/hooks/useInventarioBolivia";
-import { useSupabaseProductos } from "@/hooks/useSupabaseProductos";
+import { ProductoSupabase, useSupabaseProductos } from "@/hooks/useSupabaseProductos";
 import { useSupabaseMovimientos } from "@/hooks/useSupabaseMovimientos";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from '@e965/xlsx';
@@ -23,6 +23,18 @@ import ProveedoresInventarioTab from "./inventory/ProveedoresInventarioTab";
 import { getStockStatus } from "./inventory/inventoryUtils";
 import { Producto } from "./products/ProductsData";
 import { FileDown, FileUp, Package, TrendingUp, AlertTriangle, BarChart3, Activity, Zap, Truck } from "lucide-react";
+
+interface InventarioImportRow {
+  codigo?: string | number;
+  nombre?: string | number;
+  categoria?: string | number;
+  stockActual?: string | number;
+  stockMinimo?: string | number;
+  stockMaximo?: string | number;
+  costoUnitario?: string | number;
+  precioVenta?: string | number;
+  ubicacion?: string | number;
+}
 
 const InventarioModule = () => {
   const [filtroCategoria, setFiltroCategoria] = useState("all");
@@ -54,6 +66,7 @@ const InventarioModule = () => {
       codigo: producto.codigo,
       nombre: producto.nombre,
       categoria: categoria?.nombre || 'General',
+      imagenUrl: producto.imagen_url,
       stockActual: producto.stock_actual || 0,
       stockMinimo: producto.stock_minimo || 5,
       stockMaximo: (producto.stock_minimo || 5) * 10,
@@ -198,7 +211,7 @@ const InventarioModule = () => {
             const workbook = XLSX.read(data, { type: 'array' });
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
-            const json = XLSX.utils.sheet_to_json<any>(worksheet);
+            const json = XLSX.utils.sheet_to_json<InventarioImportRow>(worksheet);
 
             if (json.length === 0 || !json[0]['codigo'] || !json[0]['nombre']) {
                 toast({
@@ -286,7 +299,7 @@ const InventarioModule = () => {
             }
 
             // Crear productos en Supabase uno por uno para mostrar progreso
-            const productosCreados: any[] = [];
+            const productosCreados: ProductoSupabase[] = [];
             
             toast({
                 title: "Guardando en base de datos",

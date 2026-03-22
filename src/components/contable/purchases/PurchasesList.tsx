@@ -1,10 +1,15 @@
-
 import { Compra } from "./PurchasesData";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Eye, FileText, Package } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Eye, FileText, Package, ArrowUpRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface PurchasesListProps {
@@ -14,29 +19,51 @@ interface PurchasesListProps {
 
 const getStatusColor = (status: string) => {
   switch (status) {
-    case "recibida": return "bg-green-100 text-green-800";
-    case "pendiente": return "bg-yellow-100 text-yellow-800";
-    case "pagada": return "bg-blue-100 text-blue-800";
-    case "anulada": return "bg-red-100 text-red-800";
-    default: return "bg-gray-100 text-gray-800";
+    case "recibida":
+      return "bg-emerald-100 text-emerald-800";
+    case "pendiente":
+      return "bg-amber-100 text-amber-800";
+    case "pagada":
+      return "bg-sky-100 text-sky-800";
+    case "anulada":
+      return "bg-rose-100 text-rose-800";
+    default:
+      return "bg-slate-100 text-slate-800";
   }
 };
 
 const PurchasesList = ({ compras, onProcessPurchase }: PurchasesListProps) => {
   const { toast } = useToast();
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Órdenes de Compra</CardTitle>
-        <CardDescription>
-          Historial de compras realizadas con integración contable automática
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <div className="rounded-[1.75rem] border border-slate-200 bg-white/90 shadow-sm">
+      <div className="border-b border-slate-200 px-6 py-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+              Seguimiento
+            </p>
+            <h3 className="mt-2 text-lg font-semibold text-slate-950">Ordenes de compra</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Historial de compras con lectura operativa, financiera y contable.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-medium">
+              {compras.length} registros
+            </span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 font-medium">
+              Flujo conectado a inventario
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto px-2 py-2">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Número</TableHead>
+            <TableRow className="border-slate-200">
+              <TableHead>Numero</TableHead>
               <TableHead>Proveedor</TableHead>
               <TableHead>Fecha</TableHead>
               <TableHead>Estado</TableHead>
@@ -47,40 +74,49 @@ const PurchasesList = ({ compras, onProcessPurchase }: PurchasesListProps) => {
           <TableBody>
             {compras.length > 0 ? (
               compras.map((compra) => (
-                <TableRow key={compra.id}>
-                  <TableCell className="font-mono">{compra.numero}</TableCell>
-                  <TableCell>{compra.proveedor.nombre}</TableCell>
-                  <TableCell>{compra.fecha}</TableCell>
-                  <TableCell>
-                    <Badge className={getStatusColor(compra.estado)}>
-                      {compra.estado}
-                    </Badge>
+                <TableRow key={compra.id} className="border-slate-100">
+                  <TableCell className="font-mono text-sm font-semibold text-slate-900">
+                    {compra.numero}
                   </TableCell>
-                  <TableCell className="text-right">Bs. {compra.total.toFixed(2)}</TableCell>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium text-slate-900">{compra.proveedor.nombre}</p>
+                      <p className="text-xs text-slate-500">NIT {compra.proveedor.nit}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-slate-600">{compra.fecha}</TableCell>
+                  <TableCell>
+                    <Badge className={getStatusColor(compra.estado)}>{compra.estado}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-slate-900">
+                    Bs {compra.total.toFixed(2)}
+                  </TableCell>
                   <TableCell className="text-center">
-                    <div className="flex gap-2 justify-center">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="h-8 w-8 p-0"
+                    <div className="flex justify-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-9 w-9 rounded-xl p-0"
                         title="Ver detalles de la compra"
-                        onClick={() => toast({ 
-                          title: "Detalles de la Compra", 
-                          description: `${compra.numero} - ${compra.proveedor.nombre}\n${compra.items.length} items - Subtotal: Bs. ${compra.subtotal.toFixed(2)}\nFecha: ${compra.fecha} - Estado: ${compra.estado}` 
-                        })}
+                        onClick={() =>
+                          toast({
+                            title: "Detalle de compra",
+                            description: `${compra.numero} - ${compra.proveedor.nombre}. ${compra.items.length} items. Subtotal Bs ${compra.subtotal.toFixed(2)}.`,
+                          })
+                        }
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="h-8 w-8 p-0"
-                        title="Ver asiento contable generado"
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-9 w-9 rounded-xl p-0"
+                        title="Ver asiento contable"
                         onClick={() => {
                           const totalContable = compra.subtotal + compra.iva;
-                          toast({ 
-                            title: "Asiento Contable de Compra", 
-                            description: `${compra.numero}\nDébito: Inventario Bs. ${compra.subtotal.toFixed(2)}\nDébito: IVA Crédito Fiscal Bs. ${compra.iva.toFixed(2)}\nCrédito: Cuentas por Pagar Bs. ${totalContable.toFixed(2)}` 
+                          toast({
+                            title: "Asiento contable de compra",
+                            description: `${compra.numero}. Debito inventario Bs ${compra.subtotal.toFixed(2)}. Debito IVA credito fiscal Bs ${compra.iva.toFixed(2)}. Credito cuentas por pagar Bs ${totalContable.toFixed(2)}.`,
                           });
                         }}
                       >
@@ -88,13 +124,17 @@ const PurchasesList = ({ compras, onProcessPurchase }: PurchasesListProps) => {
                       </Button>
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant={compra.estado === "pagada" ? "outline" : "default"}
                         onClick={() => onProcessPurchase(compra)}
-                        className="h-8 w-8 p-0"
-                        title="Procesar pago de la compra"
-                        disabled={compra.estado === 'pagada'}
+                        className="h-9 rounded-xl px-3"
+                        title="Procesar pago"
+                        disabled={compra.estado === "pagada"}
                       >
-                        <Package className="h-4 w-4" />
+                        {compra.estado === "pagada" ? (
+                          <ArrowUpRight className="h-4 w-4" />
+                        ) : (
+                          <Package className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   </TableCell>
@@ -102,15 +142,15 @@ const PurchasesList = ({ compras, onProcessPurchase }: PurchasesListProps) => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center text-sm text-slate-500">
                   No se encontraron compras.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };
 

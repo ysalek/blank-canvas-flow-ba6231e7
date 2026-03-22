@@ -77,21 +77,72 @@ const Dashboard = () => {
   const alertasActivas = complianceAlerts.filter(a => a.id !== 'sin-alertas').length;
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Header con resumen */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground capitalize">{fechaActual}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant={balanceCuadrado ? "default" : "destructive"} className="text-xs">
-            {balanceCuadrado
-              ? <><CheckCircle className="w-3.5 h-3.5 mr-1" /> Cuadrado</>
-              : <><AlertTriangle className="w-3.5 h-3.5 mr-1" /> Descuadrado</>
-            }
-          </Badge>
-          <NotificationsIcon />
+    <div className="page-shell space-y-6 pb-12">
+      <div className="hero-panel rounded-[2rem] p-6 md:p-8">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_340px]">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="feature-chip">
+                <Activity className="h-3.5 w-3.5 text-primary" />
+                Vision ejecutiva
+              </span>
+              <Badge variant={balanceCuadrado ? "default" : "destructive"} className="text-xs">
+                {balanceCuadrado
+                  ? <><CheckCircle className="mr-1 h-3.5 w-3.5" /> Balance cuadrado</>
+                  : <><AlertTriangle className="mr-1 h-3.5 w-3.5" /> Balance descuadrado</>
+                }
+              </Badge>
+            </div>
+            <h1 className="mt-4 text-3xl font-bold tracking-tight text-foreground">Centro de mando contable</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
+              Supervisa ingresos, inventario, clientes y cierre contable desde una vista comercial unificada.
+              Cada bloque prioriza accion, control y lectura ejecutiva.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
+              <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 font-medium capitalize">
+                {fechaActual}
+              </span>
+              <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 font-medium">
+                {alertasActivas} alertas activas
+              </span>
+              <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 font-medium">
+                {metrics.facturasDelMes} facturas este mes
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Panel rapido</p>
+                <p className="mt-2 text-lg font-semibold text-slate-950">Prioridades del dia</p>
+              </div>
+              <NotificationsIcon />
+            </div>
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Ventas del mes</p>
+                  <p className="text-xs text-slate-500">Lectura comercial consolidada</p>
+                </div>
+                <p className="text-xl font-bold text-slate-950">Bs {metrics.ventasMes.toLocaleString()}</p>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Stock bajo</p>
+                  <p className="text-xs text-slate-500">Productos a reponer</p>
+                </div>
+                <p className="text-xl font-bold text-amber-700">{metrics.stockBajo}</p>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Cierre tributario</p>
+                  <p className="text-xs text-slate-500">Pendientes para tesoreria y cumplimiento</p>
+                </div>
+                <p className="text-xl font-bold text-rose-700">{alertasCriticas}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

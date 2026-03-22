@@ -1,54 +1,56 @@
-
-import { Card, CardContent } from "@/components/ui/card";
+import { CheckCircle, Clock3, DollarSign, FileText } from "lucide-react";
 import { Factura } from "./BillingData";
+import { EnhancedMetricCard, MetricGrid } from "../dashboard/EnhancedLayout";
 
 interface InvoiceSummaryProps {
   facturas: Factura[];
 }
 
 const InvoiceSummary = ({ facturas }: InvoiceSummaryProps) => {
-  const aceptadas = facturas.filter(f => f.estadoSIN === 'aceptado').length;
-  const pendientes = facturas.filter(f => f.estadoSIN === 'pendiente').length;
-  const totalFacturado = facturas.reduce((sum, f) => sum + f.total, 0);
+  const aceptadas = facturas.filter((item) => item.estadoSIN === 'aceptado').length;
+  const pendientes = facturas.filter((item) => item.estadoSIN === 'pendiente').length;
+  const totalFacturado = facturas.reduce((sum, item) => sum + item.total, 0);
   const totalFacturas = facturas.length;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <Card>
-        <CardContent className="p-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">{aceptadas}</div>
-            <div className="text-sm text-gray-600">Aceptadas (sim.)</div>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-yellow-600">{pendientes}</div>
-            <div className="text-sm text-gray-600">Pendientes (sim.)</div>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">
-              Bs. {totalFacturado.toFixed(2)}
-            </div>
-            <div className="text-sm text-gray-600">Total Facturado</div>
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardContent className="p-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-purple-600">{totalFacturas}</div>
-            <div className="text-sm text-gray-600">Total Facturas</div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <MetricGrid columns={4}>
+      <EnhancedMetricCard
+        title="Aceptadas (sim.)"
+        value={aceptadas}
+        subtitle="Validadas por el flujo demo SIN"
+        icon={CheckCircle}
+        variant="success"
+        trend="up"
+        trendValue="Continuidad"
+      />
+      <EnhancedMetricCard
+        title="Pendientes (sim.)"
+        value={pendientes}
+        subtitle="Esperando revision del flujo"
+        icon={Clock3}
+        variant={pendientes > 0 ? "warning" : "default"}
+        trend={pendientes > 0 ? "neutral" : "up"}
+        trendValue={pendientes > 0 ? "Seguimiento" : "Sin cola"}
+      />
+      <EnhancedMetricCard
+        title="Total facturado"
+        value={`Bs. ${totalFacturado.toFixed(2)}`}
+        subtitle="Volumen bruto emitido"
+        icon={DollarSign}
+        variant="success"
+        trend="up"
+        trendValue="Ventas"
+      />
+      <EnhancedMetricCard
+        title="Total facturas"
+        value={totalFacturas}
+        subtitle="Documentos emitidos"
+        icon={FileText}
+        variant="default"
+        trend="up"
+        trendValue="Operacion"
+      />
+    </MetricGrid>
   );
 };
 

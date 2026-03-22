@@ -4,6 +4,7 @@ export interface ProductoInventario {
   codigo: string;
   nombre: string;
   categoria: string;
+  imagenUrl?: string;
   stockActual: number;
   stockMinimo: number;
   stockMaximo: number;

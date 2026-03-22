@@ -1,15 +1,31 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Plus, BarChart, FileText, DollarSign, Users, Package, TrendingUp, Activity, CheckCircle, AlertCircle, Shield, Gavel } from "lucide-react";
-import { EnhancedHeader, MetricGrid, EnhancedMetricCard, Section } from "./dashboard/EnhancedLayout";
+import {
+  Plus,
+  BarChart,
+  FileText,
+  DollarSign,
+  Users,
+  Package,
+  Activity,
+  CheckCircle,
+  AlertCircle,
+  Shield,
+} from "lucide-react";
+import {
+  EnhancedHeader,
+  MetricGrid,
+  EnhancedMetricCard,
+  Section,
+} from "./dashboard/EnhancedLayout";
 import { useToast } from "@/hooks/use-toast";
 import { Factura, Cliente, simularValidacionSIN } from "./billing/BillingData";
 import { MovimientoInventario } from "./inventory/InventoryData";
 import InvoiceForm from "./billing/InvoiceForm";
 import InvoiceAccountingHistory from "./billing/InvoiceAccountingHistory";
-import { useProductosValidated } from '@/hooks/useProductosValidated';
+import { useProductosValidated } from "@/hooks/useProductosValidated";
 import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
 import { useFacturas } from "@/hooks/useFacturas";
 import { useClientesSupabase } from "@/hooks/useClientesSupabase";
@@ -20,82 +36,115 @@ import InvoicePreview from "./billing/InvoicePreview";
 import DeclaracionIVA from "./DeclaracionIVA";
 import { supabase } from "@/integrations/supabase/client";
 
+interface NormativaAlert {
+  id: string;
+  titulo?: string | null;
+  resumen?: string | null;
+}
+
+interface ConfiguracionTributaria {
+  modalidad_facturacion?: string | null;
+}
+
 const FacturacionModule = () => {
-  const { facturas, loading: facturasLoading, guardarFactura: guardarFacturaDB, actualizarEstadoFactura } = useFacturas();
-  const { clientes, loading: clientesLoading, agregarCliente } = useClientesSupabase();
+  const {
+    facturas,
+    loading: facturasLoading,
+    guardarFactura: guardarFacturaDB,
+    actualizarEstadoFactura,
+  } = useFacturas();
+  const {
+    clientes,
+    loading: clientesLoading,
+    agregarCliente,
+  } = useClientesSupabase();
   const [showNewInvoice, setShowNewInvoice] = useState(false);
   const [showAccountingHistory, setShowAccountingHistory] = useState(false);
   const [showDeclaracionIVA, setShowDeclaracionIVA] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Factura | null>(null);
   const [isDetailViewOpen, setIsDetailViewOpen] = useState(false);
-  const [normativasAlerts, setNormativasAlerts] = useState<any[]>([]);
-  const [configuracionTributaria, setConfiguracionTributaria] = useState<any>(null);
+  const [normativasAlerts, setNormativasAlerts] = useState<NormativaAlert[]>([]);
+  const [configuracionTributaria, setConfiguracionTributaria] =
+    useState<ConfiguracionTributaria | null>(null);
   const { toast } = useToast();
-  const { productos, loading: productosLoading, error: productosError, connectivity, crearProducto, actualizarStockProducto, refetch: refetchProductos } = useProductosValidated();
-  const { 
-    generarAsientoVenta, 
-    generarAsientoInventario, 
+  const {
+    productos,
+    loading: productosLoading,
+    error: productosError,
+    connectivity,
+    actualizarStockProducto,
+    refetch: refetchProductos,
+  } = useProductosValidated();
+  const {
+    generarAsientoVenta,
+    generarAsientoInventario,
     getAsientos,
     generarAsientoPagoFactura,
-    generarAsientoAnulacionFactura
+    generarAsientoAnulacionFactura,
   } = useContabilidadIntegration();
 
-  // Cargar configuración tributaria y normativas
   useEffect(() => {
     loadConfiguracionTributaria();
     loadNormativasAlerts();
   }, []);
-  // Debug y validación de productos
+
   useEffect(() => {
     if (!productosLoading) {
-      console.log('📦 [Facturación] Estado de productos:', {
+      console.log("[Facturacion] Estado de productos:", {
         cantidad: productos.length,
         conectividad: connectivity.isConnected,
         autenticado: connectivity.isAuthenticated,
         error: productosError,
-        ultimaConexion: connectivity.lastCheck
+        ultimaConexion: connectivity.lastCheck,
       });
-      
+
       if (productos.length > 0) {
-        console.log('✅ [Facturación] Productos disponibles:', productos.slice(0, 3).map(p => ({ id: p.id, codigo: p.codigo, nombre: p.nombre, stock: p.stock_actual })));
+        console.log(
+          "[Facturacion] Productos disponibles:",
+          productos.slice(0, 3).map((p) => ({
+            id: p.id,
+            codigo: p.codigo,
+            nombre: p.nombre,
+            stock: p.stock_actual,
+          })),
+        );
       } else if (!productosError) {
-        console.log('⚠️ [Facturación] No hay productos - verificando conectividad...');
+        console.log("[Facturacion] No hay productos, verificando conectividad...");
       }
     }
-  }, [productos.length, productosLoading, connectivity, productosError]);
+  }, [productos, productosLoading, connectivity, productosError]);
 
   const loadConfiguracionTributaria = async () => {
     try {
       const { data, error } = await supabase
-        .from('configuracion_tributaria')
-        .select('*')
+        .from("configuracion_tributaria")
+        .select("*")
         .limit(1)
         .maybeSingle();
 
       if (error) throw error;
-      setConfiguracionTributaria(data);
-    } catch (error: any) {
-      console.error('Error loading configuracion tributaria:', error);
+      setConfiguracionTributaria((data as ConfiguracionTributaria | null) ?? null);
+    } catch (error) {
+      console.error("Error loading configuracion tributaria:", error);
     }
   };
 
   const loadNormativasAlerts = async () => {
     try {
       const { data, error } = await supabase
-        .from('normativas_2025')
-        .select('*')
-        .eq('estado', 'vigente')
-        .in('categoria', ['facturacion', 'iva'])
-        .order('fecha_emision', { ascending: false })
+        .from("normativas_2025")
+        .select("*")
+        .eq("estado", "vigente")
+        .in("categoria", ["facturacion", "iva"])
+        .order("fecha_emision", { ascending: false })
         .limit(3);
 
       if (error) throw error;
-      setNormativasAlerts(data || []);
-    } catch (error: any) {
-      console.error('Error loading normativas alerts:', error);
+      setNormativasAlerts((data as NormativaAlert[]) || []);
+    } catch (error) {
+      console.error("Error loading normativas alerts:", error);
     }
   };
-
 
   const handleAddNewClient = async (nuevoCliente: Cliente) => {
     const result = await agregarCliente(nuevoCliente);
@@ -108,157 +157,148 @@ const FacturacionModule = () => {
       toast({
         title: "Error",
         description: "No se pudo crear el cliente.",
-        variant: "destructive"
+        variant: "destructive",
       });
     }
   };
 
   const handleSaveInvoice = async (nuevaFactura: Factura) => {
     setShowNewInvoice(false);
-    
+
     toast({
       title: "Procesando factura...",
-      description: "Enviando al SIN para validación. Esto puede tardar unos segundos.",
+      description: "Enviando al SIN para validacion. Esto puede tardar unos segundos.",
     });
 
     try {
       const facturaValidada = await simularValidacionSIN(nuevaFactura);
-      
+
       toast({
         title: "Respuesta del SIN recibida",
-        description: "Procesando integración contable...",
+        description: "Procesando integracion contable...",
       });
 
-      if (facturaValidada.estadoSIN === 'aceptado') {
-        // La factura fue aceptada, proceder con la contabilidad
-        
-        // 1. Validar y procesar inventario según normativa boliviana
-        console.log('📦 Procesando inventario para factura:', facturaValidada.numero);
+      if (facturaValidada.estadoSIN === "aceptado") {
         for (const item of facturaValidada.items) {
-          const producto = productos.find(p => p.id === item.productoId);
-          console.log(`🔍 Producto encontrado:`, { 
-            id: producto?.id, 
-            stock_actual: producto?.stock_actual, 
-            cantidad_solicitada: item.cantidad 
-          });
-          
-          if (producto && Number(producto.costo_unitario || 0) > 0) {
-            // CRÍTICO: Verificar stock antes de procesar
-            const stockDisponible = Number(producto.stock_actual || 0);
-            console.log('🔍 Validando stock para', item.descripcion + ':', 'Stock disponible:', stockDisponible, 'Solicitado:', item.cantidad);
-            
-            if (stockDisponible < item.cantidad) {
-              console.error('❌ Stock insuficiente:', { producto: item.descripcion, disponible: stockDisponible, solicitado: item.cantidad });
-              toast({
-                title: "Error de Stock - Normativa Boliviana",
-                description: `Stock insuficiente para ${item.descripcion}. Disponible: ${stockDisponible}, Solicitado: ${item.cantidad}`,
-                variant: "destructive"
-              });
-              return; // Detener el proceso si no hay stock suficiente
-            }
-            
-            console.log('✅ Stock suficiente para', item.descripcion);
-            
-            // CRÍTICO: Actualizar stock del producto en Supabase
-            console.log('🔄 Actualizando stock del producto:', item.descripcion);
-            const stockActualizado = await actualizarStockProducto(item.productoId, item.cantidad, 'salida');
-            
-            if (!stockActualizado) {
-              console.error('❌ Error actualizando stock para:', item.descripcion);
-              toast({
-                title: "Error de Stock - Normativa Boliviana",
-                description: `No se pudo actualizar el stock para ${item.descripcion}. Factura cancelada.`,
-                variant: "destructive"
-              });
-              return; // Detener el proceso si falla la actualización de stock
-            }
-            
-            console.log('✅ Stock actualizado exitosamente para:', item.descripcion);
+          const producto = productos.find((p) => p.id === item.productoId);
 
-            // Generar movimiento de inventario con motivo específico para contabilidad
+          if (producto && Number(producto.costo_unitario || 0) > 0) {
+            const stockDisponible = Number(producto.stock_actual || 0);
+
+            if (stockDisponible < item.cantidad) {
+              toast({
+                title: "Error de stock",
+                description: `Stock insuficiente para ${item.descripcion}. Disponible: ${stockDisponible}, solicitado: ${item.cantidad}.`,
+                variant: "destructive",
+              });
+              return;
+            }
+
+            const stockActualizado = await actualizarStockProducto(
+              item.productoId,
+              item.cantidad,
+              "salida",
+            );
+
+            if (!stockActualizado) {
+              toast({
+                title: "Error de stock",
+                description: `No se pudo actualizar el stock para ${item.descripcion}. La factura fue cancelada.`,
+                variant: "destructive",
+              });
+              return;
+            }
+
             const movimientoInventario: MovimientoInventario = {
               id: `FAC-${facturaValidada.numero}-${item.productoId}`,
               fecha: facturaValidada.fecha,
-              tipo: 'salida',
+              tipo: "salida",
               productoId: item.productoId,
               producto: item.descripcion,
               cantidad: item.cantidad,
               costoUnitario: producto.costo_unitario,
               costoPromedioPonderado: producto.costo_unitario,
-              motivo: 'Venta',
-              documento: `Factura N° ${facturaValidada.numero}`,
-              usuario: 'Sistema',
+              motivo: "Venta",
+              documento: `Factura N ${facturaValidada.numero}`,
+              usuario: "Sistema",
               stockAnterior: producto.stock_actual,
               stockNuevo: producto.stock_actual - item.cantidad,
               valorMovimiento: item.cantidad * producto.costo_unitario,
             };
 
-            // Generar asiento contable del movimiento de inventario
             await generarAsientoInventario(movimientoInventario);
-
-            // Movimiento de inventario ya creado por actualizarStockProducto
-            
-            console.log(`✅ Stock descontado: ${item.descripcion} - Cantidad: ${item.cantidad}`);
           }
         }
 
-        // 2. Generar asiento contable de venta
         await generarAsientoVenta(facturaValidada);
-        
-        // 3. Guardar factura en Supabase
         await guardarFacturaDB(facturaValidada);
-        
+
         toast({
-          title: "Factura ACEPTADA por el SIN",
-          description: `Factura N° ${facturaValidada.numero} generada y registrada contablemente.`,
-          variant: "default",
+          title: "Factura aceptada",
+          description: `Factura N ${facturaValidada.numero} generada y registrada contablemente.`,
         });
-
       } else {
-        // La factura fue rechazada
         await guardarFacturaDB(facturaValidada);
 
         toast({
-          title: "Factura RECHAZADA por el SIN",
-          description: `La factura N° ${facturaValidada.numero} fue rechazada. Revise las observaciones y corríjala.`,
+          title: "Factura rechazada",
+          description: `La factura N ${facturaValidada.numero} fue rechazada. Revisa las observaciones y vuelve a intentarlo.`,
           variant: "destructive",
           duration: 9000,
         });
       }
-      
     } catch (error) {
       console.error("Error al procesar la factura:", error);
       toast({
-        title: "Error de Conexión",
-        description: "No se pudo comunicar con el servicio de Impuestos Nacionales. Intente nuevamente.",
-        variant: "destructive"
+        title: "Error de conexion",
+        description: "No se pudo comunicar con el servicio de Impuestos Nacionales. Intenta nuevamente.",
+        variant: "destructive",
       });
     }
   };
 
-  const handleUpdateInvoiceStatus = async (invoiceId: string, newStatus: 'pagada' | 'anulada') => {
-    const invoiceToUpdate = facturas.find(f => f.id === invoiceId);
+  const handleUpdateInvoiceStatus = async (
+    invoiceId: string,
+    newStatus: "pagada" | "anulada",
+  ) => {
+    const invoiceToUpdate = facturas.find((factura) => factura.id === invoiceId);
     if (!invoiceToUpdate) return;
 
-    if (newStatus === 'pagada') {
-      if (invoiceToUpdate.estado !== 'enviada') {
-        toast({ title: "Acción no permitida", description: "Solo se pueden pagar facturas enviadas.", variant: "default" });
+    if (newStatus === "pagada") {
+      if (invoiceToUpdate.estado !== "enviada") {
+        toast({
+          title: "Accion no permitida",
+          description: "Solo se pueden pagar facturas enviadas.",
+        });
         return;
       }
-      const updatedInvoice = { ...invoiceToUpdate, estado: 'pagada' as const };
+
+      const updatedInvoice = { ...invoiceToUpdate, estado: "pagada" as const };
       await generarAsientoPagoFactura(updatedInvoice);
-      await actualizarEstadoFactura(invoiceId, 'pagada');
-      toast({ title: "Factura Pagada", description: `La factura N° ${updatedInvoice.numero} se marcó como pagada.` });
-    } else if (newStatus === 'anulada') {
-      if (invoiceToUpdate.estado === 'anulada' || invoiceToUpdate.estado === 'pagada') {
-        toast({ title: "Acción no permitida", description: "No se puede anular una factura pagada o ya anulada.", variant: "destructive" });
-        return;
-      }
-      const updatedInvoice = { ...invoiceToUpdate, estado: 'anulada' as const };
-      await generarAsientoAnulacionFactura(updatedInvoice);
-      await actualizarEstadoFactura(invoiceId, 'anulada');
-      toast({ title: "Factura Anulada", description: `La factura N° ${updatedInvoice.numero} ha sido anulada.` });
+      await actualizarEstadoFactura(invoiceId, "pagada");
+      toast({
+        title: "Factura pagada",
+        description: `La factura N ${updatedInvoice.numero} se marco como pagada.`,
+      });
+      return;
     }
+
+    if (invoiceToUpdate.estado === "anulada" || invoiceToUpdate.estado === "pagada") {
+      toast({
+        title: "Accion no permitida",
+        description: "No se puede anular una factura pagada o ya anulada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updatedInvoice = { ...invoiceToUpdate, estado: "anulada" as const };
+    await generarAsientoAnulacionFactura(updatedInvoice);
+    await actualizarEstadoFactura(invoiceId, "anulada");
+    toast({
+      title: "Factura anulada",
+      description: `La factura N ${updatedInvoice.numero} ha sido anulada.`,
+    });
   };
 
   const handleShowDetails = (invoice: Factura) => {
@@ -267,25 +307,24 @@ const FacturacionModule = () => {
   };
 
   if (showNewInvoice) {
-    // Verificar el estado de carga y disponibilidad de productos
     if (productosLoading && !productosError && productos.length === 0) {
       return (
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-              <Package className="w-8 h-8 text-primary animate-pulse" />
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="space-y-4 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+              <Package className="h-8 w-8 animate-pulse text-primary" />
             </div>
             <div>
               <h3 className="text-lg font-semibold">Cargando productos...</h3>
-              <p className="text-muted-foreground max-w-sm mx-auto">
-                Preparando el catálogo de productos
+              <p className="mx-auto max-w-sm text-muted-foreground">
+                Preparando el catalogo de productos.
               </p>
             </div>
-            <div className="flex gap-2 justify-center">
-              <Button onClick={() => refetchProductos()} variant="default" size="sm">
+            <div className="flex justify-center gap-2">
+              <Button onClick={() => refetchProductos()} size="sm">
                 Reintentar
               </Button>
-              <Button onClick={() => setShowNewInvoice(false)} variant="outline" size="sm">
+              <Button onClick={() => setShowNewInvoice(false)} size="sm" variant="outline">
                 Cancelar
               </Button>
             </div>
@@ -294,29 +333,26 @@ const FacturacionModule = () => {
       );
     }
 
-    // Verificar errores de conectividad solo si NO está autenticado
     if (productosError || (!connectivity.isConnected && connectivity.isAuthenticated === false)) {
       return (
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-destructive/10 flex items-center justify-center">
-              <AlertCircle className="w-8 h-8 text-destructive" />
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="space-y-4 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+              <AlertCircle className="h-8 w-8 text-destructive" />
             </div>
             <div>
               <h3 className="text-lg font-semibold">Error de conectividad</h3>
-              <p className="text-muted-foreground max-w-sm mx-auto">
-                {productosError || 'No se puede conectar con la base de datos'}
+              <p className="mx-auto max-w-sm text-muted-foreground">
+                {productosError || "No se puede conectar con la base de datos."}
               </p>
               {!connectivity.isAuthenticated && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  Por favor, inicie sesión nuevamente
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Inicia sesion nuevamente para continuar.
                 </p>
               )}
             </div>
             <div className="space-x-2">
-              <Button onClick={() => window.location.reload()} variant="default">
-                Reintentar
-              </Button>
+              <Button onClick={() => window.location.reload()}>Reintentar</Button>
               <Button onClick={() => setShowNewInvoice(false)} variant="outline">
                 Cancelar
               </Button>
@@ -325,49 +361,51 @@ const FacturacionModule = () => {
         </div>
       );
     }
-    
-    // Verificar que hay productos disponibles antes de mostrar el formulario
+
     if (productos.length === 0) {
       return (
-         <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 mx-auto rounded-full bg-warning/10 flex items-center justify-center">
-              <Package className="w-8 h-8 text-warning" />
+        <div className="flex min-h-[400px] items-center justify-center">
+          <div className="space-y-4 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-warning/10">
+              <Package className="h-8 w-8 text-warning" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-foreground">No hay productos disponibles</h3>
-              <p className="text-muted-foreground max-w-sm mx-auto">
-                Necesitas tener productos registrados antes de crear facturas. 
-                Dirígete al módulo de Productos para agregar productos.
+              <h3 className="text-lg font-semibold text-foreground">
+                No hay productos disponibles
+              </h3>
+              <p className="mx-auto max-w-sm text-muted-foreground">
+                Necesitas tener productos registrados antes de crear facturas.
               </p>
             </div>
             <Button onClick={() => setShowNewInvoice(false)} variant="outline">
-              Volver a Facturación
+              Volver a facturacion
             </Button>
           </div>
         </div>
       );
     }
-    
+
     return (
       <InvoiceForm
         clientes={clientes}
-        productos={productos.map(p => ({
-          id: String(p.id),
-          codigo: String(p.codigo || ''),
-          nombre: String(p.nombre || ''),
-          descripcion: String(p.descripcion || ''),
-          categoria: String(p.categoria_id || 'General'),
-          unidadMedida: String(p.unidad_medida || 'PZA'),
-          precioVenta: Number(p.precio_venta || 0),
-          precioCompra: Number(p.precio_compra || 0),
-          costoUnitario: Number(p.costo_unitario || 0),
-          stockActual: Number(p.stock_actual || 0),
-          stockMinimo: Number(p.stock_minimo || 0),
-          codigoSIN: String(p.codigo_sin || '00000000'),
-          activo: Boolean(p.activo),
-          fechaCreacion: p.created_at?.split('T')[0] || new Date().toISOString().slice(0, 10),
-          fechaActualizacion: p.updated_at?.split('T')[0] || new Date().toISOString().slice(0, 10)
+        productos={productos.map((producto) => ({
+          id: String(producto.id),
+          codigo: String(producto.codigo || ""),
+          nombre: String(producto.nombre || ""),
+          descripcion: String(producto.descripcion || ""),
+          categoria: String(producto.categoria_id || "General"),
+          unidadMedida: String(producto.unidad_medida || "PZA"),
+          precioVenta: Number(producto.precio_venta || 0),
+          precioCompra: Number(producto.precio_compra || 0),
+          costoUnitario: Number(producto.costo_unitario || 0),
+          stockActual: Number(producto.stock_actual || 0),
+          stockMinimo: Number(producto.stock_minimo || 0),
+          codigoSIN: String(producto.codigo_sin || "00000000"),
+          activo: Boolean(producto.activo),
+          fechaCreacion:
+            producto.created_at?.split("T")[0] || new Date().toISOString().slice(0, 10),
+          fechaActualizacion:
+            producto.updated_at?.split("T")[0] || new Date().toISOString().slice(0, 10),
         }))}
         facturas={facturas}
         onSave={handleSaveInvoice}
@@ -381,14 +419,12 @@ const FacturacionModule = () => {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold">Historial Contable de Facturación</h2>
+          <h2 className="text-2xl font-bold">Historial contable de facturacion</h2>
           <Button onClick={() => setShowAccountingHistory(false)}>
-            Volver a Facturación
+            Volver a facturacion
           </Button>
         </div>
-        <InvoiceAccountingHistory 
-          asientos={getAsientos()} 
-        />
+        <InvoiceAccountingHistory asientos={getAsientos()} />
       </div>
     );
   }
@@ -397,95 +433,245 @@ const FacturacionModule = () => {
     return <DeclaracionIVA onBack={() => setShowDeclaracionIVA(false)} />;
   }
 
-  const facturasPagadas = facturas.filter(f => f.estado === 'pagada').length;
-  const facturasEnviadas = facturas.filter(f => f.estado === 'enviada').length;
-  const facturasRechazadas = facturas.filter(f => f.estadoSIN === 'rechazado').length;
-  const ingresosMes = facturas.filter(f => f.estado === 'pagada').reduce((sum, f) => sum + f.total, 0);
-  const facturasHoy = facturas.filter(f => f.fecha === new Date().toISOString().slice(0, 10)).length;
+  const facturasPagadas = facturas.filter((factura) => factura.estado === "pagada").length;
+  const facturasEnviadas = facturas.filter((factura) => factura.estado === "enviada").length;
+  const facturasRechazadas = facturas.filter(
+    (factura) => factura.estadoSIN === "rechazado",
+  ).length;
+  const ingresosMes = facturas
+    .filter((factura) => factura.estado === "pagada")
+    .reduce((sum, factura) => sum + factura.total, 0);
+  const facturasHoy = facturas.filter(
+    (factura) => factura.fecha === new Date().toISOString().slice(0, 10),
+  ).length;
 
   return (
-    <div className="space-y-6">
-      {/* Header compacto */}
+    <div className="page-shell space-y-6 pb-12">
       <EnhancedHeader
-        title="Facturación"
-        subtitle="Emisión, control y seguimiento de facturas"
+        title="Facturacion"
+        subtitle="Emision, control comercial y trazabilidad contable dentro de una mesa operativa unica."
         badge={{
           text: `${facturas.length} facturas`,
-          variant: "secondary"
+          variant: "secondary",
         }}
         actions={
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={() => setShowAccountingHistory(true)}>
-              <FileText className="w-4 h-4 mr-1.5" />
+              <FileText className="mr-1.5 h-4 w-4" />
               Asientos
             </Button>
             <Button size="sm" variant="outline" onClick={() => setShowDeclaracionIVA(true)}>
-              <BarChart className="w-4 h-4 mr-1.5" />
+              <BarChart className="mr-1.5 h-4 w-4" />
               IVA
             </Button>
-            <Button 
-              size="sm"
-              onClick={() => setShowNewInvoice(true)}
-            >
-              <Plus className="w-4 h-4 mr-1.5" />
-              Nueva Factura
+            <Button size="sm" onClick={() => setShowNewInvoice(true)}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Nueva factura
             </Button>
           </div>
         }
       />
 
-      <Alert className="border-amber-300 bg-amber-50">
-        <Shield className="h-4 w-4 text-amber-700" />
-        <AlertDescription className="text-amber-900">
-          La validación con el SIN en este módulo sigue en modo demostración. Al 22 de marzo de 2026,
-          el sistema todavía no usa servicios oficiales de CUIS/CUFD, recepción ni anulación productiva.
-        </AlertDescription>
-      </Alert>
+      <div className="hero-panel rounded-[2rem] p-6">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_360px]">
+          <div className="space-y-4">
+            <Alert className="border-amber-300 bg-amber-50/95 shadow-sm">
+              <Shield className="h-4 w-4 text-amber-700" />
+              <AlertDescription className="text-amber-900">
+                La validacion con el SIN en este modulo sigue en modo demostracion. Al 22 de
+                marzo de 2026, el sistema aun no usa servicios oficiales de CUIS/CUFD,
+                recepcion ni anulacion productiva.
+              </AlertDescription>
+            </Alert>
 
-      {/* KPIs en línea compacta */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card animate-slide-up stagger-1 hover-lift">
-          <div className="p-2 rounded-lg bg-primary/10"><FileText className="w-4 h-4 text-primary" /></div>
-          <div>
-            <p className="text-xl font-bold">{facturas.length}</p>
-            <p className="text-xs text-muted-foreground">Total</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  Centro de operacion
+                </p>
+                <h3 className="mt-2 text-lg font-semibold text-slate-950">
+                  Mesa comercial y tributaria
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Emite facturas, controla cobranza, revisa el estado tributario y manten la
+                  trazabilidad contable en un solo flujo.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-semibold">
+                    {configuracionTributaria?.modalidad_facturacion || "Modalidad por definir"}
+                  </Badge>
+                  <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-semibold">
+                    {facturasEnviadas} pendientes de cobro
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-slate-950 p-5 text-slate-50 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  Radar normativo
+                </p>
+                <div className="mt-3 space-y-3">
+                  {normativasAlerts.length > 0 ? (
+                    normativasAlerts.slice(0, 2).map((alerta) => (
+                      <div
+                        key={alerta.id}
+                        className="rounded-2xl border border-white/10 bg-white/5 p-3"
+                      >
+                        <p className="text-sm font-semibold">
+                          {alerta.titulo || "Actualizacion vigente"}
+                        </p>
+                        <p className="mt-1 text-xs leading-5 text-slate-300">
+                          {alerta.resumen ||
+                            "Normativa vigente asociada al frente de facturacion e IVA."}
+                        </p>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                      <p className="text-sm font-semibold">Sin alertas regulatorias cargadas</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-300">
+                        Cuando existan normativas vigentes de IVA o facturacion se mostraran
+                        aqui para el equipo administrativo.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card animate-slide-up stagger-2 hover-lift">
-          <div className="p-2 rounded-lg bg-success/10"><DollarSign className="w-4 h-4 text-success" /></div>
-          <div>
-            <p className="text-xl font-bold">Bs {ingresosMes.toLocaleString()}</p>
-            <p className="text-xs text-muted-foreground">Cobrado</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card animate-slide-up stagger-3 hover-lift">
-          <div className="p-2 rounded-lg bg-warning/10"><AlertCircle className="w-4 h-4 text-warning" /></div>
-          <div>
-            <p className="text-xl font-bold">{facturasEnviadas}</p>
-            <p className="text-xs text-muted-foreground">Pendientes</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card animate-slide-up stagger-4 hover-lift">
-          <div className="p-2 rounded-lg bg-success/10"><CheckCircle className="w-4 h-4 text-success" /></div>
-          <div>
-            <p className="text-xl font-bold">{facturas.length > 0 ? (((facturas.length - facturasRechazadas) / facturas.length) * 100).toFixed(0) : 100}%</p>
-            <p className="text-xs text-muted-foreground">Éxito SIN</p>
+
+          <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+              Pulso del dia
+            </p>
+            <div className="mt-4 space-y-4">
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Facturas emitidas hoy</p>
+                  <p className="text-xs text-slate-500">Actividad comercial de la jornada</p>
+                </div>
+                <p className="text-2xl font-bold text-slate-950">{facturasHoy}</p>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Facturas cobradas</p>
+                  <p className="text-xs text-slate-500">Operaciones ya cerradas</p>
+                </div>
+                <p className="text-2xl font-bold text-emerald-700">{facturasPagadas}</p>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Clientes activos</p>
+                  <p className="text-xs text-slate-500">Base comercial disponible</p>
+                </div>
+                <p className="text-2xl font-bold text-slate-950">{clientes.length}</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Resumen */}
+      <MetricGrid columns={4}>
+        <EnhancedMetricCard
+          title="Facturas registradas"
+          value={facturas.length}
+          subtitle="Documentos comerciales en el perimetro"
+          icon={FileText}
+        />
+        <EnhancedMetricCard
+          title="Cobranza acumulada"
+          value={`Bs ${ingresosMes.toLocaleString()}`}
+          subtitle="Facturas pagadas y cerradas"
+          icon={DollarSign}
+          variant="success"
+        />
+        <EnhancedMetricCard
+          title="Pendientes de gestion"
+          value={facturasEnviadas}
+          subtitle="Facturas emitidas aun no cobradas"
+          icon={AlertCircle}
+          variant="warning"
+        />
+        <EnhancedMetricCard
+          title="Aceptacion demostrada"
+          value={`${facturas.length > 0 ? (((facturas.length - facturasRechazadas) / facturas.length) * 100).toFixed(0) : 100}%`}
+          subtitle="Tasa de respuesta positiva en el entorno actual"
+          icon={CheckCircle}
+        />
+      </MetricGrid>
+
       <InvoiceSummary facturas={facturas} />
 
-      {/* Lista de Facturas */}
-      <Section title="Facturas" subtitle="Lista con acciones rápidas">
-        <InvoiceList 
-          facturas={facturas} 
-          onShowDetails={handleShowDetails}
-          onUpdateStatus={handleUpdateInvoiceStatus}
-        />
-      </Section>
-      
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <Section title="Facturas" subtitle="Lista con acciones rapidas">
+          <InvoiceList
+            facturas={facturas}
+            onShowDetails={handleShowDetails}
+            onUpdateStatus={handleUpdateInvoiceStatus}
+          />
+        </Section>
+
+        <Section title="Siguiente foco" subtitle="Acciones para acelerar la operacion">
+          <div className="space-y-4">
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="rounded-2xl bg-primary/10 p-2.5">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-950">Seguimiento comercial</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    {facturasEnviadas > 0
+                      ? `Hay ${facturasEnviadas} facturas enviadas que conviene gestionar para acelerar cobranza y flujo de caja.`
+                      : "No hay facturas pendientes de cobro en este momento."}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="rounded-2xl bg-emerald-100 p-2.5">
+                  <Activity className="h-5 w-5 text-emerald-700" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-950">Estado del circuito</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    {clientesLoading || facturasLoading
+                      ? "Actualizando base comercial y tributaria."
+                      : `La cartera opera con ${clientes.length} clientes y ${facturasPagadas} facturas ya cobradas.`}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-slate-950 p-5 text-slate-50 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                Auditoria tributaria
+              </p>
+              <p className="mt-3 text-sm leading-6 text-slate-300">
+                El frente de facturacion sigue preparado para operacion comercial, pero la
+                conexion productiva con servicios oficiales del SIN aun debe completarse.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Badge
+                  variant="secondary"
+                  className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-slate-100"
+                >
+                  CUIS/CUFD pendiente
+                </Badge>
+                <Badge
+                  variant="secondary"
+                  className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-slate-100"
+                >
+                  Recepcion productiva pendiente
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </Section>
+      </div>
+
       {selectedInvoice && (
         <Dialog open={isDetailViewOpen} onOpenChange={setIsDetailViewOpen}>
           <DialogContent className="max-w-4xl p-0" aria-describedby="invoice-preview-description">
