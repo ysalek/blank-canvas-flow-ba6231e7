@@ -188,7 +188,7 @@ export const useProductosValidated = () => {
           }
           
           categoriasData = categoriasResult.data || [];
-          console.log('✅ [ProductosValidated] Categorías cargadas:', categoriasData.length);
+          
           break;
         } catch (error: any) {
           console.error(`❌ [ProductosValidated] Error cargando categorías (intento ${attempt}):`, error);
