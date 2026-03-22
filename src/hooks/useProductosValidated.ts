@@ -70,9 +70,7 @@ export const useProductosValidated = () => {
   const requestIdRef = useRef(0);
   const lastAuthLoadRef = useRef(0);
 
-  // Validar conectividad
   const validateConnectivity = useCallback(async (): Promise<ConnectivityStatus> => {
-    console.log('🔍 [ProductosValidated] Validando conectividad...');
     
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -86,8 +84,7 @@ export const useProductosValidated = () => {
       };
       
       setConnectivity(status);
-      console.log('✅ [ProductosValidated] Estado de conectividad:', status);
-      
+
       return status;
     } catch (error: any) {
       console.error('❌ [ProductosValidated] Error de conectividad:', error);
@@ -142,11 +139,10 @@ export const useProductosValidated = () => {
 
   // Función principal de carga de datos
   const loadData = useCallback(async (force: boolean = false) => {
-    console.log('🚀 [ProductosValidated] Iniciando carga de datos...', { force, loading: loadingRef.current });
     
     // Block concurrent loads even with force
     if (loadingRef.current) {
-      console.log('🛑 [ProductosValidated] Carga ya en proceso, ignorando');
+
       return;
     }
     
@@ -172,7 +168,6 @@ export const useProductosValidated = () => {
         throw new Error('Usuario no autenticado');
       }
       
-      console.log('✅ [ProductosValidated] Usuario autenticado, cargando datos...');
       
       // Cargar datos en paralelo con reintentos
       let categoriasData: CategoriaProducto[] = [];
@@ -181,7 +176,7 @@ export const useProductosValidated = () => {
       // Reintentos para categorías
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          console.log(`🔄 [ProductosValidated] Intento ${attempt} - Cargando categorías...`);
+          
           const categoriasResult = await supabase
             .from('categorias_productos')
             .select('id, nombre, descripcion, activo, created_at, updated_at')
@@ -193,7 +188,7 @@ export const useProductosValidated = () => {
           }
           
           categoriasData = categoriasResult.data || [];
-          console.log('✅ [ProductosValidated] Categorías cargadas:', categoriasData.length);
+          
           break;
         } catch (error: any) {
           console.error(`❌ [ProductosValidated] Error cargando categorías (intento ${attempt}):`, error);
@@ -205,7 +200,7 @@ export const useProductosValidated = () => {
       // Reintentos para productos
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          console.log(`🔄 [ProductosValidated] Intento ${attempt} - Cargando productos...`);
+          
           const productosResult = await supabase
             .from('productos')
             .select('id, codigo, nombre, descripcion, categoria_id, unidad_medida, precio_venta, precio_compra, costo_unitario, stock_actual, stock_minimo, codigo_sin, activo, imagen_url, created_at, updated_at')
@@ -217,7 +212,7 @@ export const useProductosValidated = () => {
           }
           
           productosData = productosResult.data || [];
-          console.log('✅ [ProductosValidated] Productos cargados:', productosData.length);
+          
           break;
         } catch (error: any) {
           console.error(`❌ [ProductosValidated] Error cargando productos (intento ${attempt}):`, error);
@@ -237,10 +232,7 @@ export const useProductosValidated = () => {
         setProductos(productosTransformados);
         setError(null);
         
-        console.log('✅ [ProductosValidated] Datos sincronizados:', {
-          productos: productosTransformados.length,
-          categorias: categoriasData.length
-        });
+        
       }
       
     } catch (error: any) {
@@ -462,7 +454,6 @@ export const useProductosValidated = () => {
 
   // Inicialización
   useEffect(() => {
-    console.log('🎯 [ProductosValidated] Inicializando...');
     loadData();
     
     return () => {
