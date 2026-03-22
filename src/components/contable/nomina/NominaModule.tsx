@@ -278,6 +278,11 @@ const buildAsientoNomina = (planilla: PlanillaNominaAuditada) => {
 };
 
 const NominaModule = () => {
+  const getTabFromUrl = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get("tab") || "planillas";
+  };
+
   const { toast } = useToast();
   const { guardarAsiento } = useContabilidadIntegration();
   const { empleados: empleadosSupabase, loading: loadingEmpleados, crearEmpleado, actualizarEmpleado, generarNumeroEmpleado } = useSupabaseEmpleados();
@@ -290,6 +295,7 @@ const NominaModule = () => {
   const [editingEmpleado, setEditingEmpleado] = useState<EmpleadoNomina | null>(null);
   const [selectedPlanillaId, setSelectedPlanillaId] = useState("");
   const [facturaPeriodo, setFacturaPeriodo] = useState(new Date().toISOString().slice(0, 7));
+  const [activeTab, setActiveTab] = useState(getTabFromUrl);
 
   const empleados = useMemo(() => empleadosSupabase.map(toEmpleadoNomina), [empleadosSupabase]);
   const selectedPlanilla = useMemo(() => planillas.find((item) => item.id === selectedPlanillaId) || planillas[0] || null, [planillas, selectedPlanillaId]);
@@ -297,6 +303,22 @@ const NominaModule = () => {
   useEffect(() => {
     if (!selectedPlanillaId && planillas[0]) setSelectedPlanillaId(planillas[0].id);
   }, [planillas, selectedPlanillaId]);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const periodo = urlParams.get("periodo");
+    if (!periodo) return;
+    const planilla = planillas.find((item) => item.periodo === periodo);
+    if (planilla) {
+      setSelectedPlanillaId(planilla.id);
+    }
+  }, [planillas]);
+
+  useEffect(() => {
+    const handlePopState = () => setActiveTab(getTabFromUrl());
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const loading = loadingEmpleados || loadingNomina;
   const empleadosActivos = empleados.filter((empleado) => empleado.estado === "activo");
@@ -495,6 +517,14 @@ const NominaModule = () => {
     XLSX.writeFile(workbook, `Formulario_110_RCIVA_${facturaPeriodo}.xlsx`);
   };
 
+  const handleTabChange = (tab: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", "nomina");
+    url.searchParams.set("tab", tab);
+    window.history.pushState({}, "", `${url.pathname}${url.search}`);
+    setActiveTab(tab);
+  };
+
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_38%),linear-gradient(135deg,#ffffff_0%,#f8fafc_45%,#eff6ff_100%)] p-6 shadow-sm">
@@ -533,7 +563,7 @@ const NominaModule = () => {
         <MetricCard icon={Receipt} title="Facturas RC-IVA" value={facturasRCIVA.filter((item) => item.periodo === facturaPeriodo).length.toString()} detail={`Credito fiscal Bs ${currency(totalRCIVAPeriodo)}`} tone="slate" />
       </div>
 
-      <Tabs defaultValue="planillas" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList className="flex h-auto flex-wrap gap-2 rounded-2xl bg-slate-100 p-2">
           <TabsTrigger value="planillas" className="rounded-xl">Planillas</TabsTrigger>
           <TabsTrigger value="empleados" className="rounded-xl">Empleados</TabsTrigger>

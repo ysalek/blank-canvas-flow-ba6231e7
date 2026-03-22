@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { calculateMetricAlert, getAlertColor } from '@/utils/metricsUtils';
+import { calculateMetricAlert } from '@/utils/metricsUtils';
 import { supabase } from '@/integrations/supabase/client';
+import { useCumplimientoEjecutivo } from '@/hooks/useCumplimientoEjecutivo';
 import { 
   Activity, 
   Database, 
@@ -23,11 +24,30 @@ interface HealthMetric {
   lastCheck: Date;
 }
 
+interface BrowserMemoryMetrics {
+  usedJSHeapSize: number;
+  totalJSHeapSize: number;
+}
+
+interface PerformanceWithMemory extends Performance {
+  memory?: BrowserMemoryMetrics;
+}
+
+interface CuentaAsientoHealth {
+  debe: number | string | null;
+  haber: number | string | null;
+}
+
+interface AsientoHealthRow {
+  cuentas_asientos?: CuentaAsientoHealth[] | null;
+}
+
 export const SystemHealth: React.FC = () => {
   const [healthMetrics, setHealthMetrics] = useState<HealthMetric[]>([]);
   const [overallHealth, setOverallHealth] = useState<number>(100);
+  const { metrics: complianceMetrics, loading: complianceLoading } = useCumplimientoEjecutivo();
 
-  const checkSystemHealth = async () => {
+  const checkSystemHealth = useCallback(async () => {
     const metrics: HealthMetric[] = [];
 
     // Database Health - Using Supabase (filtered by user_id)
@@ -78,8 +98,9 @@ export const SystemHealth: React.FC = () => {
     let memoryDescription = 'Información de memoria no disponible';
     
     try {
-      if ('memory' in performance && (performance as any).memory) {
-        const memory = (performance as any).memory;
+      const performanceWithMemory = performance as PerformanceWithMemory;
+      if (performanceWithMemory.memory) {
+        const memory = performanceWithMemory.memory;
         if (memory.usedJSHeapSize && memory.totalJSHeapSize) {
           memoryUsage = Math.round((memory.usedJSHeapSize / memory.totalJSHeapSize) * 100);
           memoryDescription = `${memoryUsage}% de memoria utilizada`;
@@ -171,10 +192,10 @@ export const SystemHealth: React.FC = () => {
       
       let unbalanced = 0;
       if (asientos) {
-        asientos.forEach((asiento: any) => {
+        (asientos as AsientoHealthRow[]).forEach((asiento) => {
           const cuentas = asiento.cuentas_asientos || [];
-          const debe = cuentas.reduce((sum: number, cuenta: any) => sum + (parseFloat(cuenta.debe) || 0), 0);
-          const haber = cuentas.reduce((sum: number, cuenta: any) => sum + (parseFloat(cuenta.haber) || 0), 0);
+          const debe = cuentas.reduce((sum: number, cuenta) => sum + (parseFloat(String(cuenta.debe || 0)) || 0), 0);
+          const haber = cuentas.reduce((sum: number, cuenta) => sum + (parseFloat(String(cuenta.haber || 0)) || 0), 0);
           if (Math.abs(debe - haber) > 0.01) unbalanced++;
         });
         integrityScore = asientos.length > 0 ? Math.max(0, 100 - (unbalanced / asientos.length * 100)) : 100;
@@ -190,6 +211,22 @@ export const SystemHealth: React.FC = () => {
       value: integrityScore,
       status: integrityAlert.level === 'normal' ? 'good' : integrityAlert.level === 'warning' ? 'warning' : 'critical',
       description: `${Math.round(integrityScore)}% de datos íntegros`,
+      lastCheck: new Date()
+    });
+
+    const cumplimientoIssues =
+      complianceMetrics.criticalAlerts * 25 +
+      complianceMetrics.declaracionesPendientes * 8 +
+      complianceMetrics.conciliacionesAbiertas * 8 +
+      complianceMetrics.planillasPendientes * 6 +
+      complianceMetrics.retencionesPendientes * 4;
+    const cumplimientoScore = Math.max(0, 100 - cumplimientoIssues);
+    const cumplimientoAlert = calculateMetricAlert(Math.max(0, 100 - cumplimientoScore));
+    metrics.push({
+      name: 'Cierre Contable',
+      value: cumplimientoScore,
+      status: cumplimientoAlert.level === 'normal' ? 'good' : cumplimientoAlert.level === 'warning' ? 'warning' : 'critical',
+      description: `${complianceMetrics.totalAlerts} alertas, ${complianceMetrics.declaracionesPendientes} declaraciones pendientes y ${complianceMetrics.conciliacionesAbiertas} conciliaciones abiertas`,
       lastCheck: new Date()
     });
 
@@ -216,7 +253,7 @@ export const SystemHealth: React.FC = () => {
     //     variant: "default"
     //   });
     // }
-  };
+  }, [complianceMetrics]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -244,10 +281,11 @@ export const SystemHealth: React.FC = () => {
   };
 
   useEffect(() => {
+    if (complianceLoading) return;
     checkSystemHealth();
     const interval = setInterval(checkSystemHealth, 120000); // Check every 2 minutes
     return () => clearInterval(interval);
-  }, []);
+  }, [checkSystemHealth, complianceLoading]);
 
   const overallStatus = getOverallStatus();
   const StatusIcon = overallStatus.icon;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Calendar,
@@ -232,6 +232,29 @@ const DeclaracionesTributariasModule = () => {
 
   const totalPendiente = resumen.totalDeterminado - resumen.totalPagado;
 
+  const [filtroTipo, setFiltroTipo] = useState<string>("todos");
+  const [filtroPeriodo, setFiltroPeriodo] = useState<string>("");
+
+  useEffect(() => {
+    const applyUrlFilters = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      setFiltroTipo(urlParams.get("tipo") || "todos");
+      setFiltroPeriodo(urlParams.get("periodo") || "");
+    };
+
+    applyUrlFilters();
+    window.addEventListener("popstate", applyUrlFilters);
+    return () => window.removeEventListener("popstate", applyUrlFilters);
+  }, []);
+
+  const declaracionesFiltradas = useMemo(() => {
+    return declaraciones.filter((item) => {
+      const matchesTipo = filtroTipo === "todos" || item.tipo === filtroTipo;
+      const matchesPeriodo = !filtroPeriodo || item.periodo === filtroPeriodo;
+      return matchesTipo && matchesPeriodo;
+    });
+  }, [declaraciones, filtroPeriodo, filtroTipo]);
+
   const diasRetraso = useMemo(() => {
     const vencimiento = new Date(`${estimador.fechaVencimiento}T00:00:00`);
     const pago = new Date(`${estimador.fechaPago}T00:00:00`);
@@ -309,6 +332,14 @@ const DeclaracionesTributariasModule = () => {
         Este modulo ya no depende del navegador para el historial de declaraciones. Los registros se guardan
         en Supabase y, si existian datos heredados en almacenamiento local, se migran una sola vez.
       </div>
+
+      {(filtroTipo !== "todos" || filtroPeriodo) && (
+        <div className="rounded-lg border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+          Vista enfocada:
+          {filtroTipo !== "todos" && <strong> tipo {filtroTipo}</strong>}
+          {filtroPeriodo && <strong> periodo {filtroPeriodo}</strong>}.
+        </div>
+      )}
 
       {configFiscal.regimen !== "general" && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -493,9 +524,9 @@ const DeclaracionesTributariasModule = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {declaraciones.length === 0 ? (
+              {declaracionesFiltradas.length === 0 ? (
                 <div className="rounded-lg border border-dashed p-8 text-center text-slate-500">
-                  Aun no hay declaraciones registradas. Puedes crear la primera desde este modulo.
+                  No hay declaraciones que coincidan con el contexto actual. Puedes crear una nueva desde este modulo.
                 </div>
               ) : (
                 <Table>
@@ -512,7 +543,7 @@ const DeclaracionesTributariasModule = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {declaraciones.map((declaracion) => (
+                    {declaracionesFiltradas.map((declaracion) => (
                       <TableRow key={declaracion.id}>
                         <TableCell>
                           <div>

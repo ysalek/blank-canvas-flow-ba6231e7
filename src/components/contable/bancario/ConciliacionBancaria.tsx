@@ -178,6 +178,26 @@ const ConciliacionBancaria = () => {
     }
   }, [cuentasActivas, cuentasBancarias, selectedCuentaId]);
 
+  useEffect(() => {
+    const applyUrlContext = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const cuentaId = urlParams.get("cuenta_id");
+      const fecha = urlParams.get("fecha_corte");
+
+      if (cuentaId && cuentasBancarias.some((cuenta) => cuenta.id === cuentaId)) {
+        setSelectedCuentaId(cuentaId);
+      }
+
+      if (fecha) {
+        setFechaCorte(fecha);
+      }
+    };
+
+    applyUrlContext();
+    window.addEventListener("popstate", applyUrlContext);
+    return () => window.removeEventListener("popstate", applyUrlContext);
+  }, [cuentasBancarias]);
+
   const selectedCuenta = useMemo(
     () =>
       cuentasBancarias.find((cuenta) => cuenta.id === selectedCuentaId) ||

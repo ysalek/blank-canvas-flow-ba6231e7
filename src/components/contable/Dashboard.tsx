@@ -16,6 +16,7 @@ import SystemHealth from './dashboard/SystemHealth';
 import { useProductosValidated } from '@/hooks/useProductosValidated';
 import { useClientesSupabase } from '@/hooks/useClientesSupabase';
 import { useFacturas } from '@/hooks/useFacturas';
+import { useCumplimientoEjecutivo } from '@/hooks/useCumplimientoEjecutivo';
 
 const Dashboard = () => {
   const fechaActual = useMemo(() => new Date().toLocaleDateString('es-BO', {
@@ -29,6 +30,7 @@ const Dashboard = () => {
   const { productos, loading: productosLoading } = useProductosValidated();
   const { clientes, loading: clientesLoading } = useClientesSupabase();
   const { facturas, loading: facturasLoading } = useFacturas();
+  const { metrics: complianceMetrics, alerts: complianceAlerts, loading: complianceLoading } = useCumplimientoEjecutivo();
 
   const today = new Date().toISOString().slice(0, 10);
   const thisMonth = new Date().toISOString().slice(0, 7);
@@ -53,13 +55,26 @@ const Dashboard = () => {
     return { ventasHoy, ventasMes, crecimiento, clientesActivos, clientesNuevos, ticket, valorInv, stockBajo, pendientes, cobranza, rotacion, facturasDelMes: facturasDelMes.length };
   }, [facturas, clientes, productos, today, thisMonth, lastMonthStr]);
 
-  const navigateTo = (view: string) => {
-    window.history.pushState({}, '', `/?view=${view}`);
+  const navigateTo = (view: string, params?: Record<string, string>) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', view);
+    Object.entries(params || {}).forEach(([key, value]) => url.searchParams.set(key, value));
+    window.history.pushState({}, '', `${url.pathname}${url.search}`);
     window.dispatchEvent(new PopStateEvent('popstate'));
   };
 
-  const isLoading = facturasLoading || productosLoading || clientesLoading;
+  const navigateFromAlert = (alert: (typeof complianceAlerts)[number]) => {
+    if (alert.navigation) {
+      navigateTo(alert.navigation.view, alert.navigation.params);
+      return;
+    }
+    navigateTo('cumplimiento-normativo', { tab: 'requisitos' });
+  };
+
+  const isLoading = facturasLoading || productosLoading || clientesLoading || complianceLoading;
   const balanceCuadrado = Math.abs(balance.activos - (balance.pasivos + balance.patrimonio)) <= 0.01;
+  const alertasCriticas = complianceAlerts.filter(a => a.priority === 'critical' && a.id !== 'sin-alertas').length;
+  const alertasActivas = complianceAlerts.filter(a => a.id !== 'sin-alertas').length;
 
   return (
     <div className="space-y-6 pb-12">
@@ -142,6 +157,97 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),_transparent_35%),linear-gradient(135deg,#ffffff_0%,#f8fafc_48%,#ecfeff_100%)] p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Centro de cierre</p>
+            <h2 className="mt-1 text-xl font-semibold text-slate-950">Salud contable, tributaria y operativa</h2>
+            <p className="mt-1 max-w-3xl text-sm text-slate-600">
+              Este bloque consolida declaraciones, conciliacion bancaria, nomina y cumplimiento normativo directamente desde la base real.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => navigateTo('cumplimiento-normativo', { tab: 'requisitos' })}>Cumplimiento</Button>
+            <Button variant="outline" onClick={() => navigateTo('declaraciones-tributarias')}>Declaraciones</Button>
+            <Button variant="outline" onClick={() => navigateTo('conciliacion-bancaria')}>Tesoreria</Button>
+            <Button onClick={() => navigateTo('nomina', { tab: 'planillas' })}>Nomina</Button>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Card className="border-rose-200 bg-rose-50/90">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-rose-700">Alertas criticas</p>
+                  <p className="mt-2 text-2xl font-bold text-rose-950">{alertasCriticas}</p>
+                  <p className="text-xs text-rose-700">Hallazgos de cierre que requieren accion</p>
+                </div>
+                <AlertTriangle className="h-6 w-6 text-rose-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-amber-200 bg-amber-50/90">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-amber-700">Declaraciones pendientes</p>
+                  <p className="mt-2 text-2xl font-bold text-amber-950">{complianceMetrics.declaracionesPendientes}</p>
+                  <p className="text-xs text-amber-700">Obligaciones aun no presentadas</p>
+                </div>
+                <Calendar className="h-6 w-6 text-amber-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-sky-200 bg-sky-50/90">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-sky-700">Conciliaciones abiertas</p>
+                  <p className="mt-2 text-2xl font-bold text-sky-950">{complianceMetrics.conciliacionesAbiertas}</p>
+                  <p className="text-xs text-sky-700">Cortes bancarios pendientes de cierre</p>
+                </div>
+                <CreditCard className="h-6 w-6 text-sky-600" />
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="border-emerald-200 bg-emerald-50/90">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-emerald-700">Planillas pendientes</p>
+                  <p className="mt-2 text-2xl font-bold text-emerald-950">{complianceMetrics.planillasPendientes}</p>
+                  <p className="text-xs text-emerald-700">Nomina aun no pagada o sin cierre</p>
+                </div>
+                <Users className="h-6 w-6 text-emerald-600" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {alertasActivas > 0 && (
+          <div className="mt-5 grid grid-cols-1 gap-3 xl:grid-cols-3">
+            {complianceAlerts
+              .filter(alert => alert.id !== 'sin-alertas')
+              .slice(0, 3)
+              .map((alert) => (
+                <button
+                  key={alert.id}
+                  onClick={() => navigateFromAlert(alert)}
+                  className="rounded-2xl border border-slate-200 bg-white/90 p-4 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{alert.priority.toUpperCase()}</Badge>
+                    <Badge variant="outline">{alert.source}</Badge>
+                  </div>
+                  <p className="mt-3 font-semibold text-slate-900">{alert.title}</p>
+                  <p className="mt-1 text-sm text-slate-600">{alert.description}</p>
+                </button>
+              ))}
+          </div>
+        )}
       </div>
 
       {/* Accesos rápidos */}
@@ -248,10 +354,10 @@ const Dashboard = () => {
       </div>
 
       {/* Alertas */}
-      {(metrics.stockBajo > 0 || metrics.pendientes > 0 || !balanceCuadrado) && (
+      {(metrics.stockBajo > 0 || metrics.pendientes > 0 || !balanceCuadrado || alertasActivas > 0) && (
         <div>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Alertas</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             {!balanceCuadrado && (
               <Card className="border-l-4 border-l-destructive bg-destructive/5">
                 <CardContent className="p-4 flex items-start gap-3">
@@ -281,6 +387,17 @@ const Dashboard = () => {
                   <div>
                     <p className="font-semibold text-warning text-sm">Cuentas por Cobrar</p>
                     <p className="text-xs text-muted-foreground">{metrics.pendientes} facturas pendientes</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {alertasActivas > 0 && (
+              <Card className="border-l-4 border-l-rose-500 bg-rose-50/60 cursor-pointer" onClick={() => navigateTo('cumplimiento-normativo', { tab: 'requisitos' })}>
+                <CardContent className="p-4 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-rose-600 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="font-semibold text-rose-700 text-sm">Cierre y Cumplimiento</p>
+                    <p className="text-xs text-muted-foreground">{alertasActivas} alertas activas en tesoreria, nomina o declaraciones</p>
                   </div>
                 </CardContent>
               </Card>

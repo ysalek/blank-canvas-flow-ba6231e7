@@ -22,9 +22,15 @@ import {
 import { normativaService, NormativaVigente, RequisitosCumplimiento } from "@/services/normativaService";
 
 const CumplimientoNormativoModule = () => {
+  const getTabFromUrl = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('tab') || 'requisitos';
+  };
+
   const [normativas, setNormativas] = useState<NormativaVigente[]>([]);
   const [requisitos, setRequisitos] = useState<RequisitosCumplimiento[]>([]);
   const [alertas, setAlertas] = useState<RequisitosCumplimiento[]>([]);
+  const [activeTab, setActiveTab] = useState(getTabFromUrl);
   const [resumen, setResumen] = useState({
     total: 0,
     cumplidos: 0,
@@ -36,6 +42,12 @@ const CumplimientoNormativoModule = () => {
 
   useEffect(() => {
     cargarDatos();
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => setActiveTab(getTabFromUrl());
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   const cargarDatos = () => {
@@ -84,6 +96,14 @@ const CumplimientoNormativoModule = () => {
 
   const getDiasRestantes = (fechaLimite: string) => {
     return normativaService.getDiasHastaVencimiento(fechaLimite);
+  };
+
+  const handleTabChange = (tab: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', 'cumplimiento-normativo');
+    url.searchParams.set('tab', tab);
+    window.history.pushState({}, '', `${url.pathname}${url.search}`);
+    setActiveTab(tab);
   };
 
   return (
@@ -160,7 +180,7 @@ const CumplimientoNormativoModule = () => {
         </div>
 
         {/* Contenido principal */}
-        <Tabs defaultValue="requisitos" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
           <TabsList>
             <TabsTrigger value="requisitos">
               <Shield className="h-4 w-4 mr-2" />

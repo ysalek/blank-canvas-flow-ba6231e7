@@ -16,6 +16,10 @@ export interface ComplianceAlertItem {
   deadline?: string;
   actions: string[];
   source: string;
+  navigation?: {
+    view: string;
+    params?: Record<string, string>;
+  };
 }
 
 export interface AutomatedReportItem {
@@ -187,6 +191,9 @@ export const useCumplimientoEjecutivo = () => {
         description: "Faltan datos base de la empresa para sostener declaraciones, libros y trazabilidad de cumplimiento.",
         actions: ["Completar NIT", "Registrar razon social", "Validar actividad economica y regimen"],
         source: "Configuracion tributaria",
+        navigation: {
+          view: "configuracion",
+        },
       });
     }
 
@@ -201,6 +208,13 @@ export const useCumplimientoEjecutivo = () => {
         deadline: overdueDeclaraciones[0].fecha_vencimiento,
         actions: ["Revisar modulo de declaraciones", "Regularizar presentacion y pago", "Documentar contingencia tributaria"],
         source: "Declaraciones tributarias",
+        navigation: {
+          view: "declaraciones-tributarias",
+          params: {
+            periodo: overdueDeclaraciones[0].periodo,
+            tipo: overdueDeclaraciones[0].tipo.toLowerCase(),
+          },
+        },
       });
     }
 
@@ -215,6 +229,13 @@ export const useCumplimientoEjecutivo = () => {
         deadline: upcomingDeclaraciones[0].fecha_vencimiento,
         actions: ["Preparar formularios", "Conciliar impuestos del periodo", "Aprobar pagos y soportes"],
         source: "Calendario tributario",
+        navigation: {
+          view: "declaraciones-tributarias",
+          params: {
+            periodo: upcomingDeclaraciones[0].periodo,
+            tipo: upcomingDeclaraciones[0].tipo.toLowerCase(),
+          },
+        },
       });
     }
 
@@ -229,6 +250,12 @@ export const useCumplimientoEjecutivo = () => {
         deadline: overdueCompliance[0].fecha_vigencia,
         actions: ["Actualizar seguimiento normativo", "Registrar evidencias de implementacion", "Escalar riesgos al responsable contable"],
         source: "Cumplimiento normativo",
+        navigation: {
+          view: "cumplimiento-normativo",
+          params: {
+            tab: "requisitos",
+          },
+        },
       });
     }
 
@@ -243,6 +270,12 @@ export const useCumplimientoEjecutivo = () => {
         deadline: conciliacionesConDiferencia[0].fecha_corte,
         actions: ["Revisar excepciones de banco", "Confirmar ajustes pendientes", "Cerrar la conciliacion antes del cierre mensual"],
         source: "Tesoreria",
+        navigation: {
+          view: "conciliacion-bancaria",
+          params: {
+            fecha_corte: conciliacionesConDiferencia[0].fecha_corte,
+          },
+        },
       });
     }
 
@@ -256,6 +289,13 @@ export const useCumplimientoEjecutivo = () => {
         description: "La nomina muestra periodos aun no pagados o no cerrados contablemente.",
         actions: ["Revisar aprobacion de planillas", "Registrar pago contable", "Verificar RC-IVA retenido del periodo"],
         source: "Nomina",
+        navigation: {
+          view: "nomina",
+          params: {
+            tab: "planillas",
+            periodo: planillasSinPago[0].periodo,
+          },
+        },
       });
     }
 
@@ -269,6 +309,9 @@ export const useCumplimientoEjecutivo = () => {
         description: "Hay retenciones emitidas que todavia no figuran como presentadas o regularizadas.",
         actions: ["Revisar RC-IVA y otras retenciones", "Preparar reporte mensual", "Confirmar asiento y declaracion relacionada"],
         source: "Retenciones fiscales",
+        navigation: {
+          view: "retenciones",
+        },
       });
     }
 
@@ -281,6 +324,9 @@ export const useCumplimientoEjecutivo = () => {
         description: "La lectura actual no detecta contingencias criticas en configuracion, declaraciones, nomina o conciliacion.",
         actions: ["Mantener monitoreo de cierre", "Actualizar reportes antes de vencimientos"],
         source: "Motor de control",
+        navigation: {
+          view: "dashboard",
+        },
       });
     }
 

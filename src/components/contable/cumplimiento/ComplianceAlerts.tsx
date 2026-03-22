@@ -23,6 +23,22 @@ const priorityClasses: Record<string, string> = {
 const ComplianceAlerts = () => {
   const { alerts, loading, metrics, refetch } = useCumplimientoEjecutivo();
 
+  const navigateTo = (view: string, params?: Record<string, string>) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", view);
+    Object.entries(params || {}).forEach(([key, value]) => url.searchParams.set(key, value));
+    window.history.pushState({}, "", `${url.pathname}${url.search}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
+  const handleAlertAction = (alert: (typeof alerts)[number]) => {
+    if (alert.navigation) {
+      navigateTo(alert.navigation.view, alert.navigation.params);
+      return;
+    }
+    navigateTo("cumplimiento-normativo", { tab: "requisitos" });
+  };
+
   if (loading) {
     return (
       <div className="py-10 text-center">
@@ -108,11 +124,9 @@ const ComplianceAlerts = () => {
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <Button asChild size="sm" variant="outline" className="bg-white/80">
-                      <a href="/?view=cumplimiento-normativo">
-                        Abrir modulo
-                        <ExternalLink className="ml-2 h-3.5 w-3.5" />
-                      </a>
+                    <Button size="sm" variant="outline" className="bg-white/80" onClick={() => handleAlertAction(alert)}>
+                      Abrir modulo
+                      <ExternalLink className="ml-2 h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
