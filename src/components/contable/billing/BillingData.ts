@@ -221,7 +221,7 @@ export const calcularTotal = (subtotalConDescuento: number): number => {
   return subtotalConDescuento;
 };
 
-// Códigos de actividad económica CAEB-SIN actualizados 2026 (RND 102500000018)
+// Códigos de actividad económica CAEB-SIN actualizados 2026 (RND 102500000018, vigente mayo 2025. Homologación prorrogada hasta 29/05/2026 por RND 102600000004)
 export const actividadesEconomicas = [
   { codigo: "620100", descripcion: "Programación informática y actividades relacionadas", ivaExento: false },
   { codigo: "620200", descripcion: "Consultoría informática y gestión de instalaciones", ivaExento: false },

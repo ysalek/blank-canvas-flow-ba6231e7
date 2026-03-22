@@ -539,11 +539,11 @@ class NormativaService {
       },
       {
         codigo: 'HOMOLOGACION-PRODUCTOS-RNC',
-        descripcion: 'Homologación de productos con actividades económicas del RNC (RND 102500000042)',
+        descripcion: 'Homologación de productos con actividades económicas del RNC (RND 102600000004 - prórroga)',
         obligatorio: true,
         frecuencia: 'eventual',
-        fechaLimite: '2026-02-27',
-        sancion: 'Inconsistencias en facturación',
+        fechaLimite: '2026-05-29',
+        sancion: 'Inconsistencias en facturación y rechazo de documentos fiscales',
         estado: 'pendiente'
       },
       {
@@ -553,6 +553,14 @@ class NormativaService {
         frecuencia: 'eventual',
         fechaLimite: '2026-03-31',
         sancion: 'Suspensión de actividades desde 01/04/2026',
+        estado: 'pendiente'
+      },
+      {
+        codigo: 'FACTURAS-PUNTOS-CONTROL',
+        descripcion: 'Facturas en modalidad en línea obligatorias para traslado de mercancías por puntos de control fronterizos (RND 102600000006)',
+        obligatorio: true,
+        frecuencia: 'eventual',
+        sancion: 'Decomiso de mercancía y multa',
         estado: 'pendiente'
       },
       {

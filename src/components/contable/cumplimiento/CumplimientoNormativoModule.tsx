@@ -255,9 +255,9 @@ const CumplimientoNormativoModule = () => {
           <TabsContent value="normativas" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Normativas Vigentes 2024-2025</CardTitle>
+                <CardTitle>Normativas Vigentes 2025-2026</CardTitle>
                 <CardDescription>
-                  Normativas contables y tributarias actualizadas
+                  Normativas contables y tributarias actualizadas a marzo 2026
                 </CardDescription>
               </CardHeader>
               <CardContent>
