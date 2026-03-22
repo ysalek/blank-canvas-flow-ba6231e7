@@ -94,7 +94,7 @@ const CumplimientoNormativoModule = () => {
           <div>
             <h1 className="text-3xl font-bold">Cumplimiento Normativo</h1>
             <p className="text-muted-foreground">
-              Gestión integral del cumplimiento de normativas bolivianas 2024-2025
+              Gestión integral del cumplimiento de normativas bolivianas 2025-2026 (actualizado marzo 2026)
             </p>
           </div>
           <Button onClick={cargarDatos} variant="outline">
@@ -255,9 +255,9 @@ const CumplimientoNormativoModule = () => {
           <TabsContent value="normativas" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Normativas Vigentes 2024-2025</CardTitle>
+                <CardTitle>Normativas Vigentes 2025-2026</CardTitle>
                 <CardDescription>
-                  Normativas contables y tributarias actualizadas
+                  Normativas contables y tributarias actualizadas a marzo 2026
                 </CardDescription>
               </CardHeader>
               <CardContent>

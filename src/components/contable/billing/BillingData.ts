@@ -178,8 +178,9 @@ export const simularValidacionSIN = (factura: Factura): Promise<Factura> => {
   });
 };
 
-// Normativa actualizada 2026 - IVA 13%
-// Sectores especiales según RNDs 2025-2026. Nota: DS 5503 abrogado por DS 5516 (enero 2026)
+// Normativa actualizada marzo 2026 - IVA 13%
+// DS 5503 abrogado por DS 5516 (enero 2026). DS 5563 (marzo 2026): depreciación acelerada + ICE.
+// RND 102600000001: transición beneficios DS 5503. RND 102600000005: reglamentación DS 5563.
 export const sectoresEspeciales = {
   biodiesel: { codigo: 54, tasa: 0 }, // Tasa cero según Ley 1613
   combustibleNoSubvencionado: { codigo: 55, tasa: 13 },
@@ -220,7 +221,7 @@ export const calcularTotal = (subtotalConDescuento: number): number => {
   return subtotalConDescuento;
 };
 
-// Códigos de actividad económica CAEB-SIN actualizados 2026 (RND 102500000018)
+// Códigos de actividad económica CAEB-SIN actualizados 2026 (RND 102500000018, vigente mayo 2025. Homologación prorrogada hasta 29/05/2026 por RND 102600000004)
 export const actividadesEconomicas = [
   { codigo: "620100", descripcion: "Programación informática y actividades relacionadas", ivaExento: false },
   { codigo: "620200", descripcion: "Consultoría informática y gestión de instalaciones", ivaExento: false },
