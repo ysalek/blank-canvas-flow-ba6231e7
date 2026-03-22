@@ -232,10 +232,7 @@ export const useProductosValidated = () => {
         setProductos(productosTransformados);
         setError(null);
         
-        console.log('✅ [ProductosValidated] Datos sincronizados:', {
-          productos: productosTransformados.length,
-          categorias: categoriasData.length
-        });
+        
       }
       
     } catch (error: any) {
