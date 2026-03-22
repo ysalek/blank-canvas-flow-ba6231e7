@@ -139,7 +139,6 @@ export const useProductosValidated = () => {
 
   // Función principal de carga de datos
   const loadData = useCallback(async (force: boolean = false) => {
-    console.log('🚀 [ProductosValidated] Iniciando carga de datos...', { force, loading: loadingRef.current });
     
     // Block concurrent loads even with force
     if (loadingRef.current) {
