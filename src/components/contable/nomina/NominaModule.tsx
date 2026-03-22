@@ -1,29 +1,41 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
-import { useSupabaseEmpleados, EmpleadoSupabase } from "@/hooks/useSupabaseEmpleados";
-import { 
-  Users, 
-  Plus, 
-  Edit, 
-  Calculator, 
-  DollarSign, 
-  Calendar,
-  FileText,
-  Download
+import { EmpleadoSupabase, useSupabaseEmpleados } from "@/hooks/useSupabaseEmpleados";
+import {
+  DetallePlanillaNomina,
+  FacturaRCIVANomina,
+  PlanillaNominaAuditada,
+  useNominaAuditable,
+} from "@/hooks/useNominaAuditable";
+import {
+  Calculator,
+  CalendarDays,
+  Download,
+  FileSpreadsheet,
+  Plus,
+  Receipt,
+  ShieldCheck,
+  Users,
+  Wallet,
 } from "lucide-react";
-import * as XLSX from '@e965/xlsx';
+import * as XLSX from "@e965/xlsx";
 
-interface Empleado {
+type EstadoEmpleadoNomina = "activo" | "inactivo";
+type TipoContrato = "indefinido" | "temporal" | "consultoria";
+
+interface EmpleadoNomina {
   id: string;
   nombre: string;
   apellido: string;
@@ -35,61 +47,28 @@ interface Empleado {
   telefono: string;
   email: string;
   cuentaBancaria: string;
-  estado: 'activo' | 'inactivo';
-  tipoContrato: 'indefinido' | 'temporal' | 'consultoria';
+  estado: EstadoEmpleadoNomina;
+  tipoContrato: TipoContrato;
 }
 
 interface ConceptoNomina {
   id: string;
   codigo: string;
   nombre: string;
-  tipo: 'ingreso' | 'descuento' | 'aporte_patronal';
+  tipo: "ingreso" | "descuento" | "aporte_patronal";
   formula: string;
   porcentaje?: number;
   montoFijo?: number;
   activo: boolean;
 }
 
-interface PlanillaNomina {
-  id: string;
-  periodo: string; // YYYY-MM
-  fechaGeneracion: string;
-  fechaPago: string;
-  estado: 'borrador' | 'aprobada' | 'pagada';
-  totalIngresos: number;
-  totalDescuentos: number;
-  totalAportesPatronales: number;
-  totalNeto: number;
-  empleados: DetalleNomina[];
+interface RCIVAResultado {
+  baseImponible: number;
+  impuesto: number;
+  creditoFiscal: number;
+  saldoPagar: number;
 }
 
-interface FacturaRCIVA {
-  id: string;
-  empleadoId: string;
-  periodo: string; // YYYY-MM
-  numeroFactura: string;
-  nitProveedor: string;
-  razonSocial: string;
-  fecha: string;
-  importeTotal: number;
-  codigoControl: string;
-}
-
-interface DetalleNomina {
-  empleadoId: string;
-  empleado: Empleado;
-  salarioBase: number;
-  ingresos: { [conceptoId: string]: number };
-  descuentos: { [conceptoId: string]: number };
-  aportesPatronales: { [conceptoId: string]: number };
-  totalIngresos: number;
-  totalDescuentos: number;
-  totalAportesPatronales: number;
-  salarioNeto: number;
-  rciva?: { baseImponible: number; impuesto: number; creditoFiscal: number; saldoPagar: number };
-}
-
-// Bono de Antigüedad según DS 21060 - Tabla oficial sobre 3 SMN (Bs 2,500 × 3 = Bs 7,500 para 2026)
 const TABLA_BONO_ANTIGUEDAD = [
   { desde: 2, hasta: 4, porcentaje: 5 },
   { desde: 5, hasta: 7, porcentaje: 11 },
@@ -100,181 +79,242 @@ const TABLA_BONO_ANTIGUEDAD = [
   { desde: 25, hasta: 99, porcentaje: 50 },
 ];
 
-const SMN_2026 = 2500; // Salario Mínimo Nacional estimado 2026
-const MINIMO_NO_IMPONIBLE_RCIVA = SMN_2026 * 4; // 4 SMN = Bs 10,000
+const SMN_2026 = 2500;
+const MINIMO_NO_IMPONIBLE_RCIVA = SMN_2026 * 4;
 
-const calcularBonoAntiguedad = (fechaIngreso: string): number => {
+const conceptosBasicos: ConceptoNomina[] = [
+  { id: "haber_basico", codigo: "HB", nombre: "Haber Basico", tipo: "ingreso", formula: "salarioBase", activo: true },
+  { id: "bono_antiguedad", codigo: "BA", nombre: "Bono de Antiguedad", tipo: "ingreso", formula: "bonoAntiguedad", activo: true },
+  { id: "afp_jubilacion", codigo: "AFP-JUB", nombre: "AFP Aporte Vejez (10%)", tipo: "descuento", formula: "totalGanado * 0.10", porcentaje: 10, activo: true },
+  { id: "afp_riesgo_comun", codigo: "AFP-RC", nombre: "AFP Riesgo Comun (1.71%)", tipo: "descuento", formula: "totalGanado * 0.0171", porcentaje: 1.71, activo: true },
+  { id: "afp_comision", codigo: "AFP-COM", nombre: "AFP Comision (0.5%)", tipo: "descuento", formula: "totalGanado * 0.005", porcentaje: 0.5, activo: true },
+  { id: "solidario", codigo: "SOL", nombre: "Aporte Solidario (0.5%)", tipo: "descuento", formula: "totalGanado * 0.005", porcentaje: 0.5, activo: true },
+  { id: "caja_salud", codigo: "CNS", nombre: "Caja Nacional de Salud (10%)", tipo: "aporte_patronal", formula: "totalGanado * 0.10", porcentaje: 10, activo: true },
+  { id: "riesgo_profesional", codigo: "RP-PAT", nombre: "Riesgo Profesional (1.71%)", tipo: "aporte_patronal", formula: "totalGanado * 0.0171", porcentaje: 1.71, activo: true },
+  { id: "vivienda", codigo: "VIV", nombre: "Pro Vivienda (2%)", tipo: "aporte_patronal", formula: "totalGanado * 0.02", porcentaje: 2, activo: true },
+  { id: "infocal", codigo: "INF", nombre: "INFOCAL (1%)", tipo: "aporte_patronal", formula: "totalGanado * 0.01", porcentaje: 1, activo: true },
+  { id: "solidario_patronal", codigo: "SOL-PAT", nombre: "Aporte Solidario Patronal (3%)", tipo: "aporte_patronal", formula: "totalGanado * 0.03", porcentaje: 3, activo: true },
+];
+
+const round = (value: number) => Number(value.toFixed(2));
+
+const currency = (value: number) =>
+  new Intl.NumberFormat("es-BO", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+
+const calcularBonoAntiguedad = (fechaIngreso: string) => {
   const ingreso = new Date(fechaIngreso);
   const hoy = new Date();
   const anios = Math.floor((hoy.getTime() - ingreso.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-  const tramo = TABLA_BONO_ANTIGUEDAD.find(t => anios >= t.desde && anios <= t.hasta);
-  if (!tramo) return 0;
-  // Se calcula sobre 3 SMN, no sobre el salario base
-  return (SMN_2026 * 3) * (tramo.porcentaje / 100);
+  const tramo = TABLA_BONO_ANTIGUEDAD.find((item) => anios >= item.desde && anios <= item.hasta);
+  return tramo ? round(SMN_2026 * 3 * (tramo.porcentaje / 100)) : 0;
 };
 
-// RC-IVA: 13% sobre (Total Ganado - 2 SMN - Aportes Laborales) si Total Ganado > 4 SMN
-// El empleado puede compensar con facturas de compras personales (Crédito Fiscal)
-const calcularRCIVA = (totalGanado: number, aportesLaborales: number, creditoFiscalFacturas: number = 0): { baseImponible: number; impuesto: number; creditoFiscal: number; saldoPagar: number } => {
+const calcularRCIVA = (totalGanado: number, aportesLaborales: number, creditoFiscalFacturas = 0): RCIVAResultado => {
   if (totalGanado <= MINIMO_NO_IMPONIBLE_RCIVA) {
     return { baseImponible: 0, impuesto: 0, creditoFiscal: 0, saldoPagar: 0 };
   }
-  // Base imponible = Total Ganado - 2 SMN - Aportes laborales
-  const baseImponible = Math.max(0, totalGanado - (SMN_2026 * 2) - aportesLaborales);
-  const impuesto = Number((baseImponible * 0.13).toFixed(2));
-  // El 13% de 2 SMN se compensa automáticamente (mínimo no imponible)
-  const creditoFiscal13Porciento = Number((creditoFiscalFacturas * 0.13).toFixed(2));
-  const saldoPagar = Math.max(0, Number((impuesto - creditoFiscal13Porciento).toFixed(2)));
-  return { baseImponible, impuesto, creditoFiscal: creditoFiscal13Porciento, saldoPagar };
+
+  const baseImponible = Math.max(0, totalGanado - SMN_2026 * 2 - aportesLaborales);
+  const impuesto = round(baseImponible * 0.13);
+  const creditoFiscal = round(creditoFiscalFacturas * 0.13);
+  const saldoPagar = Math.max(0, round(impuesto - creditoFiscal));
+
+  return { baseImponible: round(baseImponible), impuesto, creditoFiscal, saldoPagar };
 };
 
-const conceptosBasicos: ConceptoNomina[] = [
-  {
-    id: 'haber_basico',
-    codigo: 'HB',
-    nombre: 'Haber Básico',
-    tipo: 'ingreso',
-    formula: 'salarioBase',
-    activo: true
-  },
-  {
-    id: 'bono_antiguedad',
-    codigo: 'BA',
-    nombre: 'Bono de Antigüedad (DS 21060)',
-    tipo: 'ingreso',
-    formula: 'bonoAntiguedad', // Calculado por tabla, no por porcentaje fijo
-    activo: true
-  },
-  // ── DESCUENTOS LABORALES (total 12.71%) ──
-  {
-    id: 'afp_jubilacion',
-    codigo: 'AFP-JUB',
-    nombre: 'AFP Aporte Vejez (10%)',
-    tipo: 'descuento',
-    formula: 'totalGanado * 0.10',
-    porcentaje: 10,
-    activo: true
-  },
-  {
-    id: 'afp_riesgo_comun',
-    codigo: 'AFP-RC',
-    nombre: 'AFP Riesgo Común (1.71%)',
-    tipo: 'descuento',
-    formula: 'totalGanado * 0.0171',
-    porcentaje: 1.71,
-    activo: true
-  },
-  {
-    id: 'afp_comision',
-    codigo: 'AFP-COM',
-    nombre: 'AFP Comisión (0.5%)',
-    tipo: 'descuento',
-    formula: 'totalGanado * 0.005',
-    porcentaje: 0.5,
-    activo: true
-  },
-  {
-    id: 'solidario',
-    codigo: 'SOL',
-    nombre: 'Aporte Solidario (0.5%)',
-    tipo: 'descuento',
-    formula: 'totalGanado * 0.005',
-    porcentaje: 0.5,
-    activo: true
-  },
-  // ── APORTES PATRONALES ──
-  {
-    id: 'caja_salud',
-    codigo: 'CNS',
-    nombre: 'Caja Nacional de Salud (10%)',
-    tipo: 'aporte_patronal',
-    formula: 'totalGanado * 0.10',
-    porcentaje: 10,
-    activo: true
-  },
-  {
-    id: 'riesgo_profesional',
-    codigo: 'RP-PAT',
-    nombre: 'Riesgo Profesional (1.71%)',
-    tipo: 'aporte_patronal',
-    formula: 'totalGanado * 0.0171',
-    porcentaje: 1.71,
-    activo: true
-  },
-  {
-    id: 'vivienda',
-    codigo: 'VIV',
-    nombre: 'Pro Vivienda (2%)',
-    tipo: 'aporte_patronal',
-    formula: 'totalGanado * 0.02',
-    porcentaje: 2,
-    activo: true
-  },
-  {
-    id: 'infocal',
-    codigo: 'INF',
-    nombre: 'INFOCAL (1%)',
-    tipo: 'aporte_patronal',
-    formula: 'totalGanado * 0.01',
-    porcentaje: 1,
-    activo: true
-  },
-  {
-    id: 'solidario_patronal',
-    codigo: 'SOL-PAT',
-    nombre: 'Aporte Solidario Patronal (3%)',
-    tipo: 'aporte_patronal',
-    formula: 'totalGanado * 0.03',
-    porcentaje: 3,
-    activo: true
+const calcularConcepto = (concepto: ConceptoNomina, salarioBase: number, totalGanado: number) => {
+  if (concepto.montoFijo !== undefined) return round(concepto.montoFijo);
+  if (concepto.id === "haber_basico") return round(salarioBase);
+  if (concepto.id === "bono_antiguedad") return 0;
+  if (concepto.porcentaje) {
+    const base = concepto.formula.includes("totalGanado") ? totalGanado : salarioBase;
+    return round(base * (concepto.porcentaje / 100));
   }
-];
+  return 0;
+};
+
+const toEmpleadoNomina = (empleado: EmpleadoSupabase): EmpleadoNomina => ({
+  id: empleado.id,
+  nombre: empleado.nombres,
+  apellido: empleado.apellidos,
+  ci: empleado.ci,
+  cargo: empleado.cargo,
+  departamento: empleado.departamento,
+  fechaIngreso: empleado.fecha_ingreso,
+  salarioBase: Number(empleado.salario_base || 0),
+  telefono: empleado.telefono || "",
+  email: empleado.email || "",
+  cuentaBancaria: "",
+  estado: empleado.estado === "inactivo" ? "inactivo" : "activo",
+  tipoContrato: "indefinido",
+});
+
+const buildPlanilla = (
+  periodo: string,
+  empleados: EmpleadoNomina[],
+  conceptos: ConceptoNomina[],
+  facturasRCIVA: FacturaRCIVANomina[],
+): Omit<PlanillaNominaAuditada, "id" | "createdAt"> => {
+  const detalles: DetallePlanillaNomina[] = [];
+  let totalIngresos = 0;
+  let totalDescuentos = 0;
+  let totalAportesPatronales = 0;
+  let totalNeto = 0;
+  let totalRCIVA = 0;
+
+  empleados.filter((empleado) => empleado.estado === "activo").forEach((empleado) => {
+    const detalle: DetallePlanillaNomina = {
+      empleadoId: empleado.id,
+      empleado: {
+        id: empleado.id,
+        nombre: empleado.nombre,
+        apellido: empleado.apellido,
+        ci: empleado.ci,
+        cargo: empleado.cargo,
+        departamento: empleado.departamento,
+        fechaIngreso: empleado.fechaIngreso,
+      },
+      salarioBase: empleado.salarioBase,
+      ingresos: {},
+      descuentos: {},
+      aportesPatronales: {},
+      totalIngresos: 0,
+      totalDescuentos: 0,
+      totalAportesPatronales: 0,
+      salarioNeto: 0,
+    };
+
+    conceptos.filter((item) => item.tipo === "ingreso" && item.activo).forEach((concepto) => {
+      const monto = concepto.id === "bono_antiguedad"
+        ? calcularBonoAntiguedad(empleado.fechaIngreso)
+        : calcularConcepto(concepto, empleado.salarioBase, 0);
+      detalle.ingresos[concepto.id] = monto;
+      detalle.totalIngresos += monto;
+    });
+
+    const totalGanado = round(detalle.totalIngresos);
+
+    conceptos.filter((item) => item.tipo === "descuento" && item.activo).forEach((concepto) => {
+      const monto = calcularConcepto(concepto, empleado.salarioBase, totalGanado);
+      detalle.descuentos[concepto.id] = monto;
+      detalle.totalDescuentos += monto;
+    });
+
+    conceptos.filter((item) => item.tipo === "aporte_patronal" && item.activo).forEach((concepto) => {
+      const monto = calcularConcepto(concepto, empleado.salarioBase, totalGanado);
+      detalle.aportesPatronales[concepto.id] = monto;
+      detalle.totalAportesPatronales += monto;
+    });
+
+    const facturasEmpleado = facturasRCIVA.filter((factura) => factura.empleadoId === empleado.id && factura.periodo === periodo);
+    const creditoFiscalFacturas = facturasEmpleado.reduce((sum, factura) => sum + factura.importeTotal, 0);
+    const rciva = calcularRCIVA(totalGanado, detalle.totalDescuentos, creditoFiscalFacturas);
+    detalle.rciva = rciva;
+
+    if (rciva.saldoPagar > 0) {
+      detalle.descuentos.rc_iva = rciva.saldoPagar;
+      detalle.totalDescuentos += rciva.saldoPagar;
+    }
+
+    detalle.totalIngresos = round(detalle.totalIngresos);
+    detalle.totalDescuentos = round(detalle.totalDescuentos);
+    detalle.totalAportesPatronales = round(detalle.totalAportesPatronales);
+    detalle.salarioNeto = round(detalle.totalIngresos - detalle.totalDescuentos);
+
+    totalIngresos += detalle.totalIngresos;
+    totalDescuentos += detalle.totalDescuentos;
+    totalAportesPatronales += detalle.totalAportesPatronales;
+    totalNeto += detalle.salarioNeto;
+    totalRCIVA += rciva.saldoPagar;
+    detalles.push(detalle);
+  });
+
+  return {
+    periodo,
+    fechaGeneracion: new Date().toISOString().slice(0, 10),
+    fechaPago: "",
+    estado: "borrador",
+    totalIngresos: round(totalIngresos),
+    totalDescuentos: round(totalDescuentos),
+    totalAportesPatronales: round(totalAportesPatronales),
+    totalNeto: round(totalNeto),
+    totalRCIVA: round(totalRCIVA),
+    observaciones: "Planilla generada desde nomina ejecutiva con calculo auditable.",
+    empleados: detalles,
+  };
+};
+
+const buildAsientoNomina = (planilla: PlanillaNominaAuditada) => {
+  const totalRCIVA = planilla.empleados.reduce((sum, detalle) => sum + (detalle.descuentos.rc_iva || 0), 0);
+  const totalRetencionesAFP = round(planilla.totalDescuentos - totalRCIVA);
+  const totalDebe = round(planilla.totalIngresos + planilla.totalAportesPatronales);
+
+  const cuentas = [
+    { codigo: "6111", nombre: "Sueldos y Salarios", debe: planilla.totalIngresos, haber: 0 },
+    { codigo: "6112", nombre: "Cargas Sociales Patronales", debe: planilla.totalAportesPatronales, haber: 0 },
+    { codigo: "2151", nombre: "Sueldos por Pagar", debe: 0, haber: planilla.totalNeto },
+    { codigo: "2152", nombre: "Retenciones Laborales por Pagar", debe: 0, haber: totalRetencionesAFP },
+    { codigo: "2153", nombre: "Aportes Patronales por Pagar", debe: 0, haber: planilla.totalAportesPatronales },
+  ];
+
+  if (totalRCIVA > 0) {
+    cuentas.push({ codigo: "2154", nombre: "RC-IVA Retenido por Pagar", debe: 0, haber: round(totalRCIVA) });
+  }
+
+  return {
+    id: `${planilla.id}-asiento`,
+    numero: `NOM-${planilla.periodo}`,
+    fecha: new Date().toISOString().slice(0, 10),
+    concepto: `Registro de planilla de sueldos y cargas sociales ${planilla.periodo}`,
+    referencia: `Planilla-${planilla.id}`,
+    debe: totalDebe,
+    haber: totalDebe,
+    estado: "registrado" as const,
+    cuentas,
+  };
+};
 
 const NominaModule = () => {
-  const { empleados: empleadosSupabase, loading: loadingEmpleados, crearEmpleado, actualizarEmpleado } = useSupabaseEmpleados();
-  const [conceptos, setConceptos] = useState<ConceptoNomina[]>(conceptosBasicos);
-  const [planillas, setPlanillas] = useState<PlanillaNomina[]>([]);
-  const [showEmpleadoForm, setShowEmpleadoForm] = useState(false);
-  const [showPlanillaForm, setShowPlanillaForm] = useState(false);
-  const [editingEmpleado, setEditingEmpleado] = useState<Empleado | null>(null);
-  const [selectedPlanilla, setSelectedPlanilla] = useState<PlanillaNomina | null>(null);
-  const [facturasRCIVA, setFacturasRCIVA] = useState<FacturaRCIVA[]>([]);
-  const [showFacturaForm, setShowFacturaForm] = useState(false);
-  const [facturaEmpleadoId, setFacturaEmpleadoId] = useState<string>('');
-  const [facturaPeriodo, setFacturaPeriodo] = useState(new Date().toISOString().slice(0, 7));
   const { toast } = useToast();
   const { guardarAsiento } = useContabilidadIntegration();
+  const { empleados: empleadosSupabase, loading: loadingEmpleados, crearEmpleado, actualizarEmpleado, generarNumeroEmpleado } = useSupabaseEmpleados();
+  const { planillas, facturasRCIVA, loading: loadingNomina, createFacturaRCIVA, createPlanilla, updatePlanillaEstado } = useNominaAuditable();
 
-  // Mapear empleados de Supabase al formato interno de Nómina
-  const empleados: Empleado[] = empleadosSupabase.map(emp => ({
-    id: emp.id,
-    nombre: emp.nombres,
-    apellido: emp.apellidos,
-    ci: emp.ci,
-    cargo: emp.cargo,
-    departamento: emp.departamento,
-    fechaIngreso: emp.fecha_ingreso,
-    salarioBase: emp.salario_base,
-    telefono: emp.telefono || '',
-    email: emp.email || '',
-    cuentaBancaria: '',
-    estado: (emp.estado === 'activo' || emp.estado === 'inactivo') ? emp.estado : 'activo',
-    tipoContrato: 'indefinido'
-  }));
+  const [conceptos] = useState(conceptosBasicos);
+  const [showEmpleadoForm, setShowEmpleadoForm] = useState(false);
+  const [showPlanillaForm, setShowPlanillaForm] = useState(false);
+  const [showFacturaForm, setShowFacturaForm] = useState(false);
+  const [editingEmpleado, setEditingEmpleado] = useState<EmpleadoNomina | null>(null);
+  const [selectedPlanillaId, setSelectedPlanillaId] = useState("");
+  const [facturaPeriodo, setFacturaPeriodo] = useState(new Date().toISOString().slice(0, 7));
+
+  const empleados = useMemo(() => empleadosSupabase.map(toEmpleadoNomina), [empleadosSupabase]);
+  const selectedPlanilla = useMemo(() => planillas.find((item) => item.id === selectedPlanillaId) || planillas[0] || null, [planillas, selectedPlanillaId]);
 
   useEffect(() => {
-    const planillasGuardadas = localStorage.getItem('planillasNomina');
-    if (planillasGuardadas) {
-      setPlanillas(JSON.parse(planillasGuardadas));
-    }
+    if (!selectedPlanillaId && planillas[0]) setSelectedPlanillaId(planillas[0].id);
+  }, [planillas, selectedPlanillaId]);
 
-    const facturasGuardadas = localStorage.getItem('facturasRCIVA');
-    if (facturasGuardadas) {
-      setFacturasRCIVA(JSON.parse(facturasGuardadas));
-    }
-  }, []);
+  const loading = loadingEmpleados || loadingNomina;
+  const empleadosActivos = empleados.filter((empleado) => empleado.estado === "activo");
+  const planillasPagadas = planillas.filter((planilla) => planilla.estado === "pagada");
+  const planillasPendientes = planillas.filter((planilla) => planilla.estado !== "pagada");
+  const totalNominaActual = planillas[0]?.totalNeto || 0;
+  const totalRCIVAPeriodo = facturasRCIVA.filter((factura) => factura.periodo === facturaPeriodo).reduce((sum, factura) => sum + factura.importeTotal, 0);
 
-  const guardarEmpleado = async (empleado: Empleado) => {
+  const resumenRCIVA = empleadosActivos.map((empleado) => {
+    const totalGanado = round(empleado.salarioBase + calcularBonoAntiguedad(empleado.fechaIngreso));
+    const aportesLaborales = round(totalGanado * 0.1271);
+    const facturasEmpleado = facturasRCIVA.filter((factura) => factura.empleadoId === empleado.id && factura.periodo === facturaPeriodo);
+    const creditoFacturas = facturasEmpleado.reduce((sum, factura) => sum + factura.importeTotal, 0);
+    const rciva = calcularRCIVA(totalGanado, aportesLaborales, creditoFacturas);
+    return { empleado, totalGanado, facturas: facturasEmpleado, rciva };
+  });
+
+  const guardarEmpleado = async (empleado: EmpleadoNomina) => {
     try {
       if (editingEmpleado) {
         await actualizarEmpleado(empleado.id, {
@@ -291,14 +331,14 @@ const NominaModule = () => {
         });
       } else {
         await crearEmpleado({
-          numero_empleado: `EMP-${Date.now().toString().slice(-4)}`,
+          numero_empleado: generarNumeroEmpleado(),
           nombres: empleado.nombre,
           apellidos: empleado.apellido,
           ci: empleado.ci,
           cargo: empleado.cargo,
           departamento: empleado.departamento,
           fecha_ingreso: empleado.fechaIngreso,
-          fecha_nacimiento: '1990-01-01',
+          fecha_nacimiento: "1990-01-01",
           salario_base: empleado.salarioBase,
           telefono: empleado.telefono || null,
           email: empleado.email || null,
@@ -308,437 +348,375 @@ const NominaModule = () => {
           beneficios: null,
         });
       }
+
+      setShowEmpleadoForm(false);
+      setEditingEmpleado(null);
+      return true;
     } catch (error) {
-      console.error('Error guardando empleado:', error);
-    }
-    setShowEmpleadoForm(false);
-    setEditingEmpleado(null);
-  };
-
-  const calcularPlanilla = (periodo: string): PlanillaNomina => {
-    const empleadosActivos = empleados.filter(e => e.estado === 'activo');
-    const detalles: DetalleNomina[] = [];
-    
-    let totalIngresos = 0;
-    let totalDescuentos = 0;
-    let totalAportesPatronales = 0;
-    let totalNeto = 0;
-
-    empleadosActivos.forEach(empleado => {
-      const detalle: DetalleNomina = {
-        empleadoId: empleado.id,
-        empleado,
-        salarioBase: empleado.salarioBase,
-        ingresos: {},
-        descuentos: {},
-        aportesPatronales: {},
-        totalIngresos: 0,
-        totalDescuentos: 0,
-        totalAportesPatronales: 0,
-        salarioNeto: 0
-      };
-
-      // Calcular Total Ganado (ingresos) primero
-      const conceptosIngresos = conceptos.filter(c => c.tipo === 'ingreso' && c.activo);
-      conceptosIngresos.forEach(concepto => {
-        let monto: number;
-        if (concepto.id === 'bono_antiguedad') {
-          monto = calcularBonoAntiguedad(empleado.fechaIngreso);
-        } else {
-          monto = calcularConcepto(concepto, empleado.salarioBase, 0);
-        }
-        detalle.ingresos[concepto.id] = monto;
-        detalle.totalIngresos += monto;
-      });
-
-      const totalGanado = detalle.totalIngresos;
-
-      // Descuentos laborales se calculan sobre Total Ganado
-      const conceptosDescuentos = conceptos.filter(c => c.tipo === 'descuento' && c.activo);
-      conceptosDescuentos.forEach(concepto => {
-        const monto = calcularConcepto(concepto, empleado.salarioBase, totalGanado);
-        detalle.descuentos[concepto.id] = monto;
-        detalle.totalDescuentos += monto;
-      });
-
-      // Aportes patronales sobre Total Ganado
-      const conceptosAportes = conceptos.filter(c => c.tipo === 'aporte_patronal' && c.activo);
-      conceptosAportes.forEach(concepto => {
-        const monto = calcularConcepto(concepto, empleado.salarioBase, totalGanado);
-        detalle.aportesPatronales[concepto.id] = monto;
-        detalle.totalAportesPatronales += monto;
-      });
-
-      // RC-IVA: 13% sobre ingresos > 4 SMN (Ley 843, Art. 19)
-      const facturasEmpleado = facturasRCIVA.filter(f => f.empleadoId === empleado.id && f.periodo === periodo);
-      const creditoFiscalFacturas = facturasEmpleado.reduce((sum, f) => sum + f.importeTotal, 0);
-      const rciva = calcularRCIVA(totalGanado, detalle.totalDescuentos, creditoFiscalFacturas);
-      detalle.rciva = rciva;
-      if (rciva.saldoPagar > 0) {
-        detalle.descuentos['rc_iva'] = rciva.saldoPagar;
-        detalle.totalDescuentos += rciva.saldoPagar;
-      }
-
-      detalle.salarioNeto = detalle.totalIngresos - detalle.totalDescuentos;
-      
-      totalIngresos += detalle.totalIngresos;
-      totalDescuentos += detalle.totalDescuentos;
-      totalAportesPatronales += detalle.totalAportesPatronales;
-      totalNeto += detalle.salarioNeto;
-
-      detalles.push(detalle);
-    });
-
-    return {
-      id: Date.now().toString(),
-      periodo,
-      fechaGeneracion: new Date().toISOString().slice(0, 10),
-      fechaPago: '',
-      estado: 'borrador',
-      totalIngresos,
-      totalDescuentos,
-      totalAportesPatronales,
-      totalNeto,
-      empleados: detalles
-    };
-  };
-
-  const calcularConcepto = (concepto: ConceptoNomina, salarioBase: number, totalGanado: number): number => {
-    try {
-      if (concepto.montoFijo) {
-        return concepto.montoFijo;
-      }
-      
-      // Si la fórmula usa totalGanado (descuentos y aportes se calculan sobre total ganado)
-      if (concepto.formula.includes('totalGanado') && concepto.porcentaje) {
-        return Number((totalGanado * (concepto.porcentaje / 100)).toFixed(2));
-      }
-      
-      if (concepto.porcentaje) {
-        return Number((salarioBase * (concepto.porcentaje / 100)).toFixed(2));
-      }
-      
-      if (concepto.formula.includes('salarioBase')) {
-        const formula = concepto.formula.replace(/salarioBase/g, salarioBase.toString());
-        return eval(formula);
-      }
-      
-      return 0;
-    } catch (error) {
-      console.error('Error calculando concepto:', error);
-      return 0;
+      console.error("Error guardando empleado:", error);
+      return false;
     }
   };
 
-  const generarPlanilla = (periodo: string) => {
-    const planilla = calcularPlanilla(periodo);
-    const nuevasPlanillas = [...planillas, planilla];
-    setPlanillas(nuevasPlanillas);
-    localStorage.setItem('planillasNomina', JSON.stringify(nuevasPlanillas));
-    
-    toast({
-      title: "Planilla generada",
-      description: `Planilla para ${periodo} generada exitosamente`,
-    });
-    
-    setSelectedPlanilla(planilla);
+  const generarPlanilla = async (periodo: string) => {
+    if (planillas.some((planilla) => planilla.periodo === periodo)) {
+      toast({
+        title: "Periodo ya generado",
+        description: `La planilla ${periodo} ya existe en el sistema.`,
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (empleadosActivos.length === 0) {
+      toast({
+        title: "Sin empleados activos",
+        description: "Debes tener empleados activos para generar una planilla.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    const planilla = buildPlanilla(periodo, empleados, conceptos, facturasRCIVA);
+    const created = await createPlanilla(planilla);
+    if (!created) return false;
+
+    setSelectedPlanillaId(created.id);
     setShowPlanillaForm(false);
+    return true;
   };
 
-  const aprobarPlanilla = (planillaId: string) => {
-    const planillasActualizadas = planillas.map(p => 
-      p.id === planillaId ? { ...p, estado: 'aprobada' as const } : p
-    );
-    setPlanillas(planillasActualizadas);
-    localStorage.setItem('planillasNomina', JSON.stringify(planillasActualizadas));
-    
-    toast({
-      title: "Planilla aprobada",
-      description: "La planilla ha sido aprobada y está lista para pago",
+  const aprobarPlanilla = async (planilla: PlanillaNominaAuditada) => {
+    const success = await updatePlanillaEstado(planilla.id, {
+      estado: "aprobada",
+      observaciones: "Planilla aprobada para desembolso y registro contable.",
+      totalRCIVA: planilla.totalRCIVA,
     });
-  };
 
-  const pagarPlanilla = async (planillaId: string) => {
-    const planilla = planillas.find(p => p.id === planillaId);
-    if (!planilla) return;
-
-    // Separar RC-IVA del total de descuentos para el asiento contable
-    const totalRCIVA = planilla.empleados.reduce((sum, d) => sum + (d.descuentos['rc_iva'] || 0), 0);
-    const totalRetencionesAFP = planilla.totalDescuentos - totalRCIVA;
-
-    // Generar asiento contable integrado según normativa boliviana
-    const cuentasAsiento = [
-      {
-        codigo: "6111",
-        nombre: "Sueldos y Salarios",
-        debe: planilla.totalIngresos,
-        haber: 0
-      },
-      {
-        codigo: "6112", 
-        nombre: "Cargas Sociales Patronales",
-        debe: planilla.totalAportesPatronales,
-        haber: 0
-      },
-      {
-        codigo: "2151",
-        nombre: "Sueldos por Pagar",
-        debe: 0,
-        haber: planilla.totalNeto
-      },
-      {
-        codigo: "2152",
-        nombre: "Retenciones Laborales por Pagar (AFP 12.71%)",
-        debe: 0,
-        haber: totalRetencionesAFP
-      },
-      {
-        codigo: "2153",
-        nombre: "Aportes Patronales por Pagar (CNS, RP, Vivienda, INFOCAL, Solidario)",
-        debe: 0,
-        haber: planilla.totalAportesPatronales
-      }
-    ];
-
-    // Agregar RC-IVA si aplica
-    if (totalRCIVA > 0) {
-      cuentasAsiento.push({
-        codigo: "2154",
-        nombre: "RC-IVA Retenido por Pagar",
-        debe: 0,
-        haber: totalRCIVA
+    if (success) {
+      toast({
+        title: "Planilla aprobada",
+        description: `La planilla ${planilla.periodo} ya esta lista para pago.`,
       });
     }
-
-    const asiento = {
-      id: Date.now().toString(),
-      numero: `NOM-${planilla.periodo}`,
-      fecha: new Date().toISOString().slice(0, 10),
-      concepto: `Registro de planilla de sueldos y cargas sociales ${planilla.periodo}`,
-      referencia: `Planilla-${planilla.id}`,
-      debe: planilla.totalIngresos + planilla.totalAportesPatronales,
-      haber: planilla.totalIngresos + planilla.totalAportesPatronales,
-      estado: 'registrado' as const,
-      cuentas: cuentasAsiento
-    };
-
-    const success = await guardarAsiento(asiento);
-    if (!success) {
-      return;
-    }
-
-    const planillasActualizadas = planillas.map(p => 
-      p.id === planillaId ? { 
-        ...p, 
-        estado: 'pagada' as const,
-        fechaPago: new Date().toISOString().slice(0, 10)
-      } : p
-    );
-    setPlanillas(planillasActualizadas);
-    localStorage.setItem('planillasNomina', JSON.stringify(planillasActualizadas));
-    
-    toast({
-      title: "Planilla pagada",
-      description: "La planilla ha sido pagada y se generó el asiento contable",
-    });
   };
 
-  const exportarPlanilla = (planilla: PlanillaNomina) => {
-    const datosExport = planilla.empleados.map(detalle => ({
-      'CI': detalle.empleado.ci,
-      'Nombre Completo': `${detalle.empleado.nombre} ${detalle.empleado.apellido}`,
-      'Cargo': detalle.empleado.cargo,
-      'Salario Base': detalle.salarioBase,
-      'Total Ingresos': detalle.totalIngresos,
-      'Total Descuentos': detalle.totalDescuentos,
-      'Salario Neto': detalle.salarioNeto,
-      'Cuenta Bancaria': detalle.empleado.cuentaBancaria
+  const pagarPlanilla = async (planilla: PlanillaNominaAuditada) => {
+    const asiento = buildAsientoNomina(planilla);
+    const persisted = await guardarAsiento(asiento);
+    if (!persisted) return;
+
+    const success = await updatePlanillaEstado(planilla.id, {
+      estado: "pagada",
+      fechaPago: new Date().toISOString().slice(0, 10),
+      observaciones: "Planilla pagada y registrada contablemente.",
+      totalRCIVA: planilla.totalRCIVA,
+    });
+
+    if (success) {
+      toast({
+        title: "Planilla pagada",
+        description: `La planilla ${planilla.periodo} quedo registrada y pagada.`,
+      });
+    }
+  };
+
+  const registrarFactura = async (factura: Omit<FacturaRCIVANomina, "id" | "createdAt">) => {
+    const created = await createFacturaRCIVA(factura);
+    if (!created) return false;
+    setShowFacturaForm(false);
+    return true;
+  };
+
+  const exportarPlanilla = (planilla: PlanillaNominaAuditada) => {
+    const exportData = planilla.empleados.map((detalle) => ({
+      CI: detalle.empleado.ci,
+      "Nombre Completo": `${detalle.empleado.nombre} ${detalle.empleado.apellido}`.trim(),
+      Cargo: detalle.empleado.cargo,
+      "Salario Base": detalle.salarioBase,
+      "Total Ingresos": detalle.totalIngresos,
+      "Total Descuentos": detalle.totalDescuentos,
+      "Aportes Patronales": detalle.totalAportesPatronales,
+      "Salario Neto": detalle.salarioNeto,
+      "RC-IVA Retenido": detalle.descuentos.rc_iva || 0,
     }));
 
-    const worksheet = XLSX.utils.json_to_sheet(datosExport);
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Planilla");
     XLSX.writeFile(workbook, `planilla_${planilla.periodo}.xlsx`);
-    
-    toast({
-      title: "Planilla exportada",
-      description: "La planilla ha sido exportada a Excel",
-    });
   };
 
-  // Exportar Formulario 110 RC-IVA (Agentes de Retención) formato SIAT
   const exportarFormulario110 = () => {
-    const empleadosActivos2 = empleados.filter(e => e.estado === 'activo');
-    const datos = [
-      ['FORMULARIO 110 - RC-IVA AGENTES DE RETENCIÓN'],
-      [`Período: ${facturaPeriodo}`],
-      [`Fecha de generación: ${new Date().toLocaleDateString('es-BO')}`],
-      [''],
-      ['Nº', 'CI', 'Nombre Completo', 'Total Ganado (Bs)', 'Mínimo No Imponible (2 SMN)', 'Aportes Laborales (Bs)', 
-       'Base Imponible (Bs)', 'Impuesto RC-IVA 13%', 'Crédito Fiscal Facturas (Bs)', 'Saldo a Favor Fisco (Bs)', 
-       'Saldo a Favor Dependiente (Bs)', 'Importe Retenido (Bs)']
+    const rows: (string | number)[][] = [
+      ["FORMULARIO 110 - RC-IVA AGENTE DE RETENCION"],
+      [`Periodo: ${facturaPeriodo}`],
+      [`Fecha de generacion: ${new Date().toLocaleDateString("es-BO")}`],
+      [""],
+      [
+        "N",
+        "CI",
+        "Nombre Completo",
+        "Total Ganado",
+        "Minimo No Imponible (2 SMN)",
+        "Aportes Laborales",
+        "Base Imponible",
+        "Impuesto RC-IVA 13%",
+        "Credito Fiscal",
+        "Saldo a Retener",
+        "Facturas",
+      ],
     ];
 
     let totalRetenido = 0;
-    empleadosActivos2.forEach((emp, idx) => {
-      const totalGanado = emp.salarioBase + calcularBonoAntiguedad(emp.fechaIngreso);
-      const aportesLab = Number((totalGanado * 0.1271).toFixed(2));
-      const facturasEmp = facturasRCIVA.filter(f => f.empleadoId === emp.id && f.periodo === facturaPeriodo);
-      const creditoFacturas = facturasEmp.reduce((s, f) => s + f.importeTotal, 0);
-      const rc = calcularRCIVA(totalGanado, aportesLab, creditoFacturas);
-      totalRetenido += rc.saldoPagar;
-
-      datos.push([
-        (idx + 1).toString(),
-        emp.ci,
-        `${emp.apellido} ${emp.nombre}`,
-        totalGanado.toFixed(2),
+    resumenRCIVA.forEach((item, index) => {
+      totalRetenido += item.rciva.saldoPagar;
+      rows.push([
+        index + 1,
+        item.empleado.ci,
+        `${item.empleado.apellido} ${item.empleado.nombre}`.trim(),
+        item.totalGanado.toFixed(2),
         (SMN_2026 * 2).toFixed(2),
-        aportesLab.toFixed(2),
-        rc.baseImponible.toFixed(2),
-        rc.impuesto.toFixed(2),
-        rc.creditoFiscal.toFixed(2),
-        rc.saldoPagar > 0 ? rc.saldoPagar.toFixed(2) : '0.00',
-        rc.saldoPagar <= 0 ? Math.abs(rc.saldoPagar).toFixed(2) : '0.00',
-        rc.saldoPagar > 0 ? rc.saldoPagar.toFixed(2) : '0.00'
+        (item.totalGanado * 0.1271).toFixed(2),
+        item.rciva.baseImponible.toFixed(2),
+        item.rciva.impuesto.toFixed(2),
+        item.rciva.creditoFiscal.toFixed(2),
+        item.rciva.saldoPagar.toFixed(2),
+        item.facturas.length,
       ]);
     });
 
-    datos.push(['']);
-    datos.push(['', '', 'TOTAL RETENIDO', '', '', '', '', '', '', '', '', totalRetenido.toFixed(2)]);
+    rows.push([""]);
+    rows.push(["", "", "TOTAL RETENIDO", "", "", "", "", "", "", totalRetenido.toFixed(2), ""]);
 
-    const ws = XLSX.utils.aoa_to_sheet(datos);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'F-110 RC-IVA');
-    XLSX.writeFile(wb, `Formulario_110_RCIVA_${facturaPeriodo}.xlsx`);
-
-    toast({
-      title: "Formulario 110 exportado",
-      description: `RC-IVA período ${facturaPeriodo} — Total retenido: Bs ${totalRetenido.toFixed(2)}`,
-    });
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "F110 RCIVA");
+    XLSX.writeFile(workbook, `Formulario_110_RCIVA_${facturaPeriodo}.xlsx`);
   };
-
-  const empleadosActivos = empleados.filter(e => e.estado === 'activo').length;
-  const totalNominaActual = planillas.length > 0 ? planillas[planillas.length - 1].totalNeto : 0;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Users className="w-6 h-6 text-primary" />
-          <div>
-            <h2 className="text-2xl font-bold">Gestión de Nómina</h2>
-            <p className="text-muted-foreground">
-              Administración de empleados y planillas de sueldos
-            </p>
+      <section className="rounded-3xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.18),_transparent_38%),linear-gradient(135deg,#ffffff_0%,#f8fafc_45%,#eff6ff_100%)] p-6 shadow-sm">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-3">
+            <Badge className="bg-slate-900 text-white hover:bg-slate-900">Nomina boliviana auditable</Badge>
+            <div className="space-y-1">
+              <h2 className="text-3xl font-semibold tracking-tight text-slate-950">Mesa ejecutiva de sueldos, RC-IVA y cargas sociales</h2>
+              <p className="max-w-3xl text-sm text-slate-600">
+                Este modulo ya trabaja con empleados, planillas y facturas RC-IVA persistidas en Supabase. Las planillas se calculan sin
+                formulas dinamicas inseguras y el pago genera el asiento contable correspondiente.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="bg-white/80" onClick={() => setShowEmpleadoForm(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo empleado
+            </Button>
+            <Button variant="outline" className="bg-white/80" onClick={() => setShowFacturaForm(true)}>
+              <Receipt className="mr-2 h-4 w-4" />
+              Factura RC-IVA
+            </Button>
+            <Button onClick={() => setShowPlanillaForm(true)}>
+              <Calculator className="mr-2 h-4 w-4" />
+              Generar planilla
+            </Button>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowEmpleadoForm(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Nuevo Empleado
-          </Button>
-          <Button onClick={() => setShowPlanillaForm(true)}>
-            <Calculator className="w-4 h-4 mr-2" />
-            Generar Planilla
-          </Button>
-        </div>
+      </section>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard icon={Users} title="Empleados activos" value={empleadosActivos.length.toString()} detail="Base laboral conectada" tone="sky" />
+        <MetricCard icon={Wallet} title="Nomina actual" value={`Bs ${currency(totalNominaActual)}`} detail="Ultimo periodo calculado" tone="emerald" />
+        <MetricCard icon={ShieldCheck} title="Planillas pagadas" value={planillasPagadas.length.toString()} detail="Historial con asiento" tone="amber" />
+        <MetricCard icon={Receipt} title="Facturas RC-IVA" value={facturasRCIVA.filter((item) => item.periodo === facturaPeriodo).length.toString()} detail={`Credito fiscal Bs ${currency(totalRCIVAPeriodo)}`} tone="slate" />
       </div>
 
-      {/* Métricas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Empleados Activos</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{empleadosActivos}</div>
-            <p className="text-xs text-muted-foreground">Total empleados</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Planillas Generadas</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{planillas.length}</div>
-            <p className="text-xs text-muted-foreground">Este año</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nómina Actual</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">Bs. {totalNominaActual.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">Último período</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Planillas Pendientes</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{planillas.filter(p => p.estado === 'borrador').length}</div>
-            <p className="text-xs text-muted-foreground">Por aprobar</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Tabs defaultValue="empleados" className="w-full">
-        <TabsList>
-          <TabsTrigger value="empleados">Empleados</TabsTrigger>
-          <TabsTrigger value="planillas">Planillas</TabsTrigger>
-          <TabsTrigger value="conceptos">Conceptos</TabsTrigger>
-          <TabsTrigger value="rciva">RC-IVA (F-110)</TabsTrigger>
+      <Tabs defaultValue="planillas" className="space-y-4">
+        <TabsList className="flex h-auto flex-wrap gap-2 rounded-2xl bg-slate-100 p-2">
+          <TabsTrigger value="planillas" className="rounded-xl">Planillas</TabsTrigger>
+          <TabsTrigger value="empleados" className="rounded-xl">Empleados</TabsTrigger>
+          <TabsTrigger value="conceptos" className="rounded-xl">Conceptos</TabsTrigger>
+          <TabsTrigger value="rciva" className="rounded-xl">RC-IVA</TabsTrigger>
         </TabsList>
+        <TabsContent value="planillas" className="space-y-4">
+          <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+            <Card className="overflow-hidden border-slate-200">
+              <CardHeader className="border-b bg-slate-50/70">
+                <CardTitle className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5 text-slate-700" />
+                  Periodos de nomina
+                </CardTitle>
+                <CardDescription>Cada planilla queda persistida por periodo, con estado y detalle de empleados.</CardDescription>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ScrollArea className="max-h-[540px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Periodo</TableHead>
+                        <TableHead>Generacion</TableHead>
+                        <TableHead className="text-right">Neto</TableHead>
+                        <TableHead>Estado</TableHead>
+                        <TableHead className="text-right">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {planillas.map((planilla) => (
+                        <TableRow key={planilla.id} className={selectedPlanilla?.id === planilla.id ? "bg-sky-50/60" : ""} onClick={() => setSelectedPlanillaId(planilla.id)}>
+                          <TableCell className="font-medium">{planilla.periodo}</TableCell>
+                          <TableCell>{new Date(planilla.fechaGeneracion).toLocaleDateString("es-BO")}</TableCell>
+                          <TableCell className="text-right">Bs {currency(planilla.totalNeto)}</TableCell>
+                          <TableCell><EstadoBadge estado={planilla.estado} /></TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); exportarPlanilla(planilla); }}>
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              {planilla.estado === "borrador" && (
+                                <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); void aprobarPlanilla(planilla); }}>
+                                  Aprobar
+                                </Button>
+                              )}
+                              {planilla.estado === "aprobada" && (
+                                <Button size="sm" onClick={(event) => { event.stopPropagation(); void pagarPlanilla(planilla); }}>
+                                  Pagar
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {!loading && planillas.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={5} className="py-10 text-center text-sm text-slate-500">
+                            Todavia no hay planillas persistidas.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200">
+              <CardHeader className="border-b bg-slate-50/70">
+                <CardTitle>Panel de control</CardTitle>
+                <CardDescription>Estado operativo del frente laboral y tributario.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 p-6">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-emerald-700">Listo para conciliacion</p>
+                  <p className="mt-2 text-2xl font-semibold text-emerald-950">{planillasPagadas.length}</p>
+                  <p className="text-sm text-emerald-800">Planillas ya pagadas con huella contable.</p>
+                </div>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-amber-700">Pendientes operativos</p>
+                  <p className="mt-2 text-2xl font-semibold text-amber-950">{planillasPendientes.length}</p>
+                  <p className="text-sm text-amber-800">Planillas que aun requieren aprobacion o pago.</p>
+                </div>
+                <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                  <p className="text-xs uppercase tracking-[0.22em] text-sky-700">RC-IVA del periodo</p>
+                  <p className="mt-2 text-2xl font-semibold text-sky-950">Bs {currency(totalRCIVAPeriodo)}</p>
+                  <p className="text-sm text-sky-800">Credito fiscal cargado para el periodo {facturaPeriodo}.</p>
+                </div>
+                <Separator />
+                <div className="space-y-2 text-sm text-slate-600">
+                  <p>Normativa aplicada: SMN 2026 Bs {currency(SMN_2026)}, minimo no imponible RC-IVA 4 SMN.</p>
+                  <p>Los descuentos y aportes salen de reglas fijas del sistema, sin uso de eval.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {selectedPlanilla && (
+            <Card className="border-slate-200">
+              <CardHeader className="border-b bg-white">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <CardTitle className="text-xl">Detalle auditable de la planilla {selectedPlanilla.periodo}</CardTitle>
+                    <CardDescription>
+                      Generada el {new Date(selectedPlanilla.fechaGeneracion).toLocaleDateString("es-BO")} con {selectedPlanilla.empleados.length} empleados.
+                    </CardDescription>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-sm text-slate-600">
+                    <Badge variant="outline">Ingresos Bs {currency(selectedPlanilla.totalIngresos)}</Badge>
+                    <Badge variant="outline">Descuentos Bs {currency(selectedPlanilla.totalDescuentos)}</Badge>
+                    <Badge variant="outline">Aportes Bs {currency(selectedPlanilla.totalAportesPatronales)}</Badge>
+                    <Badge variant="outline">RC-IVA Bs {currency(selectedPlanilla.totalRCIVA)}</Badge>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ScrollArea className="max-h-[380px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Empleado</TableHead>
+                        <TableHead>Cargo</TableHead>
+                        <TableHead className="text-right">Ingresos</TableHead>
+                        <TableHead className="text-right">Descuentos</TableHead>
+                        <TableHead className="text-right">Aportes</TableHead>
+                        <TableHead className="text-right">Neto</TableHead>
+                        <TableHead className="text-right">RC-IVA</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedPlanilla.empleados.map((detalle) => (
+                        <TableRow key={detalle.id || detalle.empleadoId}>
+                          <TableCell>
+                            <div className="font-medium">{detalle.empleado.nombre} {detalle.empleado.apellido}</div>
+                            <div className="text-xs text-slate-500">{detalle.empleado.ci}</div>
+                          </TableCell>
+                          <TableCell>{detalle.empleado.cargo}</TableCell>
+                          <TableCell className="text-right">Bs {currency(detalle.totalIngresos)}</TableCell>
+                          <TableCell className="text-right">Bs {currency(detalle.totalDescuentos)}</TableCell>
+                          <TableCell className="text-right">Bs {currency(detalle.totalAportesPatronales)}</TableCell>
+                          <TableCell className="text-right font-medium">Bs {currency(detalle.salarioNeto)}</TableCell>
+                          <TableCell className="text-right">Bs {currency(detalle.descuentos.rc_iva || 0)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
 
         <TabsContent value="empleados">
-          <Card>
-            <CardHeader>
-              <CardTitle>Lista de Empleados</CardTitle>
-              <CardDescription>Gestión de información de empleados</CardDescription>
+          <Card className="border-slate-200">
+            <CardHeader className="border-b bg-slate-50/70">
+              <CardTitle>Base laboral conectada</CardTitle>
+              <CardDescription>La nomina toma empleados desde la tabla persistida del sistema.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Nombre</TableHead>
+                    <TableHead>Empleado</TableHead>
                     <TableHead>CI</TableHead>
-                    <TableHead>Cargo</TableHead>
                     <TableHead>Departamento</TableHead>
+                    <TableHead>Cargo</TableHead>
                     <TableHead className="text-right">Salario Base</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead>Acciones</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {empleados.map(empleado => (
+                  {empleados.map((empleado) => (
                     <TableRow key={empleado.id}>
-                      <TableCell>{empleado.nombre} {empleado.apellido}</TableCell>
+                      <TableCell className="font-medium">{empleado.nombre} {empleado.apellido}</TableCell>
                       <TableCell>{empleado.ci}</TableCell>
-                      <TableCell>{empleado.cargo}</TableCell>
                       <TableCell>{empleado.departamento}</TableCell>
-                      <TableCell className="text-right">Bs. {empleado.salarioBase.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Badge variant={empleado.estado === 'activo' ? 'default' : 'secondary'}>
-                          {empleado.estado}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingEmpleado(empleado);
-                            setShowEmpleadoForm(true);
-                          }}
-                        >
-                          <Edit className="w-4 h-4" />
+                      <TableCell>{empleado.cargo}</TableCell>
+                      <TableCell className="text-right">Bs {currency(empleado.salarioBase)}</TableCell>
+                      <TableCell><Badge variant={empleado.estado === "activo" ? "default" : "secondary"}>{empleado.estado}</Badge></TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="outline" onClick={() => { setEditingEmpleado(empleado); setShowEmpleadoForm(true); }}>
+                          Editar
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -748,118 +726,35 @@ const NominaModule = () => {
             </CardContent>
           </Card>
         </TabsContent>
-
-        <TabsContent value="planillas">
-          <Card>
-            <CardHeader>
-              <CardTitle>Planillas Generadas</CardTitle>
-              <CardDescription>Historial de planillas de sueldos</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Período</TableHead>
-                    <TableHead>Fecha Generación</TableHead>
-                    <TableHead>Fecha Pago</TableHead>
-                    <TableHead className="text-right">Total Ingresos</TableHead>
-                    <TableHead className="text-right">Total Descuentos</TableHead>
-                    <TableHead className="text-right">Total Neto</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead>Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {planillas.map(planilla => (
-                    <TableRow key={planilla.id}>
-                      <TableCell>{planilla.periodo}</TableCell>
-                      <TableCell>{new Date(planilla.fechaGeneracion).toLocaleDateString('es-BO')}</TableCell>
-                      <TableCell>{planilla.fechaPago ? new Date(planilla.fechaPago).toLocaleDateString('es-BO') : '-'}</TableCell>
-                      <TableCell className="text-right">Bs. {planilla.totalIngresos.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">Bs. {planilla.totalDescuentos.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">Bs. {planilla.totalNeto.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Badge variant={
-                          planilla.estado === 'pagada' ? 'default' :
-                          planilla.estado === 'aprobada' ? 'secondary' : 'outline'
-                        }>
-                          {planilla.estado}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => exportarPlanilla(planilla)}
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
-                          {planilla.estado === 'borrador' && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => aprobarPlanilla(planilla.id)}
-                            >
-                              Aprobar
-                            </Button>
-                          )}
-                          {planilla.estado === 'aprobada' && (
-                            <Button
-                              size="sm"
-                              onClick={() => pagarPlanilla(planilla.id)}
-                            >
-                              Pagar
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="conceptos">
-          <Card>
-            <CardHeader>
-              <CardTitle>Conceptos de Nómina</CardTitle>
-              <CardDescription>Ingresos, descuentos y aportes patronales</CardDescription>
+          <Card className="border-slate-200">
+            <CardHeader className="border-b bg-slate-50/70">
+              <CardTitle>Motor de calculo boliviano</CardTitle>
+              <CardDescription>Conceptos base de la nomina cargados con formulas controladas y auditables.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Código</TableHead>
-                    <TableHead>Nombre</TableHead>
+                    <TableHead>Codigo</TableHead>
+                    <TableHead>Concepto</TableHead>
                     <TableHead>Tipo</TableHead>
-                    <TableHead>Porcentaje</TableHead>
-                    <TableHead>Estado</TableHead>
+                    <TableHead>Base</TableHead>
+                    <TableHead className="text-right">Porcentaje</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {conceptos.map(concepto => (
+                  {conceptos.map((concepto) => (
                     <TableRow key={concepto.id}>
-                      <TableCell>{concepto.codigo}</TableCell>
+                      <TableCell className="font-medium">{concepto.codigo}</TableCell>
                       <TableCell>{concepto.nombre}</TableCell>
                       <TableCell>
-                        <Badge variant={
-                          concepto.tipo === 'ingreso' ? 'default' :
-                          concepto.tipo === 'descuento' ? 'destructive' : 'secondary'
-                        }>
+                        <Badge variant={concepto.tipo === "ingreso" ? "default" : concepto.tipo === "descuento" ? "destructive" : "secondary"}>
                           {concepto.tipo}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        {concepto.porcentaje ? `${concepto.porcentaje}%` : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={concepto.activo ? 'default' : 'secondary'}>
-                          {concepto.activo ? 'Activo' : 'Inactivo'}
-                        </Badge>
-                      </TableCell>
+                      <TableCell>{concepto.formula}</TableCell>
+                      <TableCell className="text-right">{concepto.porcentaje ? `${concepto.porcentaje}%` : "-"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -868,36 +763,56 @@ const NominaModule = () => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="rciva">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>RC-IVA — Formulario 110</span>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setShowFacturaForm(true)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Registrar Factura
+        <TabsContent value="rciva" className="space-y-4">
+          <Card className="border-slate-200">
+            <CardHeader className="border-b bg-slate-50/70">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <CardTitle>RC-IVA y Formulario 110</CardTitle>
+                  <CardDescription>
+                    Facturas personales del dependiente persistidas por periodo. Minimo no imponible: 4 SMN = Bs {currency(MINIMO_NO_IMPONIBLE_RCIVA)}.
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div>
+                    <Label>Periodo</Label>
+                    <Input type="month" value={facturaPeriodo} onChange={(event) => setFacturaPeriodo(event.target.value)} className="w-48 bg-white" />
+                  </div>
+                  <Button variant="outline" onClick={() => setShowFacturaForm(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Registrar factura
                   </Button>
-                  <Button size="sm" onClick={exportarFormulario110}>
-                    <Download className="w-4 h-4 mr-2" />
+                  <Button onClick={exportarFormulario110}>
+                    <Download className="mr-2 h-4 w-4" />
                     Exportar F-110
                   </Button>
                 </div>
-              </CardTitle>
-              <CardDescription>
-                Gestión de facturas de compras personales de empleados para compensar RC-IVA (Ley 843, Art. 31). 
-                Mínimo no imponible: 4 SMN = Bs {MINIMO_NO_IMPONIBLE_RCIVA.toLocaleString()}
-              </CardDescription>
+              </div>
             </CardHeader>
-            <CardContent>
-              <div className="mb-4 flex gap-4 items-end">
-                <div>
-                  <Label>Período</Label>
-                  <Input type="month" value={facturaPeriodo} onChange={e => setFacturaPeriodo(e.target.value)} className="w-48" />
-                </div>
+            <CardContent className="space-y-6 p-6">
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card className="border-sky-200 bg-sky-50">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-sky-700">Facturas del periodo</p>
+                    <p className="mt-2 text-2xl font-semibold text-sky-950">{facturasRCIVA.filter((item) => item.periodo === facturaPeriodo).length}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-emerald-200 bg-emerald-50">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-emerald-700">Credito fiscal base</p>
+                    <p className="mt-2 text-2xl font-semibold text-emerald-950">Bs {currency(totalRCIVAPeriodo)}</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-amber-200 bg-amber-50">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-amber-700">Retencion estimada</p>
+                    <p className="mt-2 text-2xl font-semibold text-amber-950">
+                      Bs {currency(resumenRCIVA.reduce((sum, item) => sum + item.rciva.saldoPagar, 0))}
+                    </p>
+                  </CardContent>
+                </Card>
               </div>
 
-              {/* Resumen RC-IVA por empleado */}
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -905,306 +820,250 @@ const NominaModule = () => {
                     <TableHead className="text-right">Total Ganado</TableHead>
                     <TableHead className="text-right">Base Imponible</TableHead>
                     <TableHead className="text-right">RC-IVA 13%</TableHead>
-                    <TableHead className="text-right">Crédito Fiscal</TableHead>
+                    <TableHead className="text-right">Credito Fiscal</TableHead>
                     <TableHead className="text-right">Saldo a Retener</TableHead>
                     <TableHead className="text-right">Facturas</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {empleados.filter(e => e.estado === 'activo').map(empleado => {
-                    const totalGanado = empleado.salarioBase + calcularBonoAntiguedad(empleado.fechaIngreso);
-                    const aportesLab = totalGanado * 0.1271;
-                    const facturasEmp = facturasRCIVA.filter(f => f.empleadoId === empleado.id && f.periodo === facturaPeriodo);
-                    const creditoFacturas = facturasEmp.reduce((s, f) => s + f.importeTotal, 0);
-                    const rc = calcularRCIVA(totalGanado, aportesLab, creditoFacturas);
-                    
-                    return (
-                      <TableRow key={empleado.id}>
-                        <TableCell>{empleado.nombre} {empleado.apellido}</TableCell>
-                        <TableCell className="text-right">Bs {totalGanado.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">Bs {rc.baseImponible.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">Bs {rc.impuesto.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">Bs {rc.creditoFiscal.toFixed(2)}</TableCell>
-                        <TableCell className="text-right font-bold">
-                          {rc.saldoPagar > 0 ? (
-                            <span className="text-destructive">Bs {rc.saldoPagar.toFixed(2)}</span>
-                          ) : (
-                            <span className="text-muted-foreground">Bs 0.00</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">{facturasEmp.length}</TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {resumenRCIVA.map((item) => (
+                    <TableRow key={item.empleado.id}>
+                      <TableCell className="font-medium">{item.empleado.nombre} {item.empleado.apellido}</TableCell>
+                      <TableCell className="text-right">Bs {currency(item.totalGanado)}</TableCell>
+                      <TableCell className="text-right">Bs {currency(item.rciva.baseImponible)}</TableCell>
+                      <TableCell className="text-right">Bs {currency(item.rciva.impuesto)}</TableCell>
+                      <TableCell className="text-right">Bs {currency(item.rciva.creditoFiscal)}</TableCell>
+                      <TableCell className="text-right font-medium">
+                        {item.rciva.saldoPagar > 0 ? <span className="text-rose-600">Bs {currency(item.rciva.saldoPagar)}</span> : <span className="text-slate-500">Bs 0.00</span>}
+                      </TableCell>
+                      <TableCell className="text-right">{item.facturas.length}</TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
 
-              {/* Lista de facturas del período */}
-              {facturasRCIVA.filter(f => f.periodo === facturaPeriodo).length > 0 && (
-                <div className="mt-6">
-                  <h4 className="font-semibold mb-2">Facturas registradas — {facturaPeriodo}</h4>
+              <div className="rounded-2xl border border-slate-200">
+                <div className="border-b px-4 py-3">
+                  <h4 className="font-semibold text-slate-900">Facturas registradas del periodo {facturaPeriodo}</h4>
+                </div>
+                <div className="p-0">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Empleado</TableHead>
-                        <TableHead>Nº Factura</TableHead>
-                        <TableHead>NIT Proveedor</TableHead>
-                        <TableHead>Razón Social</TableHead>
+                        <TableHead>Factura</TableHead>
+                        <TableHead>NIT</TableHead>
+                        <TableHead>Razon Social</TableHead>
                         <TableHead>Fecha</TableHead>
                         <TableHead className="text-right">Importe</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {facturasRCIVA.filter(f => f.periodo === facturaPeriodo).map(factura => {
-                        const emp = empleados.find(e => e.id === factura.empleadoId);
+                      {facturasRCIVA.filter((factura) => factura.periodo === facturaPeriodo).map((factura) => {
+                        const empleado = empleados.find((item) => item.id === factura.empleadoId);
                         return (
                           <TableRow key={factura.id}>
-                            <TableCell>{emp ? `${emp.nombre} ${emp.apellido}` : 'N/A'}</TableCell>
+                            <TableCell>{empleado ? `${empleado.nombre} ${empleado.apellido}` : "N/D"}</TableCell>
                             <TableCell>{factura.numeroFactura}</TableCell>
                             <TableCell>{factura.nitProveedor}</TableCell>
                             <TableCell>{factura.razonSocial}</TableCell>
-                            <TableCell>{factura.fecha}</TableCell>
-                            <TableCell className="text-right">Bs {factura.importeTotal.toFixed(2)}</TableCell>
+                            <TableCell>{new Date(factura.fecha).toLocaleDateString("es-BO")}</TableCell>
+                            <TableCell className="text-right">Bs {currency(factura.importeTotal)}</TableCell>
                           </TableRow>
                         );
                       })}
+                      {facturasRCIVA.filter((factura) => factura.periodo === facturaPeriodo).length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="py-8 text-center text-sm text-slate-500">
+                            Aun no hay facturas RC-IVA cargadas para este periodo.
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Formularios */}
       <EmpleadoForm
         open={showEmpleadoForm}
-        onOpenChange={setShowEmpleadoForm}
         empleado={editingEmpleado}
+        onOpenChange={(open) => {
+          setShowEmpleadoForm(open);
+          if (!open) setEditingEmpleado(null);
+        }}
         onSave={guardarEmpleado}
       />
 
-      <PlanillaForm
-        open={showPlanillaForm}
-        onOpenChange={setShowPlanillaForm}
-        onGenerar={generarPlanilla}
-      />
+      <PlanillaForm open={showPlanillaForm} onOpenChange={setShowPlanillaForm} onGenerar={generarPlanilla} />
 
-      {/* Formulario de factura RC-IVA */}
       <Dialog open={showFacturaForm} onOpenChange={setShowFacturaForm}>
-        <DialogContent>
+        <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Registrar Factura RC-IVA</DialogTitle>
-            <DialogDescription>
-              Factura de compra personal del empleado para compensar RC-IVA
-            </DialogDescription>
+            <DialogTitle>Registrar factura RC-IVA</DialogTitle>
+            <DialogDescription>El comprobante queda persistido y alimenta la retencion del periodo.</DialogDescription>
           </DialogHeader>
-          <FacturaRCIVAForm
-            empleados={empleados.filter(e => e.estado === 'activo')}
-            periodo={facturaPeriodo}
-            onSave={(factura) => {
-              const nuevas = [...facturasRCIVA, factura];
-              setFacturasRCIVA(nuevas);
-              localStorage.setItem('facturasRCIVA', JSON.stringify(nuevas));
-              setShowFacturaForm(false);
-              toast({ title: "Factura registrada", description: `Factura ${factura.numeroFactura} registrada para RC-IVA` });
-            }}
-          />
+          <FacturaRCIVAForm empleados={empleadosActivos} periodo={facturaPeriodo} onSave={registrarFactura} />
         </DialogContent>
       </Dialog>
+
+      {loading && (
+        <Card className="border-dashed">
+          <CardContent className="flex items-center gap-3 py-6 text-sm text-slate-500">
+            <CalendarDays className="h-4 w-4" />
+            Cargando informacion persistida de nomina...
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
 
-// Componente para formulario de empleado
-const EmpleadoForm = ({ open, onOpenChange, empleado, onSave }: {
+const MetricCard = ({
+  icon: Icon,
+  title,
+  value,
+  detail,
+  tone,
+}: {
+  icon: typeof Users;
+  title: string;
+  value: string;
+  detail: string;
+  tone: "sky" | "emerald" | "amber" | "slate";
+}) => {
+  const toneClasses = {
+    sky: "border-sky-200 bg-sky-50 text-sky-950",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-950",
+    amber: "border-amber-200 bg-amber-50 text-amber-950",
+    slate: "border-slate-200 bg-slate-50 text-slate-950",
+  };
+
+  return (
+    <Card className={toneClasses[tone]}>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-600">{title}</p>
+            <p className="text-2xl font-semibold">{value}</p>
+            <p className="text-sm text-slate-600">{detail}</p>
+          </div>
+          <div className="rounded-2xl bg-white/80 p-3 shadow-sm">
+            <Icon className="h-5 w-5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const EstadoBadge = ({ estado }: { estado: PlanillaNominaAuditada["estado"] }) => {
+  if (estado === "pagada") return <Badge className="bg-emerald-600 hover:bg-emerald-600">pagada</Badge>;
+  if (estado === "aprobada") return <Badge variant="secondary">aprobada</Badge>;
+  return <Badge variant="outline">borrador</Badge>;
+};
+
+const EmpleadoForm = ({
+  open,
+  onOpenChange,
+  empleado,
+  onSave,
+}: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  empleado: Empleado | null;
-  onSave: (empleado: Empleado) => void;
+  empleado: EmpleadoNomina | null;
+  onSave: (empleado: EmpleadoNomina) => Promise<boolean>;
 }) => {
-  const [formData, setFormData] = useState<Empleado>({
-    id: '',
-    nombre: '',
-    apellido: '',
-    ci: '',
-    cargo: '',
-    departamento: '',
+  const [formData, setFormData] = useState<EmpleadoNomina>({
+    id: "",
+    nombre: "",
+    apellido: "",
+    ci: "",
+    cargo: "",
+    departamento: "",
     fechaIngreso: new Date().toISOString().slice(0, 10),
     salarioBase: 0,
-    telefono: '',
-    email: '',
-    cuentaBancaria: '',
-    estado: 'activo',
-    tipoContrato: 'indefinido'
+    telefono: "",
+    email: "",
+    cuentaBancaria: "",
+    estado: "activo",
+    tipoContrato: "indefinido",
   });
-
+ 
   useEffect(() => {
     if (empleado) {
       setFormData(empleado);
-    } else {
-      setFormData({
-        id: '',
-        nombre: '',
-        apellido: '',
-        ci: '',
-        cargo: '',
-        departamento: '',
-        fechaIngreso: new Date().toISOString().slice(0, 10),
-        salarioBase: 0,
-        telefono: '',
-        email: '',
-        cuentaBancaria: '',
-        estado: 'activo',
-        tipoContrato: 'indefinido'
-      });
+      return;
     }
+
+    setFormData({
+      id: "",
+      nombre: "",
+      apellido: "",
+      ci: "",
+      cargo: "",
+      departamento: "",
+      fechaIngreso: new Date().toISOString().slice(0, 10),
+      salarioBase: 0,
+      telefono: "",
+      email: "",
+      cuentaBancaria: "",
+      estado: "activo",
+      tipoContrato: "indefinido",
+    });
   }, [empleado]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(formData);
-    onOpenChange(false);
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const success = await onSave(formData);
+    if (success) onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{empleado ? 'Editar Empleado' : 'Nuevo Empleado'}</DialogTitle>
-          <DialogDescription>
-            Complete la información del empleado
-          </DialogDescription>
+          <DialogTitle>{empleado ? "Editar empleado" : "Nuevo empleado"}</DialogTitle>
+          <DialogDescription>Actualiza la ficha laboral que alimenta la nomina.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="nombre">Nombre</Label>
-              <Input
-                id="nombre"
-                value={formData.nombre}
-                onChange={(e) => setFormData(prev => ({ ...prev, nombre: e.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="apellido">Apellido</Label>
-              <Input
-                id="apellido"
-                value={formData.apellido}
-                onChange={(e) => setFormData(prev => ({ ...prev, apellido: e.target.value }))}
-                required
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="ci">Cédula de Identidad</Label>
-              <Input
-                id="ci"
-                value={formData.ci}
-                onChange={(e) => setFormData(prev => ({ ...prev, ci: e.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="cargo">Cargo</Label>
-              <Input
-                id="cargo"
-                value={formData.cargo}
-                onChange={(e) => setFormData(prev => ({ ...prev, cargo: e.target.value }))}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="departamento">Departamento</Label>
-              <Input
-                id="departamento"
-                value={formData.departamento}
-                onChange={(e) => setFormData(prev => ({ ...prev, departamento: e.target.value }))}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="fechaIngreso">Fecha de Ingreso</Label>
-              <Input
-                id="fechaIngreso"
-                type="date"
-                value={formData.fechaIngreso}
-                onChange={(e) => setFormData(prev => ({ ...prev, fechaIngreso: e.target.value }))}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="salarioBase">Salario Base</Label>
-              <Input
-                id="salarioBase"
-                type="number"
-                step="0.01"
-                value={formData.salarioBase}
-                onChange={(e) => setFormData(prev => ({ ...prev, salarioBase: parseFloat(e.target.value) || 0 }))}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="tipoContrato">Tipo de Contrato</Label>
-              <Select value={formData.tipoContrato} onValueChange={(value: any) => setFormData(prev => ({ ...prev, tipoContrato: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Field label="Nombre"><Input value={formData.nombre} onChange={(event) => setFormData((prev) => ({ ...prev, nombre: event.target.value }))} required /></Field>
+            <Field label="Apellido"><Input value={formData.apellido} onChange={(event) => setFormData((prev) => ({ ...prev, apellido: event.target.value }))} required /></Field>
+            <Field label="CI"><Input value={formData.ci} onChange={(event) => setFormData((prev) => ({ ...prev, ci: event.target.value }))} required /></Field>
+            <Field label="Cargo"><Input value={formData.cargo} onChange={(event) => setFormData((prev) => ({ ...prev, cargo: event.target.value }))} required /></Field>
+            <Field label="Departamento"><Input value={formData.departamento} onChange={(event) => setFormData((prev) => ({ ...prev, departamento: event.target.value }))} required /></Field>
+            <Field label="Fecha de ingreso"><Input type="date" value={formData.fechaIngreso} onChange={(event) => setFormData((prev) => ({ ...prev, fechaIngreso: event.target.value }))} required /></Field>
+            <Field label="Salario base"><Input type="number" step="0.01" value={formData.salarioBase} onChange={(event) => setFormData((prev) => ({ ...prev, salarioBase: Number(event.target.value) || 0 }))} required /></Field>
+            <Field label="Tipo de contrato">
+              <Select value={formData.tipoContrato} onValueChange={(value) => setFormData((prev) => ({ ...prev, tipoContrato: value as TipoContrato }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="indefinido">Indefinido</SelectItem>
                   <SelectItem value="temporal">Temporal</SelectItem>
-                  <SelectItem value="consultoria">Consultoría</SelectItem>
+                  <SelectItem value="consultoria">Consultoria</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
+            <Field label="Telefono"><Input value={formData.telefono} onChange={(event) => setFormData((prev) => ({ ...prev, telefono: event.target.value }))} /></Field>
+            <Field label="Email"><Input type="email" value={formData.email} onChange={(event) => setFormData((prev) => ({ ...prev, email: event.target.value }))} /></Field>
+            <Field label="Cuenta bancaria"><Input value={formData.cuentaBancaria} onChange={(event) => setFormData((prev) => ({ ...prev, cuentaBancaria: event.target.value }))} /></Field>
+            <Field label="Estado">
+              <Select value={formData.estado} onValueChange={(value) => setFormData((prev) => ({ ...prev, estado: value as EstadoEmpleadoNomina }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="activo">Activo</SelectItem>
+                  <SelectItem value="inactivo">Inactivo</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="telefono">Teléfono</Label>
-              <Input
-                id="telefono"
-                value={formData.telefono}
-                onChange={(e) => setFormData(prev => ({ ...prev, telefono: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="cuentaBancaria">Cuenta Bancaria</Label>
-            <Input
-              id="cuentaBancaria"
-              value={formData.cuentaBancaria}
-              onChange={(e) => setFormData(prev => ({ ...prev, cuentaBancaria: e.target.value }))}
-            />
-          </div>
-
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit">
-              {empleado ? 'Actualizar' : 'Guardar'} Empleado
-            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button type="submit">{empleado ? "Actualizar" : "Guardar"} empleado</Button>
           </div>
         </form>
       </DialogContent>
@@ -1212,47 +1071,37 @@ const EmpleadoForm = ({ open, onOpenChange, empleado, onSave }: {
   );
 };
 
-// Componente para formulario de planilla
-const PlanillaForm = ({ open, onOpenChange, onGenerar }: {
+const PlanillaForm = ({
+  open,
+  onOpenChange,
+  onGenerar,
+}: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onGenerar: (periodo: string) => void;
+  onGenerar: (periodo: string) => Promise<boolean>;
 }) => {
   const [periodo, setPeriodo] = useState(new Date().toISOString().slice(0, 7));
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onGenerar(periodo);
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const success = await onGenerar(periodo);
+    if (success) onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Generar Planilla</DialogTitle>
-          <DialogDescription>
-            Seleccione el período para generar la planilla de sueldos
-          </DialogDescription>
+          <DialogTitle>Generar planilla auditable</DialogTitle>
+          <DialogDescription>Se calculara sobre empleados activos y facturas RC-IVA del periodo.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="periodo">Período</Label>
-            <Input
-              id="periodo"
-              type="month"
-              value={periodo}
-              onChange={(e) => setPeriodo(e.target.value)}
-              required
-            />
-          </div>
-
+          <Field label="Periodo">
+            <Input type="month" value={periodo} onChange={(event) => setPeriodo(event.target.value)} required />
+          </Field>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit">
-              Generar Planilla
-            </Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button type="submit">Generar</Button>
           </div>
         </form>
       </DialogContent>
@@ -1260,79 +1109,73 @@ const PlanillaForm = ({ open, onOpenChange, onGenerar }: {
   );
 };
 
-// Componente para registrar facturas RC-IVA
-const FacturaRCIVAForm = ({ empleados, periodo, onSave }: {
-  empleados: Empleado[];
+const FacturaRCIVAForm = ({
+  empleados,
+  periodo,
+  onSave,
+}: {
+  empleados: EmpleadoNomina[];
   periodo: string;
-  onSave: (factura: FacturaRCIVA) => void;
+  onSave: (factura: Omit<FacturaRCIVANomina, "id" | "createdAt">) => Promise<boolean>;
 }) => {
-  const [formData, setFormData] = useState({
-    empleadoId: '',
-    numeroFactura: '',
-    nitProveedor: '',
-    razonSocial: '',
+  const [formData, setFormData] = useState<Omit<FacturaRCIVANomina, "id" | "createdAt">>({
+    empleadoId: "",
+    periodo,
+    numeroFactura: "",
+    nitProveedor: "",
+    razonSocial: "",
     fecha: new Date().toISOString().slice(0, 10),
     importeTotal: 0,
-    codigoControl: ''
+    codigoControl: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave({
-      id: Date.now().toString(),
-      periodo,
-      ...formData
-    });
+  useEffect(() => {
+    setFormData((prev) => ({ ...prev, periodo }));
+  }, [periodo]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await onSave(formData);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <Label>Empleado</Label>
-        <Select value={formData.empleadoId} onValueChange={v => setFormData(p => ({ ...p, empleadoId: v }))}>
+      <Field label="Empleado">
+        <Select value={formData.empleadoId} onValueChange={(value) => setFormData((prev) => ({ ...prev, empleadoId: value }))}>
           <SelectTrigger><SelectValue placeholder="Seleccionar empleado" /></SelectTrigger>
           <SelectContent>
-            {empleados.map(e => (
-              <SelectItem key={e.id} value={e.id}>{e.nombre} {e.apellido}</SelectItem>
+            {empleados.map((empleado) => (
+              <SelectItem key={empleado.id} value={empleado.id}>
+                {empleado.nombre} {empleado.apellido}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
+      </Field>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Field label="Numero de factura"><Input value={formData.numeroFactura} onChange={(event) => setFormData((prev) => ({ ...prev, numeroFactura: event.target.value }))} required /></Field>
+        <Field label="NIT proveedor"><Input value={formData.nitProveedor} onChange={(event) => setFormData((prev) => ({ ...prev, nitProveedor: event.target.value }))} required /></Field>
+        <Field label="Razon social"><Input value={formData.razonSocial} onChange={(event) => setFormData((prev) => ({ ...prev, razonSocial: event.target.value }))} required /></Field>
+        <Field label="Fecha"><Input type="date" value={formData.fecha} onChange={(event) => setFormData((prev) => ({ ...prev, fecha: event.target.value }))} required /></Field>
+        <Field label="Importe total"><Input type="number" step="0.01" value={formData.importeTotal} onChange={(event) => setFormData((prev) => ({ ...prev, importeTotal: Number(event.target.value) || 0 }))} required /></Field>
+        <Field label="Codigo de control"><Input value={formData.codigoControl} onChange={(event) => setFormData((prev) => ({ ...prev, codigoControl: event.target.value }))} required /></Field>
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Nº Factura</Label>
-          <Input value={formData.numeroFactura} onChange={e => setFormData(p => ({ ...p, numeroFactura: e.target.value }))} required />
-        </div>
-        <div>
-          <Label>NIT Proveedor</Label>
-          <Input value={formData.nitProveedor} onChange={e => setFormData(p => ({ ...p, nitProveedor: e.target.value }))} required />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Razón Social</Label>
-          <Input value={formData.razonSocial} onChange={e => setFormData(p => ({ ...p, razonSocial: e.target.value }))} required />
-        </div>
-        <div>
-          <Label>Fecha</Label>
-          <Input type="date" value={formData.fecha} onChange={e => setFormData(p => ({ ...p, fecha: e.target.value }))} required />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Importe Total (Bs)</Label>
-          <Input type="number" step="0.01" value={formData.importeTotal} onChange={e => setFormData(p => ({ ...p, importeTotal: parseFloat(e.target.value) || 0 }))} required />
-        </div>
-        <div>
-          <Label>Código de Control</Label>
-          <Input value={formData.codigoControl} onChange={e => setFormData(p => ({ ...p, codigoControl: e.target.value }))} />
-        </div>
+      <Field label="Periodo"><Input value={formData.periodo} disabled /></Field>
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-sm text-slate-600">La factura se utilizara para compensar credito fiscal RC-IVA del dependiente en el periodo seleccionado.</p>
       </div>
       <div className="flex justify-end gap-2">
-        <Button type="submit" disabled={!formData.empleadoId}>Registrar Factura</Button>
+        <Button type="submit">Registrar factura</Button>
       </div>
     </form>
   );
 };
+
+const Field = ({ label, children }: { label: string; children: ReactNode }) => (
+  <div className="space-y-2">
+    <Label>{label}</Label>
+    {children}
+  </div>
+);
 
 export default NominaModule;

@@ -1,330 +1,119 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { 
-  AlertTriangle, 
-  Clock, 
-  XCircle, 
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCumplimientoEjecutivo } from "@/hooks/useCumplimientoEjecutivo";
+import {
+  AlertTriangle,
   Bell,
   Calendar,
   CheckCircle,
-  ExternalLink
+  ExternalLink,
+  ShieldAlert,
+  XCircle,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 
-interface ComplianceAlert {
-  id: string;
-  type: 'vencimiento' | 'normativa' | 'configuracion' | 'critico';
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  title: string;
-  description: string;
-  deadline?: string;
-  actions: string[];
-  resolved: boolean;
-  created_at: string;
-}
+const priorityClasses: Record<string, string> = {
+  low: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  medium: "border-amber-200 bg-amber-50 text-amber-800",
+  high: "border-orange-200 bg-orange-50 text-orange-800",
+  critical: "border-rose-200 bg-rose-50 text-rose-800",
+};
 
 const ComplianceAlerts = () => {
-  const [alerts, setAlerts] = useState<ComplianceAlert[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
-
-  useEffect(() => {
-    generateComplianceAlerts();
-  }, []);
-
-  const generateComplianceAlerts = async () => {
-    try {
-      setLoading(true);
-      
-      const alertsData: ComplianceAlert[] = [];
-      const today = new Date();
-
-      // Verificar configuración tributaria
-      const { data: config } = await supabase
-        .from('configuracion_tributaria')
-        .select('*')
-        .limit(1)
-        .single();
-
-      if (!config) {
-        alertsData.push({
-          id: 'config-missing',
-          type: 'configuracion',
-          priority: 'critical',
-          title: 'Configuración Tributaria Faltante',
-          description: 'No se ha configurado la información tributaria básica de la empresa',
-          actions: [
-            'Configurar NIT de la empresa',
-            'Establecer código de actividad económica',
-            'Definir régimen tributario aplicable'
-          ],
-          resolved: false,
-          created_at: today.toISOString()
-        });
-      }
-
-      // Verificar normativas recientes
-      const { data: normativas } = await supabase
-        .from('normativas_2025')
-        .select('*')
-        .eq('estado', 'vigente')
-        .gte('fecha_emision', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-
-      if (normativas && normativas.length > 0) {
-        alertsData.push({
-          id: 'new-normativas',
-          type: 'normativa',
-          priority: 'high',
-          title: `${normativas.length} Nueva(s) Normativa(s) Emitida(s)`,
-          description: 'Se han emitido nuevas normativas tributarias en los últimos 30 días que requieren revisión',
-          actions: [
-            'Revisar nuevas normativas en el módulo de Cumplimiento',
-            'Evaluar impacto en operaciones actuales',
-            'Actualizar procedimientos si es necesario'
-          ],
-          resolved: false,
-          created_at: today.toISOString()
-        });
-      }
-
-      // Verificar vencimientos próximos (ejemplo: declaraciones)
-      const nextMonth = new Date();
-      nextMonth.setMonth(nextMonth.getMonth() + 1);
-      nextMonth.setDate(20); // Fecha límite típica
-
-      alertsData.push({
-        id: 'monthly-declarations',
-        type: 'vencimiento',
-        priority: 'high',
-        title: 'Declaraciones Tributarias Próximas a Vencer',
-        description: `Las declaraciones de IVA e IT del mes ${today.toLocaleDateString('es-BO', { month: 'long' })} vencen el 20 del próximo mes`,
-        deadline: nextMonth.toISOString(),
-        actions: [
-          'Preparar Formulario 200 (IVA)',
-          'Preparar Formulario 401 (IT)',
-          'Verificar retenciones RC-IVA y RC-IT',
-          'Realizar pago antes del vencimiento'
-        ],
-        resolved: false,
-        created_at: today.toISOString()
-      });
-
-      // Verificar compliance records vencidos
-      const { data: overdue } = await supabase
-        .from('cumplimiento_normativo_2025')
-        .select('*')
-        .eq('estado', 'pendiente')
-        .lt('fecha_vigencia', today.toISOString());
-
-      if (overdue && overdue.length > 0) {
-        alertsData.push({
-          id: 'overdue-compliance',
-          type: 'critico',
-          priority: 'critical',
-          title: `${overdue.length} Normativa(s) Vencida(s) Sin Cumplir`,
-          description: 'Hay normativas vencidas que no han sido marcadas como cumplidas, lo que puede resultar en sanciones',
-          actions: [
-            'Revisar estado de cumplimiento en el módulo de Seguimiento',
-            'Actualizar estado de implementación',
-            'Documentar acciones tomadas para cumplimiento',
-            'Considerar facilidades de pago si corresponde'
-          ],
-          resolved: false,
-          created_at: today.toISOString()
-        });
-      }
-
-      setAlerts(alertsData);
-    } catch (error: any) {
-      console.error('Error generating compliance alerts:', error);
-      toast({
-        title: "Error al generar alertas",
-        description: "No se pudieron generar las alertas de cumplimiento",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const resolveAlert = (alertId: string) => {
-    setAlerts(prev => prev.map(alert => 
-      alert.id === alertId ? { ...alert, resolved: true } : alert
-    ));
-    
-    toast({
-      title: "Alerta resuelta",
-      description: "La alerta ha sido marcada como resuelta",
-    });
-  };
-
-  const getPriorityColor = (priority: string) => {
-    const colors: Record<string, string> = {
-      'low': 'text-green-600 bg-green-50 border-green-200',
-      'medium': 'text-yellow-600 bg-yellow-50 border-yellow-200',
-      'high': 'text-orange-600 bg-orange-50 border-orange-200',
-      'critical': 'text-red-600 bg-red-50 border-red-200'
-    };
-    return colors[priority] || colors['medium'];
-  };
-
-  const getPriorityIcon = (priority: string) => {
-    const icons: Record<string, any> = {
-      'low': CheckCircle,
-      'medium': Clock,
-      'high': AlertTriangle,
-      'critical': XCircle
-    };
-    const Icon = icons[priority] || AlertTriangle;
-    return <Icon className="w-4 h-4" />;
-  };
-
-  const getTypeLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      'vencimiento': 'Vencimiento',
-      'normativa': 'Nueva Normativa',
-      'configuracion': 'Configuración',
-      'critico': 'Crítico'
-    };
-    return labels[type] || type;
-  };
-
-  const activeAlerts = alerts.filter(alert => !alert.resolved);
-  const criticalAlerts = activeAlerts.filter(alert => alert.priority === 'critical');
+  const { alerts, loading, metrics, refetch } = useCumplimientoEjecutivo();
 
   if (loading) {
     return (
-      <div className="text-center py-8">
-        <Bell className="w-12 h-12 mx-auto mb-4 text-muted-foreground animate-pulse" />
-        <p className="text-muted-foreground">Generando alertas de cumplimiento...</p>
+      <div className="py-10 text-center">
+        <Bell className="mx-auto mb-3 h-12 w-12 animate-pulse text-slate-400" />
+        <p className="text-sm text-slate-500">Leyendo declaraciones, conciliaciones, nomina y cumplimiento normativo...</p>
       </div>
     );
   }
 
+  const actionableAlerts = alerts.filter((item) => item.id !== "sin-alertas");
+
   return (
     <div className="space-y-6">
-      {/* Resumen de Alertas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="flex items-center justify-between p-4">
+      <section className="rounded-3xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(251,191,36,0.18),_transparent_35%),linear-gradient(135deg,#ffffff_0%,#fff7ed_38%,#f8fafc_100%)] p-6 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <Badge className="bg-slate-900 text-white hover:bg-slate-900">Control de cierre</Badge>
             <div>
-              <p className="text-sm font-medium text-red-800">Alertas Críticas</p>
-              <p className="text-2xl font-bold text-red-900">{criticalAlerts.length}</p>
+              <h2 className="text-3xl font-semibold tracking-tight text-slate-950">Alertas ejecutivas de cumplimiento</h2>
+              <p className="max-w-3xl text-sm text-slate-600">
+                El tablero consolida configuracion tributaria, declaraciones, nomina, retenciones, conciliacion bancaria y seguimiento normativo.
+              </p>
             </div>
-            <XCircle className="w-8 h-8 text-red-600" />
-          </CardContent>
-        </Card>
+          </div>
+          <Button variant="outline" className="bg-white/80" onClick={() => void refetch()}>
+            <AlertTriangle className="mr-2 h-4 w-4" />
+            Actualizar tablero
+          </Button>
+        </div>
+      </section>
 
-        <Card className="border-orange-200 bg-orange-50">
-          <CardContent className="flex items-center justify-between p-4">
-            <div>
-              <p className="text-sm font-medium text-orange-800">Alertas Activas</p>
-              <p className="text-2xl font-bold text-orange-900">{activeAlerts.length}</p>
-            </div>
-            <AlertTriangle className="w-8 h-8 text-orange-600" />
-          </CardContent>
-        </Card>
-
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="flex items-center justify-between p-4">
-            <div>
-              <p className="text-sm font-medium text-green-800">Resueltas</p>
-              <p className="text-2xl font-bold text-green-900">{alerts.filter(a => a.resolved).length}</p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-green-600" />
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard title="Alertas criticas" value={metrics.criticalAlerts} icon={XCircle} tone="rose" detail="Contingencias que afectan cierre o vencimientos" />
+        <MetricCard title="Alertas activas" value={metrics.totalAlerts} icon={ShieldAlert} tone="amber" detail="Hallazgos detectados por el motor de control" />
+        <MetricCard title="Declaraciones pendientes" value={metrics.declaracionesPendientes} icon={Calendar} tone="sky" detail="Obligaciones no presentadas aun" />
+        <MetricCard title="Conciliaciones abiertas" value={metrics.conciliacionesAbiertas} icon={CheckCircle} tone="slate" detail="Cortes bancarios todavia sin cierre final" />
       </div>
 
-      {/* Lista de Alertas Activas */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="w-5 h-5 text-orange-600" />
-                Alertas de Cumplimiento Normativo
-              </CardTitle>
-              <CardDescription>
-                Manténgase informado sobre vencimientos y cambios normativos importantes
-              </CardDescription>
-            </div>
-            <Button variant="outline" onClick={generateComplianceAlerts}>
-              <AlertTriangle className="w-4 h-4 mr-2" />
-              Actualizar Alertas
-            </Button>
-          </div>
+      <Card className="border-slate-200">
+        <CardHeader className="border-b bg-slate-50/70">
+          <CardTitle className="flex items-center gap-2">
+            <Bell className="h-5 w-5 text-orange-600" />
+            Cola de alertas priorizadas
+          </CardTitle>
+          <CardDescription>
+            Cada alerta se construye desde datos persistidos. No se muestran recordatorios simulados.
+          </CardDescription>
         </CardHeader>
-
-        <CardContent className="space-y-4">
-          {activeAlerts.length === 0 ? (
-            <div className="text-center py-8">
-              <CheckCircle className="w-16 h-16 mx-auto mb-4 text-green-600" />
-              <h3 className="text-lg font-semibold text-green-800 mb-2">¡Todo al día!</h3>
-              <p className="text-green-600">No hay alertas de cumplimiento pendientes</p>
+        <CardContent className="space-y-4 p-6">
+          {actionableAlerts.length === 0 ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center">
+              <CheckCircle className="mx-auto mb-3 h-12 w-12 text-emerald-600" />
+              <h3 className="text-lg font-semibold text-emerald-900">Sin hallazgos mayores</h3>
+              <p className="mt-1 text-sm text-emerald-800">El sistema no detecta contingencias criticas en esta lectura del cierre.</p>
             </div>
           ) : (
-            activeAlerts.map((alert) => (
-              <Alert key={alert.id} className={`${getPriorityColor(alert.priority)} border-l-4`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      {getPriorityIcon(alert.priority)}
-                      <Badge variant="outline" className="text-xs">
-                        {getTypeLabel(alert.type)}
-                      </Badge>
-                      <Badge 
-                        variant="outline" 
-                        className={`text-xs ${getPriorityColor(alert.priority)}`}
-                      >
-                        {alert.priority.toUpperCase()}
-                      </Badge>
+            actionableAlerts.map((alert) => (
+              <Alert key={alert.id} className={`${priorityClasses[alert.priority]} border-l-4`}>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">{alert.type}</Badge>
+                      <Badge variant="outline">{alert.priority.toUpperCase()}</Badge>
+                      <Badge variant="outline">{alert.source}</Badge>
                       {alert.deadline && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <Calendar className="w-3 h-3" />
-                          Vence: {new Date(alert.deadline).toLocaleDateString('es-BO')}
-                        </div>
+                        <span className="inline-flex items-center gap-1 text-xs opacity-80">
+                          <Calendar className="h-3.5 w-3.5" />
+                          Vence o impacta desde {new Date(alert.deadline).toLocaleDateString("es-BO")}
+                        </span>
                       )}
                     </div>
-                    
-                    <AlertTitle className="text-base font-semibold">
-                      {alert.title}
-                    </AlertTitle>
-                    
-                    <AlertDescription className="mt-2">
-                      {alert.description}
-                    </AlertDescription>
-
-                    <div className="mt-4">
-                      <p className="font-medium text-sm mb-2">Acciones recomendadas:</p>
-                      <ul className="list-disc list-inside space-y-1 text-sm">
-                        {alert.actions.map((action, idx) => (
-                          <li key={idx}>{action}</li>
+                    <div>
+                      <AlertTitle className="text-base font-semibold">{alert.title}</AlertTitle>
+                      <AlertDescription className="mt-2 text-sm leading-6">{alert.description}</AlertDescription>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] opacity-80">Acciones recomendadas</p>
+                      <ul className="space-y-1 text-sm">
+                        {alert.actions.map((action) => (
+                          <li key={action}>• {action}</li>
                         ))}
                       </ul>
                     </div>
                   </div>
-
-                  <div className="flex flex-col gap-2 ml-4">
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => resolveAlert(alert.id)}
-                    >
-                      Resolver
+                  <div className="flex shrink-0 gap-2">
+                    <Button asChild size="sm" variant="outline" className="bg-white/80">
+                      <a href="/?view=cumplimiento-normativo">
+                        Abrir modulo
+                        <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                      </a>
                     </Button>
-                    {alert.type === 'normativa' && (
-                      <Button size="sm" variant="ghost" asChild>
-                        <a href="/?view=cumplimiento-normativo" className="flex items-center gap-1">
-                          <ExternalLink className="w-3 h-3" />
-                          Ver Normativas
-                        </a>
-                      </Button>
-                    )}
                   </div>
                 </div>
               </Alert>
@@ -333,6 +122,44 @@ const ComplianceAlerts = () => {
         </CardContent>
       </Card>
     </div>
+  );
+};
+
+const MetricCard = ({
+  title,
+  value,
+  icon: Icon,
+  tone,
+  detail,
+}: {
+  title: string;
+  value: number;
+  icon: typeof Bell;
+  tone: "rose" | "amber" | "sky" | "slate";
+  detail: string;
+}) => {
+  const toneClasses = {
+    rose: "border-rose-200 bg-rose-50 text-rose-950",
+    amber: "border-amber-200 bg-amber-50 text-amber-950",
+    sky: "border-sky-200 bg-sky-50 text-sky-950",
+    slate: "border-slate-200 bg-slate-50 text-slate-950",
+  };
+
+  return (
+    <Card className={toneClasses[tone]}>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-600">{title}</p>
+            <p className="mt-2 text-2xl font-semibold">{value}</p>
+            <p className="mt-1 text-sm text-slate-600">{detail}</p>
+          </div>
+          <div className="rounded-2xl bg-white/80 p-3 shadow-sm">
+            <Icon className="h-5 w-5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

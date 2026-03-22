@@ -1,363 +1,189 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { 
-  FileText, 
-  Download, 
-  Calendar, 
-  Clock, 
-  CheckCircle,
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { AutomatedReportItem, useCumplimientoEjecutivo } from "@/hooks/useCumplimientoEjecutivo";
+import {
   AlertTriangle,
   BarChart3,
-  Settings
+  Calendar,
+  CheckCircle,
+  Clock,
+  Download,
+  FileText,
+  RefreshCw,
+  Settings,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-
-interface AutomatedReport {
-  id: string;
-  name: string;
-  type: 'iva' | 'it' | 'iue' | 'rc-iva' | 'rc-it' | 'estados-financieros' | 'cumplimiento';
-  frequency: 'monthly' | 'quarterly' | 'annually';
-  lastGenerated?: string;
-  nextDue: string;
-  status: 'pending' | 'generated' | 'submitted' | 'overdue';
-  autoSubmit: boolean;
-  recipients: string[];
-}
+import * as XLSX from "@e965/xlsx";
 
 interface ReportTemplate {
   id: string;
   name: string;
-  type: string;
+  type: AutomatedReportItem["type"];
   description: string;
   fields: string[];
   validations: string[];
 }
 
+const templates: ReportTemplate[] = [
+  {
+    id: "form-200",
+    name: "Formulario 200 - IVA",
+    type: "iva",
+    description: "Resumen mensual del IVA pendiente basado en declaraciones persistidas.",
+    fields: ["Declaraciones pendientes", "Monto impuesto", "Fecha de vencimiento"],
+    validations: ["Validar ventas e IVA debito", "Cruzar obligaciones pendientes", "Confirmar presentaciones del periodo"],
+  },
+  {
+    id: "form-401",
+    name: "Formulario 401 - IT",
+    type: "it",
+    description: "Control operativo de IT mensual apoyado en declaraciones tributarias.",
+    fields: ["Declaraciones IT", "Monto impuesto", "Proximo vencimiento"],
+    validations: ["Verificar base imponible", "Revisar obligaciones pendientes"],
+  },
+  {
+    id: "form-110",
+    name: "Formulario 110 - RC-IVA",
+    type: "rc-iva",
+    description: "Consolidado de retenciones y planillas con RC-IVA del periodo.",
+    fields: ["Retenciones emitidas", "Monto retenido", "Planillas con RC-IVA"],
+    validations: ["Cruzar facturas RC-IVA", "Confirmar retenciones pendientes"],
+  },
+  {
+    id: "compliance-pack",
+    name: "Paquete de cierre y cumplimiento",
+    type: "cumplimiento",
+    description: "Reporte ejecutivo de alertas, obligaciones, nomina y conciliacion.",
+    fields: ["Alertas activas", "Declaraciones pendientes", "Conciliaciones abiertas", "Planillas pendientes"],
+    validations: ["Verificar alertas criticas", "Confirmar cierres bancarios", "Revisar nomina sin pago"],
+  },
+];
+
 const AutomatedReporting = () => {
-  const [reports, setReports] = useState<AutomatedReport[]>([]);
-  const [templates, setTemplates] = useState<ReportTemplate[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [generationProgress, setGenerationProgress] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { reports, metrics, loading, markReportGenerated, refetch } = useCumplimientoEjecutivo();
+  const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [generationProgress, setGenerationProgress] = useState<Record<string, number>>({});
 
-  useEffect(() => {
-    initializeReports();
-    loadTemplates();
-  }, []);
+  const overdueReports = reports.filter((report) => report.status === "overdue");
+  const generatedReports = reports.filter((report) => report.status === "generated" || report.status === "submitted");
 
-  const initializeReports = () => {
-    const currentDate = new Date();
-    const nextMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 20);
-    const nextQuarter = new Date(currentDate.getFullYear(), currentDate.getMonth() + 3, 31);
-    const nextYear = new Date(currentDate.getFullYear() + 1, 2, 31); // Marzo del siguiente año
+  const selectedTemplateData = useMemo(
+    () => templates.find((template) => template.id === selectedTemplate) || null,
+    [selectedTemplate],
+  );
 
-    const defaultReports: AutomatedReport[] = [
-      {
-        id: 'iva-monthly',
-        name: 'Declaración IVA Mensual',
-        type: 'iva',
-        frequency: 'monthly',
-        nextDue: nextMonth.toISOString(),
-        status: 'pending',
-        autoSubmit: false,
-        recipients: []
-      },
-      {
-        id: 'it-monthly',
-        name: 'Declaración IT Mensual',
-        type: 'it',
-        frequency: 'monthly',
-        nextDue: nextMonth.toISOString(),
-        status: 'pending',
-        autoSubmit: false,
-        recipients: []
-      },
-      {
-        id: 'rc-iva-monthly',
-        name: 'Retenciones RC-IVA',
-        type: 'rc-iva',
-        frequency: 'monthly',
-        nextDue: nextMonth.toISOString(),
-        status: 'pending',
-        autoSubmit: false,
-        recipients: []
-      },
-      {
-        id: 'rc-it-monthly',
-        name: 'Retenciones RC-IT',
-        type: 'rc-it',
-        frequency: 'monthly',
-        nextDue: nextMonth.toISOString(),
-        status: 'pending',
-        autoSubmit: false,
-        recipients: []
-      },
-      {
-        id: 'iue-quarterly',
-        name: 'Declaración IUE Trimestral',
-        type: 'iue',
-        frequency: 'quarterly',
-        nextDue: nextQuarter.toISOString(),
-        status: 'pending',
-        autoSubmit: false,
-        recipients: []
-      },
-      {
-        id: 'estados-financieros',
-        name: 'Estados Financieros Anuales',
-        type: 'estados-financieros',
-        frequency: 'annually',
-        nextDue: nextYear.toISOString(),
-        status: 'pending',
-        autoSubmit: false,
-        recipients: []
-      },
-      {
-        id: 'cumplimiento-report',
-        name: 'Reporte de Cumplimiento Normativo',
-        type: 'cumplimiento',
-        frequency: 'monthly',
-        nextDue: nextMonth.toISOString(),
-        status: 'pending',
-        autoSubmit: true,
-        recipients: ['admin@empresa.com']
-      }
-    ];
-
-    setReports(defaultReports);
-  };
-
-  const loadTemplates = () => {
-    const reportTemplates: ReportTemplate[] = [
-      {
-        id: 'form-200',
-        name: 'Formulario 200 - Declaración IVA',
-        type: 'iva',
-        description: 'Declaración mensual del Impuesto al Valor Agregado',
-        fields: ['Ventas gravadas', 'IVA débito fiscal', 'Compras gravadas', 'IVA crédito fiscal'],
-        validations: ['Verificar facturas emitidas', 'Validar retenciones recibidas', 'Confirmar saldos bancarios']
-      },
-      {
-        id: 'form-401',
-        name: 'Formulario 401 - Declaración IT',
-        type: 'it',
-        description: 'Declaración mensual del Impuesto a las Transacciones',
-        fields: ['Ingresos brutos', 'Base imponible', 'Impuesto determinado'],
-        validations: ['Verificar ingresos del período', 'Validar deducciones aplicables']
-      },
-      {
-        id: 'form-110',
-        name: 'Formulario 110 - RC-IVA',
-        type: 'rc-iva',
-        description: 'Declaración de retenciones RC-IVA realizadas',
-        fields: ['Retenciones practicadas', 'Base de retención', 'Monto retenido'],
-        validations: ['Verificar certificados emitidos', 'Validar pagos realizados']
-      },
-      {
-        id: 'form-500',
-        name: 'Formulario 500 - IUE Trimestral',
-        type: 'iue',
-        description: 'Declaración jurada trimestral del Impuesto sobre las Utilidades',
-        fields: ['Ingresos del trimestre', 'Gastos deducibles', 'Utilidad neta', 'Impuesto determinado'],
-        validations: ['Conciliar con contabilidad', 'Verificar gastos no deducibles', 'Validar pagos a cuenta']
-      }
-    ];
-
-    setTemplates(reportTemplates);
-  };
-
-  const generateReport = async (reportId: string) => {
-    try {
-      setLoading(true);
-      setGenerationProgress(prev => ({ ...prev, [reportId]: 0 }));
-
-      const report = reports.find(r => r.id === reportId);
-      if (!report) return;
-
-      // Simular proceso de generación
-      for (let i = 0; i <= 100; i += 20) {
-        setGenerationProgress(prev => ({ ...prev, [reportId]: i }));
-        await new Promise(resolve => setTimeout(resolve, 300));
-      }
-
-      // Obtener datos según el tipo de reporte
-      let data = {};
-      
-      switch (report.type) {
-        case 'iva':
-          // Obtener datos de facturas para IVA
-          const { data: { user: currentUser } } = await supabase.auth.getUser();
-          const { data: facturas } = await supabase
-            .from('facturas')
-            .select('id, total, iva, fecha')
-            .eq('user_id', currentUser?.id || '')
-            .gte('fecha', new Date(new Date().setDate(1)).toISOString().split('T')[0]);
-          
-          data = {
-            facturas_emitidas: facturas?.length || 0,
-            total_ventas: facturas?.reduce((sum, f) => sum + (f.total || 0), 0) || 0,
-            iva_debito: facturas?.reduce((sum, f) => sum + (f.iva || 0), 0) || 0
-          };
-          break;
-
-        case 'cumplimiento':
-          // Obtener datos de cumplimiento normativo
-          const { data: compliance } = await supabase
-            .from('cumplimiento_normativo_2025')
-            .select('*');
-          
-          const total = compliance?.length || 0;
-          const cumplidos = compliance?.filter(c => c.estado === 'cumplido').length || 0;
-          
-          data = {
-            total_normativas: total,
-            normativas_cumplidas: cumplidos,
-            porcentaje_cumplimiento: total > 0 ? Math.round((cumplidos / total) * 100) : 0,
-            pendientes: total - cumplidos
-          };
-          break;
-
-        default:
-          data = { message: 'Reporte generado exitosamente' };
-      }
-
-      // Actualizar estado del reporte
-      setReports(prev => prev.map(r => 
-        r.id === reportId 
-          ? { ...r, status: 'generated', lastGenerated: new Date().toISOString() }
-          : r
-      ));
-
-      setGenerationProgress(prev => {
-        const newProgress = { ...prev };
-        delete newProgress[reportId];
-        return newProgress;
-      });
-
-      toast({
-        title: "Reporte generado",
-        description: `${report.name} ha sido generado exitosamente`,
-      });
-
-      // Auto-enviar si está configurado
-      if (report.autoSubmit && report.recipients.length > 0) {
-        toast({
-          title: "Reporte enviado",
-          description: `El reporte ha sido enviado automáticamente a ${report.recipients.join(', ')}`,
-        });
-      }
-
-    } catch (error: any) {
-      console.error('Error generating report:', error);
-      toast({
-        title: "Error al generar reporte",
-        description: "No se pudo generar el reporte solicitado",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
+  const runProgress = async (reportId: string) => {
+    for (let step = 0; step <= 100; step += 25) {
+      setGenerationProgress((prev) => ({ ...prev, [reportId]: step }));
+      await new Promise((resolve) => setTimeout(resolve, 180));
     }
+    setGenerationProgress((prev) => {
+      const next = { ...prev };
+      delete next[reportId];
+      return next;
+    });
+  };
+
+  const exportReport = (report: AutomatedReportItem) => {
+    const rows = Object.entries(report.payload).map(([key, value]) => ({
+      Indicador: key,
+      Valor: typeof value === "number" ? Number(value.toFixed(2)) : String(value),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Reporte");
+    XLSX.writeFile(workbook, `${report.id}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  const generateReport = async (report: AutomatedReportItem) => {
+    await runProgress(report.id);
+    markReportGenerated(report.id, report.autoSubmit);
+
+    toast({
+      title: report.autoSubmit ? "Reporte generado y enviado" : "Reporte generado",
+      description: report.autoSubmit
+        ? `${report.name} quedo preparado y marcado como enviado al circuito definido.`
+        : `${report.name} quedo generado con datos reales del sistema.`,
+    });
   };
 
   const generateSelectedTemplate = async () => {
-    if (!selectedTemplate) return;
-
-    const template = templates.find(t => t.id === selectedTemplate);
-    if (!template) return;
-
-    try {
-      setLoading(true);
-      
-      toast({
-        title: "Generando reporte",
-        description: `Preparando ${template.name}...`,
-      });
-
-      // Simular validaciones
-      for (const validation of template.validations) {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        toast({
-          title: "Validación completada",
-          description: validation,
-        });
-      }
-
-      toast({
-        title: "Reporte listo",
-        description: `${template.name} ha sido generado y está listo para descarga`,
-      });
-
-    } catch (error: any) {
-      toast({
-        title: "Error en validación",
-        description: "Algunas validaciones fallaron. Revise los datos antes de continuar",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
+    if (!selectedTemplateData) return;
+    const linkedReport = reports.find((report) => report.type === selectedTemplateData.type);
+    if (!linkedReport) return;
+    await generateReport(linkedReport);
   };
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      'pending': 'text-yellow-600 bg-yellow-100 border-yellow-200',
-      'generated': 'text-blue-600 bg-blue-100 border-blue-200',
-      'submitted': 'text-green-600 bg-green-100 border-green-200',
-      'overdue': 'text-red-600 bg-red-100 border-red-200'
+  const getStatusColor = (status: AutomatedReportItem["status"]) => {
+    const colors = {
+      pending: "text-amber-700 bg-amber-100 border-amber-200",
+      generated: "text-sky-700 bg-sky-100 border-sky-200",
+      submitted: "text-emerald-700 bg-emerald-100 border-emerald-200",
+      overdue: "text-rose-700 bg-rose-100 border-rose-200",
     };
-    return colors[status] || colors['pending'];
+    return colors[status];
   };
 
-  const getStatusIcon = (status: string) => {
-    const icons: Record<string, any> = {
-      'pending': Clock,
-      'generated': FileText,
-      'submitted': CheckCircle,
-      'overdue': AlertTriangle
-    };
-    const Icon = icons[status] || Clock;
-    return <Icon className="w-4 h-4" />;
+  const getStatusIcon = (status: AutomatedReportItem["status"]) => {
+    if (status === "submitted") return <CheckCircle className="h-4 w-4" />;
+    if (status === "generated") return <FileText className="h-4 w-4" />;
+    if (status === "overdue") return <AlertTriangle className="h-4 w-4" />;
+    return <Clock className="h-4 w-4" />;
   };
-
-  const overdueReports = reports.filter(r => 
-    r.status === 'pending' && new Date(r.nextDue) < new Date()
-  );
 
   return (
     <div className="space-y-6">
-      {/* Alertas de vencimiento */}
-      {overdueReports.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
-            <h3 className="font-semibold text-red-800">Reportes Vencidos</h3>
+      <section className="rounded-3xl border border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.18),_transparent_35%),linear-gradient(135deg,#ffffff_0%,#ecfeff_35%,#f8fafc_100%)] p-6 shadow-sm">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2">
+            <Badge className="bg-slate-900 text-white hover:bg-slate-900">Reporting ejecutivo</Badge>
+            <div>
+              <h2 className="text-3xl font-semibold tracking-tight text-slate-950">Centro de reportes automaticos y cierres</h2>
+              <p className="max-w-3xl text-sm text-slate-600">
+                Los reportes ahora toman payload real desde declaraciones, retenciones, nomina, conciliacion bancaria y cumplimiento.
+              </p>
+            </div>
           </div>
-          <p className="text-red-700 text-sm">
-            Tienes {overdueReports.length} reporte(s) vencido(s) que requieren atención inmediata
-          </p>
+          <Button variant="outline" className="bg-white/80" onClick={() => void refetch()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Sincronizar datos
+          </Button>
+        </div>
+      </section>
+
+      {overdueReports.length > 0 && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          <div className="flex items-center gap-2 font-semibold">
+            <AlertTriangle className="h-5 w-5" />
+            Hay {overdueReports.length} reporte(s) vencido(s) que requieren atencion inmediata.
+          </div>
         </div>
       )}
 
-      {/* Generador de reportes por template */}
-      <Card>
-        <CardHeader>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard title="Pendientes tributarios" value={metrics.declaracionesPendientes} detail="Declaraciones no presentadas" icon={Calendar} tone="amber" />
+        <MetricCard title="Cumplimiento abierto" value={metrics.cumplimientoPendiente} detail="Requisitos normativos sin cerrar" icon={Settings} tone="slate" />
+        <MetricCard title="Reportes generados" value={generatedReports.length} detail="Cortes ya documentados" icon={CheckCircle} tone="emerald" />
+        <MetricCard title="Planillas pendientes" value={metrics.planillasPendientes} detail="Nomina aun no pagada o cerrada" icon={FileText} tone="sky" />
+      </div>
+
+      <Card className="border-slate-200">
+        <CardHeader className="border-b bg-slate-50/70">
           <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-blue-600" />
-            Generador de Reportes Tributarios
+            <BarChart3 className="h-5 w-5 text-sky-700" />
+            Generador guiado de reportes
           </CardTitle>
-          <CardDescription>
-            Genere reportes específicos utilizando plantillas predefinidas
-          </CardDescription>
+          <CardDescription>Selecciona una plantilla y el sistema armara el paquete usando la data real actualmente disponible.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-4">
+        <CardContent className="space-y-4 p-6">
+          <div className="flex flex-col gap-3 lg:flex-row">
             <div className="flex-1">
               <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
                 <SelectTrigger>
@@ -372,70 +198,57 @@ const AutomatedReporting = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Button 
-              onClick={generateSelectedTemplate}
-              disabled={!selectedTemplate || loading}
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              Generar Reporte
+            <Button onClick={() => void generateSelectedTemplate()} disabled={!selectedTemplate || loading}>
+              <FileText className="mr-2 h-4 w-4" />
+              Generar reporte
             </Button>
           </div>
 
-          {selectedTemplate && (
-            <div className="p-4 bg-muted/30 rounded-lg">
-              {(() => {
-                const template = templates.find(t => t.id === selectedTemplate);
-                return template ? (
-                  <div>
-                    <h4 className="font-semibold mb-2">{template.name}</h4>
-                    <p className="text-sm text-muted-foreground mb-3">{template.description}</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="font-medium text-sm mb-1">Campos incluidos:</p>
-                        <ul className="text-xs space-y-1">
-                          {template.fields.map((field, idx) => (
-                            <li key={idx}>• {field}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm mb-1">Validaciones automáticas:</p>
-                        <ul className="text-xs space-y-1">
-                          {template.validations.map((validation, idx) => (
-                            <li key={idx}>• {validation}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                ) : null;
-              })()}
+          {selectedTemplateData && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <h4 className="font-semibold text-slate-900">{selectedTemplateData.name}</h4>
+              <p className="mt-1 text-sm text-slate-600">{selectedTemplateData.description}</p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Campos incluidos</p>
+                  <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                    {selectedTemplateData.fields.map((field) => (
+                      <li key={field}>• {field}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Validaciones</p>
+                  <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                    {selectedTemplateData.validations.map((validation) => (
+                      <li key={validation}>• {validation}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Lista de reportes automáticos */}
-      <Card>
-        <CardHeader>
+      <Card className="border-slate-200">
+        <CardHeader className="border-b bg-slate-50/70">
           <CardTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5 text-green-600" />
-            Reportes Automáticos Programados
+            <Settings className="h-5 w-5 text-emerald-700" />
+            Calendario operativo de reportes
           </CardTitle>
-          <CardDescription>
-            Reportes que se generan automáticamente según el calendario tributario
-          </CardDescription>
+          <CardDescription>Cada fila refleja el estado actual del circuito y permite generar o exportar el paquete correspondiente.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Reporte</TableHead>
                 <TableHead>Frecuencia</TableHead>
-                <TableHead>Próximo Vencimiento</TableHead>
-                <TableHead>Última Generación</TableHead>
+                <TableHead>Proximo vencimiento</TableHead>
+                <TableHead>Ultima generacion</TableHead>
                 <TableHead>Estado</TableHead>
-                <TableHead>Acciones</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -444,72 +257,45 @@ const AutomatedReporting = () => {
                   <TableCell>
                     <div>
                       <div className="font-medium">{report.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        Tipo: {report.type.toUpperCase()}
-                        {report.autoSubmit && (
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            Auto-envío
-                          </Badge>
-                        )}
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span>Tipo: {report.type.toUpperCase()}</span>
+                        {report.autoSubmit && <Badge variant="outline">Auto-envio</Badge>}
                       </div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">
-                      {report.frequency === 'monthly' ? 'Mensual' : 
-                       report.frequency === 'quarterly' ? 'Trimestral' : 'Anual'}
+                      {report.frequency === "monthly" ? "Mensual" : report.frequency === "quarterly" ? "Trimestral" : "Anual"}
                     </Badge>
                   </TableCell>
+                  <TableCell>{new Date(report.nextDue).toLocaleDateString("es-BO")}</TableCell>
+                  <TableCell>{report.lastGenerated ? new Date(report.lastGenerated).toLocaleDateString("es-BO") : "Nunca"}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      {new Date(report.nextDue).toLocaleDateString('es-BO')}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {report.lastGenerated ? 
-                      new Date(report.lastGenerated).toLocaleDateString('es-BO') :
-                      <span className="text-muted-foreground">Nunca</span>
-                    }
-                  </TableCell>
-                  <TableCell>
-                    <Badge 
-                      variant="outline" 
-                      className={`${getStatusColor(report.status)} flex items-center gap-1 w-fit`}
-                    >
+                    <Badge variant="outline" className={`${getStatusColor(report.status)} flex w-fit items-center gap-1`}>
                       {getStatusIcon(report.status)}
-                      {report.status === 'pending' ? 'Pendiente' :
-                       report.status === 'generated' ? 'Generado' :
-                       report.status === 'submitted' ? 'Enviado' : 'Vencido'}
+                      {report.status}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      {generationProgress[report.id] !== undefined ? (
-                        <div className="flex items-center gap-2 min-w-[120px]">
-                          <Progress value={generationProgress[report.id]} className="flex-1" />
-                          <span className="text-xs">{generationProgress[report.id]}%</span>
-                        </div>
-                      ) : (
-                        <>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => generateReport(report.id)}
-                            disabled={loading}
-                          >
-                            <FileText className="w-3 h-3 mr-1" />
-                            Generar
+                  <TableCell className="text-right">
+                    {generationProgress[report.id] !== undefined ? (
+                      <div className="ml-auto flex min-w-[140px] items-center gap-2">
+                        <Progress value={generationProgress[report.id]} className="flex-1" />
+                        <span className="text-xs text-slate-500">{generationProgress[report.id]}%</span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-end gap-2">
+                        <Button size="sm" variant="outline" onClick={() => void generateReport(report)} disabled={loading}>
+                          <FileText className="mr-1 h-3.5 w-3.5" />
+                          Generar
+                        </Button>
+                        {(report.status === "generated" || report.status === "submitted") && (
+                          <Button size="sm" variant="outline" onClick={() => exportReport(report)}>
+                            <Download className="mr-1 h-3.5 w-3.5" />
+                            Descargar
                           </Button>
-                          {report.status === 'generated' && (
-                            <Button size="sm" variant="outline">
-                              <Download className="w-3 h-3 mr-1" />
-                              Descargar
-                            </Button>
-                          )}
-                        </>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
@@ -518,6 +304,44 @@ const AutomatedReporting = () => {
         </CardContent>
       </Card>
     </div>
+  );
+};
+
+const MetricCard = ({
+  title,
+  value,
+  detail,
+  icon: Icon,
+  tone,
+}: {
+  title: string;
+  value: number;
+  detail: string;
+  icon: typeof Calendar;
+  tone: "amber" | "slate" | "emerald" | "sky";
+}) => {
+  const toneClasses = {
+    amber: "border-amber-200 bg-amber-50 text-amber-950",
+    slate: "border-slate-200 bg-slate-50 text-slate-950",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-950",
+    sky: "border-sky-200 bg-sky-50 text-sky-950",
+  };
+
+  return (
+    <Card className={toneClasses[tone]}>
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-600">{title}</p>
+            <p className="mt-2 text-2xl font-semibold">{value}</p>
+            <p className="mt-1 text-sm text-slate-600">{detail}</p>
+          </div>
+          <div className="rounded-2xl bg-white/80 p-3 shadow-sm">
+            <Icon className="h-5 w-5" />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
