@@ -84,8 +84,7 @@ export const useProductosValidated = () => {
       };
       
       setConnectivity(status);
-      console.log('✅ [ProductosValidated] Estado de conectividad:', status);
-      
+
       return status;
     } catch (error: any) {
       console.error('❌ [ProductosValidated] Error de conectividad:', error);
