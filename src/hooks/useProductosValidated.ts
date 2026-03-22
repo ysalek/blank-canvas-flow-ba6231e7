@@ -176,7 +176,7 @@ export const useProductosValidated = () => {
       // Reintentos para categorías
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          console.log(`🔄 [ProductosValidated] Intento ${attempt} - Cargando categorías...`);
+          
           const categoriasResult = await supabase
             .from('categorias_productos')
             .select('id, nombre, descripcion, activo, created_at, updated_at')
