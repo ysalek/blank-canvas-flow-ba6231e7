@@ -142,7 +142,7 @@ export const useProductosValidated = () => {
     
     // Block concurrent loads even with force
     if (loadingRef.current) {
-      console.log('🛑 [ProductosValidated] Carga ya en proceso, ignorando');
+
       return;
     }
     
