@@ -212,7 +212,7 @@ export const useProductosValidated = () => {
           }
           
           productosData = productosResult.data || [];
-          console.log('✅ [ProductosValidated] Productos cargados:', productosData.length);
+          
           break;
         } catch (error: any) {
           console.error(`❌ [ProductosValidated] Error cargando productos (intento ${attempt}):`, error);
