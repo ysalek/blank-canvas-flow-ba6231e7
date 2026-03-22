@@ -168,12 +168,12 @@ class NormativaService {
       },
       {
         codigo: 'RND-102500000042',
-        titulo: 'Homologación de Productos RNC',
-        descripcion: 'Prórroga hasta el 27 de febrero de 2026 para que contribuyentes IVA realicen la homologación de productos con actividades económicas del RNC.',
+        titulo: 'Homologación de Productos RNC (superada por RND 102600000004)',
+        descripcion: 'Prórroga original hasta 27/02/2026. SUPERADA: nueva prórroga hasta 29/05/2026 mediante RND 102600000004.',
         fechaVigencia: '2026-02-27',
-        fechaActualizacion: '2025-11-15',
+        fechaActualizacion: '2026-02-23',
         categoria: 'facturacion',
-        estado: 'vigente',
+        estado: 'modificada',
         organismo: 'SIN'
       },
       {
