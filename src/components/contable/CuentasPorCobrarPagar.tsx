@@ -1,16 +1,19 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
-import { CreditCard, AlertTriangle, CheckCircle, Calendar, DollarSign, Users, Building } from "lucide-react";
+import { useFacturas } from "@/hooks/useFacturas";
+import { useSupabasePagos } from "@/hooks/useSupabasePagos";
+import { useSupabaseProveedores } from "@/hooks/useSupabaseProveedores";
+import { CreditCard, AlertTriangle, CheckCircle, DollarSign, Users, Building } from "lucide-react";
 
 interface CuentaPorCobrar {
   id: string;
@@ -22,7 +25,7 @@ interface CuentaPorCobrar {
   montoOriginal: number;
   montoPagado: number;
   montoSaldo: number;
-  estado: 'pendiente' | 'vencida' | 'pagada' | 'parcial';
+  estado: "pendiente" | "vencida" | "pagada" | "parcial";
   diasVencidos: number;
 }
 
@@ -36,246 +39,265 @@ interface CuentaPorPagar {
   montoOriginal: number;
   montoPagado: number;
   montoSaldo: number;
-  estado: 'pendiente' | 'vencida' | 'pagada' | 'parcial';
+  estado: "pendiente" | "vencida" | "pagada" | "parcial";
   diasVencidos: number;
+  estadoCompra: "pendiente" | "recibida" | "pagada" | "anulada";
 }
 
 interface PagoRegistro {
   id: string;
-  tipo: 'cobro' | 'pago';
+  tipo: "cobro" | "pago";
   cuentaId: string;
   fecha: string;
   monto: number;
-  metodoPago: 'efectivo' | 'cheque' | 'transferencia' | 'tarjeta';
+  metodoPago: "efectivo" | "cheque" | "transferencia" | "tarjeta";
   referencia: string;
   observaciones: string;
 }
 
+const addDays = (dateString: string, days: number) => {
+  const date = new Date(dateString);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+};
+
+const calcularDiasVencidos = (fechaVencimiento: string, montoSaldo: number) => {
+  if (montoSaldo <= 0) return 0;
+  const hoy = new Date();
+  const fechaVenc = new Date(fechaVencimiento);
+  return Math.max(0, Math.floor((hoy.getTime() - fechaVenc.getTime()) / (1000 * 60 * 60 * 24)));
+};
+
 const CuentasPorCobrarPagar = () => {
-  const [cuentasPorCobrar, setCuentasPorCobrar] = useState<CuentaPorCobrar[]>([]);
-  const [cuentasPorPagar, setCuentasPorPagar] = useState<CuentaPorPagar[]>([]);
-  const [pagos, setPagos] = useState<PagoRegistro[]>([]);
-  const [showPagoDialog, setShowPagoDialog] = useState<{ open: boolean; tipo: 'cobro' | 'pago'; cuenta: any } | null>(null);
+  const [showPagoDialog, setShowPagoDialog] = useState<{
+    open: boolean;
+    tipo: "cobro" | "pago";
+    cuenta: CuentaPorCobrar | CuentaPorPagar;
+  } | null>(null);
+
   const { toast } = useToast();
   const { guardarAsiento } = useContabilidadIntegration();
+  const {
+    facturas,
+    loading: facturasLoading,
+    actualizarEstadoFactura,
+    refetch: refetchFacturas,
+  } = useFacturas();
+  const {
+    compras,
+    proveedores,
+    loading: comprasLoading,
+    actualizarCompra,
+    refetch: refetchCompras,
+  } = useSupabaseProveedores();
+  const { pagos, loading: pagosLoading, createPago, refetch: refetchPagos } = useSupabasePagos();
 
-  useEffect(() => {
-    cargarDatos();
-  }, []);
-
-  const cargarDatos = () => {
-    // Cargar facturas para generar cuentas por cobrar
-    const facturas = JSON.parse(localStorage.getItem('facturas') || '[]');
-    const clientes = JSON.parse(localStorage.getItem('clientes') || '[]');
-    
-    const cxc: CuentaPorCobrar[] = facturas
-      .filter((f: any) => f.estado === 'enviada')
-      .map((f: any) => {
-        const cliente = clientes.find((c: any) => c.id === f.cliente.id);
-        const fechaVenc = new Date(f.fechaVencimiento);
-        const hoy = new Date();
-        const diasVencidos = Math.floor((hoy.getTime() - fechaVenc.getTime()) / (1000 * 60 * 60 * 24));
-        
-        return {
-          id: f.id,
-          clienteId: f.cliente.id,
-          clienteNombre: cliente?.nombre || f.cliente.nombre,
-          facturaNumero: f.numero,
-          fecha: f.fecha,
-          fechaVencimiento: f.fechaVencimiento,
-          montoOriginal: f.total,
-          montoPagado: 0,
-          montoSaldo: f.total,
-          estado: diasVencidos > 0 ? 'vencida' : 'pendiente',
-          diasVencidos: Math.max(0, diasVencidos)
-        } as CuentaPorCobrar;
-      });
-
-    setCuentasPorCobrar(cxc);
-
-    // Cargar compras para generar cuentas por pagar
-    const compras = JSON.parse(localStorage.getItem('compras') || '[]');
-    const proveedores = JSON.parse(localStorage.getItem('proveedores') || '[]');
-    
-    const cxp: CuentaPorPagar[] = compras
-      .filter((c: any) => c.estado === 'pendiente')
-      .map((c: any) => {
-        const proveedor = proveedores.find((p: any) => p.id === c.proveedorId);
-        const fechaVenc = new Date(c.fechaVencimiento || c.fecha);
-        fechaVenc.setDate(fechaVenc.getDate() + 30); // 30 días de plazo por defecto
-        const hoy = new Date();
-        const diasVencidos = Math.floor((hoy.getTime() - fechaVenc.getTime()) / (1000 * 60 * 60 * 24));
-        
-        return {
-          id: c.id,
-          proveedorId: c.proveedorId,
-          proveedorNombre: proveedor?.nombre || 'Proveedor Desconocido',
-          facturaNumero: c.numero,
-          fecha: c.fecha,
-          fechaVencimiento: fechaVenc.toISOString().slice(0, 10),
-          montoOriginal: c.total,
-          montoPagado: 0,
-          montoSaldo: c.total,
-          estado: diasVencidos > 0 ? 'vencida' : 'pendiente',
-          diasVencidos: Math.max(0, diasVencidos)
-        } as CuentaPorPagar;
-      });
-
-    setCuentasPorPagar(cxp);
-
-    // Cargar pagos registrados
-    const pagosGuardados = localStorage.getItem('pagosRegistrados');
-    if (pagosGuardados) {
-      setPagos(JSON.parse(pagosGuardados));
-    }
-  };
-
-  const registrarPago = (pago: Omit<PagoRegistro, 'id'>) => {
-    const nuevoPago: PagoRegistro = {
-      ...pago,
-      id: Date.now().toString()
-    };
-
-    // Actualizar la cuenta correspondiente y persistir cambios
-    if (pago.tipo === 'cobro') {
-      // Actualizar el estado de la factura en localStorage
-      const facturas = JSON.parse(localStorage.getItem('facturas') || '[]');
-      const facturaIndex = facturas.findIndex((f: any) => f.id === pago.cuentaId);
-      
-      if (facturaIndex !== -1) {
-        const cuenta = cuentasPorCobrar.find(c => c.id === pago.cuentaId);
-        if (cuenta) {
-          const nuevoMontoPagado = cuenta.montoPagado + pago.monto;
-          const nuevoSaldo = cuenta.montoOriginal - nuevoMontoPagado;
-          
-          // Si el saldo es cero o menos, marcar factura como pagada
-          if (nuevoSaldo <= 0) {
-            facturas[facturaIndex].estado = 'pagada';
-          }
-          
-          // Guardar facturas actualizadas
-          localStorage.setItem('facturas', JSON.stringify(facturas));
-        }
-      }
-
-      setCuentasPorCobrar(prev => prev.map(c => {
-        if (c.id === pago.cuentaId) {
-          const nuevoMontoPagado = c.montoPagado + pago.monto;
-          const nuevoSaldo = c.montoOriginal - nuevoMontoPagado;
-          return {
-            ...c,
-            montoPagado: nuevoMontoPagado,
-            montoSaldo: nuevoSaldo,
-            estado: nuevoSaldo <= 0 ? 'pagada' : 'parcial'
-          };
-        }
-        return c;
+  const pagosNormalizados = useMemo(() => {
+    return (pagos || [])
+      .filter((pago) => pago.id)
+      .map((pago) => ({
+        id: pago.id as string,
+        tipo: (pago.tipo as "cobro" | "pago") || "cobro",
+        cuentaId: (pago.factura_id || pago.compra_id || "") as string,
+        fecha: pago.fecha,
+        monto: Number(pago.monto || 0),
+        metodoPago: ((pago.metodo_pago || "efectivo") as PagoRegistro["metodoPago"]),
+        referencia: pago.numero_comprobante || "",
+        observaciones: pago.observaciones || "",
       }));
-    } else {
-      // Actualizar el estado de la compra en localStorage
-      const compras = JSON.parse(localStorage.getItem('compras') || '[]');
-      const compraIndex = compras.findIndex((c: any) => c.id === pago.cuentaId);
-      
-      if (compraIndex !== -1) {
-        const cuenta = cuentasPorPagar.find(c => c.id === pago.cuentaId);
-        if (cuenta) {
-          const nuevoMontoPagado = cuenta.montoPagado + pago.monto;
-          const nuevoSaldo = cuenta.montoOriginal - nuevoMontoPagado;
-          
-          // Si el saldo es cero o menos, marcar compra como pagada
-          if (nuevoSaldo <= 0) {
-            compras[compraIndex].estado = 'pagada';
-          }
-          
-          // Guardar compras actualizadas
-          localStorage.setItem('compras', JSON.stringify(compras));
-        }
-      }
+  }, [pagos]);
 
-      setCuentasPorPagar(prev => prev.map(c => {
-        if (c.id === pago.cuentaId) {
-          const nuevoMontoPagado = c.montoPagado + pago.monto;
-          const nuevoSaldo = c.montoOriginal - nuevoMontoPagado;
-          return {
-            ...c,
-            montoPagado: nuevoMontoPagado,
-            montoSaldo: nuevoSaldo,
-            estado: nuevoSaldo <= 0 ? 'pagada' : 'parcial'
-          };
+  const cuentasPorCobrar = useMemo<CuentaPorCobrar[]>(() => {
+    return facturas
+      .filter((factura) => factura.estado !== "anulada")
+      .map((factura) => {
+        const pagosFactura = pagosNormalizados.filter(
+          (pago) => pago.tipo === "cobro" && pago.cuentaId === factura.id
+        );
+        const montoPagado = pagosFactura.reduce((sum, pago) => sum + pago.monto, 0);
+        const montoSaldo = Math.max(0, factura.total - montoPagado);
+        const fechaVencimiento = factura.fechaVencimiento || factura.fecha;
+        const diasVencidos = calcularDiasVencidos(fechaVencimiento, montoSaldo);
+
+        let estado: CuentaPorCobrar["estado"] = "pendiente";
+        if (montoSaldo <= 0.01 || factura.estado === "pagada") {
+          estado = "pagada";
+        } else if (montoPagado > 0) {
+          estado = "parcial";
+        } else if (diasVencidos > 0) {
+          estado = "vencida";
         }
-        return c;
-      }));
+
+        return {
+          id: factura.id,
+          clienteId: factura.cliente.id,
+          clienteNombre: factura.cliente.nombre,
+          facturaNumero: factura.numero,
+          fecha: factura.fecha,
+          fechaVencimiento,
+          montoOriginal: factura.total,
+          montoPagado,
+          montoSaldo,
+          estado,
+          diasVencidos,
+        };
+      })
+      .filter((cuenta) => cuenta.estado !== "pagada" || cuenta.montoPagado > 0);
+  }, [facturas, pagosNormalizados]);
+
+  const cuentasPorPagar = useMemo<CuentaPorPagar[]>(() => {
+    return compras
+      .filter((compra) => compra.estado !== "anulada" && compra.tipo_pago === "credito")
+      .map((compra) => {
+        const pagosCompra = pagosNormalizados.filter(
+          (pago) => pago.tipo === "pago" && pago.cuentaId === compra.id
+        );
+        const pagosRegistrados = pagosCompra.reduce((sum, pago) => sum + pago.monto, 0);
+        const montoPagado = Math.max(Number(compra.monto_pagado || 0), pagosRegistrados);
+        const montoSaldo = Math.max(0, Number(compra.total || 0) - montoPagado);
+        const fechaVencimiento = compra.fecha_vencimiento || addDays(compra.fecha, 30);
+        const diasVencidos = calcularDiasVencidos(fechaVencimiento, montoSaldo);
+        const proveedor = proveedores.find((item) => item.id === compra.proveedor_id);
+
+        let estado: CuentaPorPagar["estado"] = "pendiente";
+        if (montoSaldo <= 0.01 || compra.estado === "pagada") {
+          estado = "pagada";
+        } else if (montoPagado > 0) {
+          estado = "parcial";
+        } else if (diasVencidos > 0) {
+          estado = "vencida";
+        }
+
+        return {
+          id: compra.id,
+          proveedorId: compra.proveedor_id,
+          proveedorNombre: proveedor?.nombre || "Proveedor desconocido",
+          facturaNumero: compra.numero,
+          fecha: compra.fecha,
+          fechaVencimiento,
+          montoOriginal: Number(compra.total || 0),
+          montoPagado,
+          montoSaldo,
+          estado,
+          diasVencidos,
+          estadoCompra: compra.estado,
+        };
+      });
+  }, [compras, pagosNormalizados, proveedores]);
+
+  const registrarPago = async (pago: Omit<PagoRegistro, "id">) => {
+    const monto = Number(pago.monto || 0);
+    const cuenta = showPagoDialog?.cuenta;
+    if (!cuenta || monto <= 0) {
+      toast({
+        title: "Monto invalido",
+        description: "Debes ingresar un monto mayor a cero.",
+        variant: "destructive",
+      });
+      return;
     }
 
-    // Generar asiento contable
+    if (monto > cuenta.montoSaldo) {
+      toast({
+        title: "Monto excedido",
+        description: "El monto no puede ser mayor al saldo pendiente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const asiento = {
-      id: Date.now().toString(),
-      numero: `${pago.tipo === 'cobro' ? 'COB' : 'PAG'}-${Date.now().toString().slice(-6)}`,
+      id: `TMP-${Date.now()}`,
+      numero: `${pago.tipo === "cobro" ? "COB" : "PAG"}-${Date.now().toString().slice(-6)}`,
       fecha: pago.fecha,
-      concepto: `${pago.tipo === 'cobro' ? 'Cobro' : 'Pago'} - ${pago.referencia}`,
+      concepto:
+        pago.tipo === "cobro"
+          ? `Cobro parcial/total de factura ${cuenta.facturaNumero}`
+          : `Pago parcial/total de compra ${cuenta.facturaNumero}`,
       referencia: pago.referencia,
-      debe: pago.tipo === 'cobro' ? pago.monto : 0,
-      haber: pago.tipo === 'pago' ? pago.monto : 0,
-      estado: 'registrado' as const,
-      cuentas: pago.tipo === 'cobro' ? [
-        {
-          codigo: "1111",
-          nombre: "Caja y Bancos",
-          debe: pago.monto,
-          haber: 0
-        },
-        {
-          codigo: "1131",
-          nombre: "Cuentas por Cobrar",
-          debe: 0,
-          haber: pago.monto
-        }
-      ] : [
-        {
-          codigo: "2111",
-          nombre: "Cuentas por Pagar",
-          debe: pago.monto,
-          haber: 0
-        },
-        {
-          codigo: "1111",
-          nombre: "Caja y Bancos",
-          debe: 0,
-          haber: pago.monto
-        }
-      ]
+      debe: monto,
+      haber: monto,
+      estado: "registrado" as const,
+      cuentas:
+        pago.tipo === "cobro"
+          ? [
+              { codigo: "1111", nombre: "Caja", debe: monto, haber: 0 },
+              { codigo: "1121", nombre: "Cuentas por Cobrar Comerciales", debe: 0, haber: monto },
+            ]
+          : [
+              { codigo: "2111", nombre: "Cuentas por Pagar", debe: monto, haber: 0 },
+              { codigo: "1111", nombre: "Caja", debe: 0, haber: monto },
+            ],
     };
 
-    guardarAsiento(asiento);
+    const asientoGuardado = await guardarAsiento(asiento);
+    if (!asientoGuardado) return;
 
-    const nuevosPagos = [nuevoPago, ...pagos];
-    setPagos(nuevosPagos);
-    localStorage.setItem('pagosRegistrados', JSON.stringify(nuevosPagos));
+    try {
+      await createPago({
+        tipo: pago.tipo,
+        factura_id: pago.tipo === "cobro" ? pago.cuentaId : undefined,
+        compra_id: pago.tipo === "pago" ? pago.cuentaId : undefined,
+        fecha: pago.fecha,
+        monto,
+        metodo_pago: pago.metodoPago,
+        numero_comprobante: pago.referencia,
+        observaciones: pago.observaciones,
+        estado: "registrado",
+      });
 
-    toast({
-      title: `${pago.tipo === 'cobro' ? 'Cobro' : 'Pago'} registrado`,
-      description: `Se registró el ${pago.tipo} por Bs. ${pago.monto.toFixed(2)} y se actualizó el estado`,
-    });
+      const nuevoSaldo = Math.max(0, cuenta.montoSaldo - monto);
+      const nuevoPagado = cuenta.montoPagado + monto;
 
-    setShowPagoDialog(null);
-    
-    // Recargar datos para reflejar cambios
-    setTimeout(() => cargarDatos(), 100);
+      if (pago.tipo === "cobro") {
+        await actualizarEstadoFactura(pago.cuentaId, nuevoSaldo <= 0.01 ? "pagada" : "enviada");
+        await refetchFacturas();
+      } else {
+        const cuentaPagar = cuenta as CuentaPorPagar;
+        await actualizarCompra(pago.cuentaId, {
+          monto_pagado: nuevoPagado,
+          saldo_pendiente: nuevoSaldo,
+          estado: nuevoSaldo <= 0.01 ? "pagada" : cuentaPagar.estadoCompra,
+        });
+        await refetchCompras();
+      }
+
+      await refetchPagos();
+
+      toast({
+        title: `${pago.tipo === "cobro" ? "Cobro" : "Pago"} registrado`,
+        description: `Movimiento registrado por Bs. ${monto.toFixed(2)} con impacto contable y operativo.`,
+      });
+
+      setShowPagoDialog(null);
+    } catch (error) {
+      console.error("Error registrando pago/cobro:", error);
+      toast({
+        title: "Operacion incompleta",
+        description: "Se registro el asiento, pero hubo un problema actualizando la cartera. Revisa pagos y estado del documento.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getEstadoColor = (estado: string) => {
     switch (estado) {
-      case 'pagada': return 'bg-green-100 text-green-800';
-      case 'vencida': return 'bg-red-100 text-red-800';
-      case 'parcial': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-blue-100 text-blue-800';
+      case "pagada":
+        return "bg-green-100 text-green-800";
+      case "vencida":
+        return "bg-red-100 text-red-800";
+      case "parcial":
+        return "bg-yellow-100 text-yellow-800";
+      default:
+        return "bg-blue-100 text-blue-800";
     }
   };
 
-  const totalPorCobrar = cuentasPorCobrar.reduce((sum, c) => sum + c.montoSaldo, 0);
-  const totalPorPagar = cuentasPorPagar.reduce((sum, c) => sum + c.montoSaldo, 0);
-  const vencidasCobrar = cuentasPorCobrar.filter(c => c.estado === 'vencida').length;
-  const vencidasPagar = cuentasPorPagar.filter(c => c.estado === 'vencida').length;
+  const totalPorCobrar = cuentasPorCobrar.reduce((sum, cuenta) => sum + cuenta.montoSaldo, 0);
+  const totalPorPagar = cuentasPorPagar.reduce((sum, cuenta) => sum + cuenta.montoSaldo, 0);
+  const vencidasCobrar = cuentasPorCobrar.filter((cuenta) => cuenta.estado === "vencida").length;
+  const vencidasPagar = cuentasPorPagar.filter((cuenta) => cuenta.estado === "vencida").length;
+  const loading = facturasLoading || comprasLoading || pagosLoading;
 
   return (
     <div className="space-y-6">
@@ -285,13 +307,12 @@ const CuentasPorCobrarPagar = () => {
           <div>
             <h2 className="text-2xl font-bold">Cuentas por Cobrar y Pagar</h2>
             <p className="text-muted-foreground">
-              Gestión de cartera y obligaciones financieras
+              Gesti&oacute;n de cartera y obligaciones financieras desde datos consolidados en Supabase
             </p>
           </div>
         </div>
       </div>
 
-      {/* Métricas Resumen */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -300,9 +321,7 @@ const CuentasPorCobrarPagar = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">Bs. {totalPorCobrar.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">
-              {cuentasPorCobrar.length} facturas pendientes
-            </p>
+            <p className="text-xs text-muted-foreground">{cuentasPorCobrar.length} documentos abiertos</p>
           </CardContent>
         </Card>
 
@@ -313,9 +332,7 @@ const CuentasPorCobrarPagar = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">Bs. {totalPorPagar.toFixed(2)}</div>
-            <p className="text-xs text-muted-foreground">
-              {cuentasPorPagar.length} compras pendientes
-            </p>
+            <p className="text-xs text-muted-foreground">{cuentasPorPagar.length} obligaciones abiertas</p>
           </CardContent>
         </Card>
 
@@ -326,9 +343,7 @@ const CuentasPorCobrarPagar = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-600">{vencidasCobrar}</div>
-            <p className="text-xs text-muted-foreground">
-              Requieren seguimiento
-            </p>
+            <p className="text-xs text-muted-foreground">Requieren seguimiento</p>
           </CardContent>
         </Card>
 
@@ -339,9 +354,7 @@ const CuentasPorCobrarPagar = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{vencidasPagar}</div>
-            <p className="text-xs text-muted-foreground">
-              Requieren pago urgente
-            </p>
+            <p className="text-xs text-muted-foreground">Requieren pago urgente</p>
           </CardContent>
         </Card>
       </div>
@@ -358,7 +371,7 @@ const CuentasPorCobrarPagar = () => {
           </TabsTrigger>
           <TabsTrigger value="pagos">
             <CheckCircle className="w-4 h-4 mr-2" />
-            Historial de Pagos ({pagos.length})
+            Historial de Pagos ({pagosNormalizados.length})
           </TabsTrigger>
         </TabsList>
 
@@ -366,9 +379,7 @@ const CuentasPorCobrarPagar = () => {
           <Card>
             <CardHeader>
               <CardTitle>Facturas por Cobrar</CardTitle>
-              <CardDescription>
-                Seguimiento de cuentas por cobrar de clientes
-              </CardDescription>
+              <CardDescription>Seguimiento de cuentas por cobrar de clientes</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -382,41 +393,41 @@ const CuentasPorCobrarPagar = () => {
                     <TableHead className="text-right">Pagado</TableHead>
                     <TableHead className="text-right">Saldo</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead>Días Vencido</TableHead>
+                    <TableHead>Dias Vencido</TableHead>
                     <TableHead>Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {cuentasPorCobrar.map(cuenta => (
+                  {cuentasPorCobrar.map((cuenta) => (
                     <TableRow key={cuenta.id}>
                       <TableCell className="font-medium">{cuenta.facturaNumero}</TableCell>
                       <TableCell>{cuenta.clienteNombre}</TableCell>
-                      <TableCell>{new Date(cuenta.fecha).toLocaleDateString('es-BO')}</TableCell>
-                      <TableCell>{new Date(cuenta.fechaVencimiento).toLocaleDateString('es-BO')}</TableCell>
+                      <TableCell>{new Date(cuenta.fecha).toLocaleDateString("es-BO")}</TableCell>
+                      <TableCell>{new Date(cuenta.fechaVencimiento).toLocaleDateString("es-BO")}</TableCell>
                       <TableCell className="text-right">Bs. {cuenta.montoOriginal.toFixed(2)}</TableCell>
                       <TableCell className="text-right">Bs. {cuenta.montoPagado.toFixed(2)}</TableCell>
                       <TableCell className="text-right font-semibold">Bs. {cuenta.montoSaldo.toFixed(2)}</TableCell>
                       <TableCell>
-                        <Badge className={getEstadoColor(cuenta.estado)}>
-                          {cuenta.estado}
-                        </Badge>
+                        <Badge className={getEstadoColor(cuenta.estado)}>{cuenta.estado}</Badge>
                       </TableCell>
                       <TableCell>
-                        {cuenta.diasVencidos > 0 && (
-                          <Badge variant="destructive">
-                            {cuenta.diasVencidos} días
-                          </Badge>
+                        {cuenta.diasVencidos > 0 ? (
+                          <Badge variant="destructive">{cuenta.diasVencidos} dias</Badge>
+                        ) : (
+                          "-"
                         )}
                       </TableCell>
                       <TableCell>
-                        {cuenta.estado !== 'pagada' && (
+                        {cuenta.montoSaldo > 0.01 && (
                           <Button
                             size="sm"
-                            onClick={() => setShowPagoDialog({
-                              open: true,
-                              tipo: 'cobro',
-                              cuenta
-                            })}
+                            onClick={() =>
+                              setShowPagoDialog({
+                                open: true,
+                                tipo: "cobro",
+                                cuenta,
+                              })
+                            }
                           >
                             Registrar Cobro
                           </Button>
@@ -434,9 +445,7 @@ const CuentasPorCobrarPagar = () => {
           <Card>
             <CardHeader>
               <CardTitle>Compras por Pagar</CardTitle>
-              <CardDescription>
-                Seguimiento de obligaciones con proveedores
-              </CardDescription>
+              <CardDescription>Seguimiento de obligaciones con proveedores</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -450,41 +459,41 @@ const CuentasPorCobrarPagar = () => {
                     <TableHead className="text-right">Pagado</TableHead>
                     <TableHead className="text-right">Saldo</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead>Días Vencido</TableHead>
+                    <TableHead>Dias Vencido</TableHead>
                     <TableHead>Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {cuentasPorPagar.map(cuenta => (
+                  {cuentasPorPagar.map((cuenta) => (
                     <TableRow key={cuenta.id}>
                       <TableCell className="font-medium">{cuenta.facturaNumero}</TableCell>
                       <TableCell>{cuenta.proveedorNombre}</TableCell>
-                      <TableCell>{new Date(cuenta.fecha).toLocaleDateString('es-BO')}</TableCell>
-                      <TableCell>{new Date(cuenta.fechaVencimiento).toLocaleDateString('es-BO')}</TableCell>
+                      <TableCell>{new Date(cuenta.fecha).toLocaleDateString("es-BO")}</TableCell>
+                      <TableCell>{new Date(cuenta.fechaVencimiento).toLocaleDateString("es-BO")}</TableCell>
                       <TableCell className="text-right">Bs. {cuenta.montoOriginal.toFixed(2)}</TableCell>
                       <TableCell className="text-right">Bs. {cuenta.montoPagado.toFixed(2)}</TableCell>
                       <TableCell className="text-right font-semibold">Bs. {cuenta.montoSaldo.toFixed(2)}</TableCell>
                       <TableCell>
-                        <Badge className={getEstadoColor(cuenta.estado)}>
-                          {cuenta.estado}
-                        </Badge>
+                        <Badge className={getEstadoColor(cuenta.estado)}>{cuenta.estado}</Badge>
                       </TableCell>
                       <TableCell>
-                        {cuenta.diasVencidos > 0 && (
-                          <Badge variant="destructive">
-                            {cuenta.diasVencidos} días
-                          </Badge>
+                        {cuenta.diasVencidos > 0 ? (
+                          <Badge variant="destructive">{cuenta.diasVencidos} dias</Badge>
+                        ) : (
+                          "-"
                         )}
                       </TableCell>
                       <TableCell>
-                        {cuenta.estado !== 'pagada' && (
+                        {cuenta.montoSaldo > 0.01 && (
                           <Button
                             size="sm"
-                            onClick={() => setShowPagoDialog({
-                              open: true,
-                              tipo: 'pago',
-                              cuenta
-                            })}
+                            onClick={() =>
+                              setShowPagoDialog({
+                                open: true,
+                                tipo: "pago",
+                                cuenta,
+                              })
+                            }
                           >
                             Registrar Pago
                           </Button>
@@ -502,9 +511,7 @@ const CuentasPorCobrarPagar = () => {
           <Card>
             <CardHeader>
               <CardTitle>Historial de Pagos y Cobros</CardTitle>
-              <CardDescription>
-                Registro de todos los movimientos de cartera
-              </CardDescription>
+              <CardDescription>Registro de movimientos de cartera persistidos en la base de datos</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -513,26 +520,30 @@ const CuentasPorCobrarPagar = () => {
                     <TableHead>Fecha</TableHead>
                     <TableHead>Tipo</TableHead>
                     <TableHead>Referencia</TableHead>
-                    <TableHead>Método</TableHead>
+                    <TableHead>M&eacute;todo</TableHead>
                     <TableHead className="text-right">Monto</TableHead>
                     <TableHead>Observaciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pagos.map(pago => (
+                  {pagosNormalizados.map((pago) => (
                     <TableRow key={pago.id}>
-                      <TableCell>{new Date(pago.fecha).toLocaleDateString('es-BO')}</TableCell>
+                      <TableCell>{new Date(pago.fecha).toLocaleDateString("es-BO")}</TableCell>
                       <TableCell>
-                        <Badge variant={pago.tipo === 'cobro' ? 'default' : 'secondary'}>
-                          {pago.tipo === 'cobro' ? 'Cobro' : 'Pago'}
+                        <Badge variant={pago.tipo === "cobro" ? "default" : "secondary"}>
+                          {pago.tipo === "cobro" ? "Cobro" : "Pago"}
                         </Badge>
                       </TableCell>
-                      <TableCell>{pago.referencia}</TableCell>
+                      <TableCell>{pago.referencia || "-"}</TableCell>
                       <TableCell>{pago.metodoPago}</TableCell>
-                      <TableCell className={`text-right font-semibold ${pago.tipo === 'cobro' ? 'text-green-600' : 'text-red-600'}`}>
-                        {pago.tipo === 'cobro' ? '+' : '-'}Bs. {pago.monto.toFixed(2)}
+                      <TableCell
+                        className={`text-right font-semibold ${
+                          pago.tipo === "cobro" ? "text-green-600" : "text-red-600"
+                        }`}
+                      >
+                        {pago.tipo === "cobro" ? "+" : "-"}Bs. {pago.monto.toFixed(2)}
                       </TableCell>
-                      <TableCell>{pago.observaciones}</TableCell>
+                      <TableCell>{pago.observaciones || "-"}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -542,16 +553,24 @@ const CuentasPorCobrarPagar = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Dialog para registrar pagos */}
+      {loading && (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            Cargando cartera y pagos desde la base de datos...
+          </CardContent>
+        </Card>
+      )}
+
       {showPagoDialog && (
         <Dialog open={showPagoDialog.open} onOpenChange={(open) => !open && setShowPagoDialog(null)}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                Registrar {showPagoDialog.tipo === 'cobro' ? 'Cobro' : 'Pago'}
+                Registrar {showPagoDialog.tipo === "cobro" ? "Cobro" : "Pago"}
               </DialogTitle>
               <DialogDescription>
-                {showPagoDialog.tipo === 'cobro' ? 'Registre el cobro de la factura' : 'Registre el pago de la compra'}: {showPagoDialog.cuenta.facturaNumero}
+                {showPagoDialog.tipo === "cobro" ? "Registre el cobro" : "Registre el pago"} del documento{" "}
+                {showPagoDialog.cuenta.facturaNumero}
               </DialogDescription>
             </DialogHeader>
             <PagoForm
@@ -568,12 +587,17 @@ const CuentasPorCobrarPagar = () => {
   );
 };
 
-// Componente para formulario de pago
-const PagoForm = ({ tipo, cuentaId, montoMaximo, onSave, onCancel }: {
-  tipo: 'cobro' | 'pago';
+const PagoForm = ({
+  tipo,
+  cuentaId,
+  montoMaximo,
+  onSave,
+  onCancel,
+}: {
+  tipo: "cobro" | "pago";
   cuentaId: string;
   montoMaximo: number;
-  onSave: (pago: Omit<PagoRegistro, 'id'>) => void;
+  onSave: (pago: Omit<PagoRegistro, "id">) => Promise<void>;
   onCancel: () => void;
 }) => {
   const [formData, setFormData] = useState({
@@ -581,14 +605,14 @@ const PagoForm = ({ tipo, cuentaId, montoMaximo, onSave, onCancel }: {
     cuentaId,
     fecha: new Date().toISOString().slice(0, 10),
     monto: montoMaximo,
-    metodoPago: 'efectivo' as const,
-    referencia: '',
-    observaciones: ''
+    metodoPago: "efectivo" as const,
+    referencia: "",
+    observaciones: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    await onSave(formData);
   };
 
   return (
@@ -600,31 +624,38 @@ const PagoForm = ({ tipo, cuentaId, montoMaximo, onSave, onCancel }: {
             id="fecha"
             type="date"
             value={formData.fecha}
-            onChange={(e) => setFormData(prev => ({ ...prev, fecha: e.target.value }))}
+            onChange={(e) => setFormData((prev) => ({ ...prev, fecha: e.target.value }))}
             required
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="monto">Monto (máx: Bs. {montoMaximo.toFixed(2)})</Label>
+          <Label htmlFor="monto">Monto (max: Bs. {montoMaximo.toFixed(2)})</Label>
           <Input
             id="monto"
             type="number"
             step="0.01"
             max={montoMaximo}
             value={formData.monto}
-            onChange={(e) => setFormData(prev => ({ ...prev, monto: parseFloat(e.target.value) || 0 }))}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, monto: parseFloat(e.target.value) || 0 }))
+            }
             required
           />
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="metodoPago">Método de Pago</Label>
+        <Label htmlFor="metodoPago">Metodo de Pago</Label>
         <select
           id="metodoPago"
           value={formData.metodoPago}
-          onChange={(e) => setFormData(prev => ({ ...prev, metodoPago: e.target.value as any }))}
+          onChange={(e) =>
+            setFormData((prev) => ({
+              ...prev,
+              metodoPago: e.target.value as "efectivo" | "cheque" | "transferencia" | "tarjeta",
+            }))
+          }
           className="w-full px-3 py-2 border rounded-md"
           required
         >
@@ -640,8 +671,8 @@ const PagoForm = ({ tipo, cuentaId, montoMaximo, onSave, onCancel }: {
         <Input
           id="referencia"
           value={formData.referencia}
-          onChange={(e) => setFormData(prev => ({ ...prev, referencia: e.target.value }))}
-          placeholder="Número de cheque, transferencia, etc."
+          onChange={(e) => setFormData((prev) => ({ ...prev, referencia: e.target.value }))}
+          placeholder="Numero de cheque, transferencia, etc."
           required
         />
       </div>
@@ -651,7 +682,7 @@ const PagoForm = ({ tipo, cuentaId, montoMaximo, onSave, onCancel }: {
         <Textarea
           id="observaciones"
           value={formData.observaciones}
-          onChange={(e) => setFormData(prev => ({ ...prev, observaciones: e.target.value }))}
+          onChange={(e) => setFormData((prev) => ({ ...prev, observaciones: e.target.value }))}
           placeholder="Observaciones adicionales"
         />
       </div>
@@ -660,9 +691,7 @@ const PagoForm = ({ tipo, cuentaId, montoMaximo, onSave, onCancel }: {
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button type="submit">
-          Registrar {tipo === 'cobro' ? 'Cobro' : 'Pago'}
-        </Button>
+        <Button type="submit">Registrar {tipo === "cobro" ? "Cobro" : "Pago"}</Button>
       </div>
     </form>
   );

@@ -1,40 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-  Brain, 
-  TrendingUp, 
-  TrendingDown, 
-  AlertTriangle, 
-  CheckCircle, 
-  Target, 
-  Lightbulb,
-  PieChart,
-  BarChart3,
-  LineChart,
+import { useMemo, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAsientos } from "@/hooks/useAsientos";
+import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
+import { useFacturas } from "@/hooks/useFacturas";
+import { useProductosValidated } from "@/hooks/useProductosValidated";
+import {
   Activity,
+  AlertTriangle,
+  BarChart3,
+  Brain,
+  CheckCircle,
+  Lightbulb,
+  LineChart,
+  Sparkles,
+  Target,
+  TrendingDown,
+  TrendingUp,
   Zap,
-  Sparkles
-} from 'lucide-react';
-import { useContabilidadIntegration } from '@/hooks/useContabilidadIntegration';
+} from "lucide-react";
 
 interface MetricaAnalisis {
   nombre: string;
   valor: number;
   objetivo: number;
-  tendencia: 'subida' | 'bajada' | 'estable';
+  tendencia: "subida" | "bajada" | "estable";
   porcentaje: number;
   interpretacion: string;
   sugerencia: string;
   color: string;
+  sufijo?: string;
 }
 
 interface RecomendacionIA {
-  tipo: 'critico' | 'importante' | 'sugerencia';
+  tipo: "critico" | "importante" | "sugerencia";
   titulo: string;
   descripcion: string;
   accion: string;
@@ -42,173 +45,287 @@ interface RecomendacionIA {
   prioridad: number;
 }
 
+const getCurrentMonthRange = () => {
+  const today = new Date();
+  const start = new Date(today.getFullYear(), today.getMonth(), 1);
+  const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+  return {
+    fechaInicio: start.toISOString().slice(0, 10),
+    fechaFin: end.toISOString().slice(0, 10),
+  };
+};
+
 const AnalisisInteligente = () => {
-  const [metricas, setMetricas] = useState<MetricaAnalisis[]>([]);
-  const [recomendaciones, setRecomendaciones] = useState<RecomendacionIA[]>([]);
-  const [cargando, setCargando] = useState(true);
-  
-  const { obtenerBalanceGeneral } = useContabilidadIntegration();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { facturas, loading: facturasLoading, refetch: refetchFacturas } = useFacturas();
+  const { productos, loading: productosLoading, refetch: refetchProductos } = useProductosValidated();
+  const { asientos, loading: asientosLoading, refetch: refetchAsientos } = useAsientos();
+  const { getBalanceSheetData, getIncomeStatementData } = useContabilidadIntegration();
 
-  useEffect(() => {
-    generarAnalisisInteligente();
-  }, []);
+  const currentMonth = getCurrentMonthRange();
+  const isLoading = facturasLoading || productosLoading || asientosLoading;
 
-  const generarAnalisisInteligente = () => {
-    setCargando(true);
-    
-    // Obtener datos del sistema
-    const facturas = JSON.parse(localStorage.getItem('facturas') || '[]');
-    const asientos = JSON.parse(localStorage.getItem('asientosContables') || '[]');
-    const comprobantes = JSON.parse(localStorage.getItem('comprobantes_integrados') || '[]');
-    const productos = JSON.parse(localStorage.getItem('productos') || '[]');
-    const balance = obtenerBalanceGeneral();
+  const analysis = useMemo(() => {
+    const balance = getBalanceSheetData();
+    const estadoResultadosMes = getIncomeStatementData(currentMonth);
 
-    // Calcular métricas clave
-    const ingresosMes = facturas
-      .filter((f: any) => new Date(f.fecha).getMonth() === new Date().getMonth())
-      .reduce((sum: number, f: any) => sum + f.total, 0);
+    const facturasVigentes = facturas.filter((factura) => factura.estado !== "anulada");
+    const facturasPendientes = facturasVigentes.filter((factura) => factura.estado === "enviada");
+    const facturasPagadas = facturasVigentes.filter((factura) => factura.estado === "pagada");
+    const asientosRegistrados = asientos.filter((asiento) => asiento.estado === "registrado");
 
-    const gastosMes = comprobantes
-      .filter((c: any) => c.tipo === 'egreso' && new Date(c.fecha).getMonth() === new Date().getMonth())
-      .reduce((sum: number, c: any) => sum + c.monto, 0);
+    const ingresosMes = estadoResultadosMes.ingresos.total;
+    const gastosMes = estadoResultadosMes.gastos.total;
+    const margenOperativo = ingresosMes > 0 ? ((ingresosMes - gastosMes) / ingresosMes) * 100 : 0;
+    const liquidez = balance.pasivos.total > 0 ? balance.activos.total / balance.pasivos.total : balance.activos.total;
+    const disciplinaRegistro = asientos.length > 0 ? (asientosRegistrados.length / asientos.length) * 100 : 0;
+    const efectividadCobranza =
+      facturasVigentes.length > 0 ? (facturasPagadas.length / facturasVigentes.length) * 100 : 0;
+    const rotacionInventario =
+      balance.inventario.saldoContable > 0 ? ingresosMes / balance.inventario.saldoContable : 0;
 
-    const margenBruto = ingresosMes > 0 ? ((ingresosMes - gastosMes) / ingresosMes) * 100 : 0;
-    const liquidez = balance.activos / balance.pasivos || 0;
-    const rotacionInventario = productos.length > 0 ? ingresosMes / productos.length : 0;
-
-    const nuevasMetricas: MetricaAnalisis[] = [
+    const metricas: MetricaAnalisis[] = [
       {
-        nombre: 'Margen de Rentabilidad',
-        valor: margenBruto,
-        objetivo: 25,
-        tendencia: margenBruto > 20 ? 'subida' : margenBruto > 10 ? 'estable' : 'bajada',
-        porcentaje: Math.min((margenBruto / 25) * 100, 100),
-        interpretacion: margenBruto > 20 ? 'Excelente rentabilidad' : margenBruto > 10 ? 'Rentabilidad moderada' : 'Rentabilidad baja',
-        sugerencia: margenBruto < 15 ? 'Revisar costos y precios' : 'Mantener estrategia actual',
-        color: margenBruto > 20 ? 'text-green-600' : margenBruto > 10 ? 'text-yellow-600' : 'text-red-600'
+        nombre: "Margen Operativo",
+        valor: margenOperativo,
+        objetivo: 20,
+        tendencia: margenOperativo >= 20 ? "subida" : margenOperativo >= 10 ? "estable" : "bajada",
+        porcentaje: Math.min((margenOperativo / 20) * 100, 100),
+        interpretacion:
+          margenOperativo >= 20
+            ? "La operacion esta dejando un margen saludable."
+            : margenOperativo >= 10
+              ? "El margen es aceptable, pero tiene espacio para mejorar."
+              : "La estructura de costos esta presionando la utilidad.",
+        sugerencia:
+          margenOperativo < 15
+            ? "Revisar costos, descuentos y precios de venta."
+            : "Mantener control sobre gastos y costo de ventas.",
+        color:
+          margenOperativo >= 20
+            ? "text-green-600"
+            : margenOperativo >= 10
+              ? "text-yellow-600"
+              : "text-red-600",
+        sufijo: "%",
       },
       {
-        nombre: 'Índice de Liquidez',
+        nombre: "Indice de Liquidez",
         valor: liquidez,
-        objetivo: 2,
-        tendencia: liquidez > 1.5 ? 'subida' : liquidez > 1 ? 'estable' : 'bajada',
-        porcentaje: Math.min((liquidez / 2) * 100, 100),
-        interpretacion: liquidez > 1.5 ? 'Liquidez saludable' : liquidez > 1 ? 'Liquidez adecuada' : 'Problemas de liquidez',
-        sugerencia: liquidez < 1.2 ? 'Mejorar cobros y gestión de efectivo' : 'Liquidez en buen estado',
-        color: liquidez > 1.5 ? 'text-green-600' : liquidez > 1 ? 'text-yellow-600' : 'text-red-600'
+        objetivo: 1.5,
+        tendencia: liquidez >= 1.5 ? "subida" : liquidez >= 1 ? "estable" : "bajada",
+        porcentaje: Math.min((liquidez / 1.5) * 100, 100),
+        interpretacion:
+          liquidez >= 1.5
+            ? "La posicion de corto plazo es solida."
+            : liquidez >= 1
+              ? "La liquidez es justa y requiere seguimiento."
+              : "Hay riesgo para cubrir obligaciones de corto plazo.",
+        sugerencia:
+          liquidez < 1.2
+            ? "Acelerar cobranzas y ordenar pagos segun vencimiento."
+            : "Monitorear cartera y caja diariamente.",
+        color:
+          liquidez >= 1.5 ? "text-green-600" : liquidez >= 1 ? "text-yellow-600" : "text-red-600",
       },
       {
-        nombre: 'Eficiencia Operativa',
-        valor: asientos.length > 0 ? (comprobantes.filter((c: any) => c.asientoGenerado).length / comprobantes.length) * 100 : 0,
+        nombre: "Disciplina de Registro",
+        valor: disciplinaRegistro,
         objetivo: 95,
-        tendencia: 'subida',
-        porcentaje: asientos.length > 0 ? (comprobantes.filter((c: any) => c.asientoGenerado).length / comprobantes.length) * 100 : 0,
-        interpretacion: 'Automatización contable funcionando',
-        sugerencia: 'Continuar con la integración automática',
-        color: 'text-blue-600'
+        tendencia: disciplinaRegistro >= 95 ? "subida" : disciplinaRegistro >= 80 ? "estable" : "bajada",
+        porcentaje: Math.min(disciplinaRegistro, 100),
+        interpretacion:
+          disciplinaRegistro >= 95
+            ? "La mayor parte de los asientos ya esta formalizada."
+            : disciplinaRegistro >= 80
+              ? "Existen borradores pendientes de cierre."
+              : "Hay demasiados registros sin formalizar.",
+        sugerencia:
+          disciplinaRegistro < 95
+            ? "Cerrar o depurar borradores antes del cierre del periodo."
+            : "Mantener el flujo de registro sin rezagos.",
+        color:
+          disciplinaRegistro >= 95
+            ? "text-green-600"
+            : disciplinaRegistro >= 80
+              ? "text-yellow-600"
+              : "text-red-600",
+        sufijo: "%",
       },
       {
-        nombre: 'Crecimiento Mensual',
-        valor: 12.5,
-        objetivo: 10,
-        tendencia: 'subida',
-        porcentaje: 125,
-        interpretacion: 'Crecimiento por encima del objetivo',
-        sugerencia: 'Preparar expansión de capacidad',
-        color: 'text-green-600'
-      }
+        nombre: "Cobranza Efectiva",
+        valor: efectividadCobranza,
+        objetivo: 85,
+        tendencia: efectividadCobranza >= 85 ? "subida" : efectividadCobranza >= 65 ? "estable" : "bajada",
+        porcentaje: Math.min(efectividadCobranza, 100),
+        interpretacion:
+          efectividadCobranza >= 85
+            ? "La cartera muestra buen nivel de recuperacion."
+            : efectividadCobranza >= 65
+              ? "La cobranza es aceptable, pero requiere seguimiento."
+              : "Existe acumulacion de cartera pendiente.",
+        sugerencia:
+          facturasPendientes.length > 0
+            ? `Priorizar ${facturasPendientes.length} facturas pendientes de cobro.`
+            : "Mantener la politica de seguimiento a cartera.",
+        color:
+          efectividadCobranza >= 85
+            ? "text-green-600"
+            : efectividadCobranza >= 65
+              ? "text-yellow-600"
+              : "text-red-600",
+        sufijo: "%",
+      },
     ];
 
-    // Generar recomendaciones inteligentes
-    const nuevasRecomendaciones: RecomendacionIA[] = [];
+    const recomendaciones: RecomendacionIA[] = [];
 
-    if (margenBruto < 15) {
-      nuevasRecomendaciones.push({
-        tipo: 'critico',
-        titulo: 'Margen de Rentabilidad Bajo',
-        descripcion: 'El margen de rentabilidad está por debajo del 15%, lo que puede comprometer la sostenibilidad del negocio.',
-        accion: 'Revisar estructura de costos y estrategia de precios',
-        impacto: 'Alto - Afecta la viabilidad financiera',
-        prioridad: 1
+    if (margenOperativo < 15) {
+      recomendaciones.push({
+        tipo: "critico",
+        titulo: "Margen operativo comprometido",
+        descripcion:
+          "La utilidad del periodo esta siendo absorbida por costos y gastos. Esto reduce la capacidad de sostener crecimiento y cumplir cierres sanos.",
+        accion: "Conciliar costo de ventas, revisar descuentos y validar gastos con respaldo.",
+        impacto: "Alto - afecta rentabilidad y cierre contable.",
+        prioridad: 1,
       });
     }
 
     if (liquidez < 1.2) {
-      nuevasRecomendaciones.push({
-        tipo: 'importante',
-        titulo: 'Liquidez Insuficiente',
-        descripcion: 'El índice de liquidez indica posibles dificultades para cubrir obligaciones a corto plazo.',
-        accion: 'Acelerar cobranzas y renegociar términos de pago',
-        impacto: 'Medio - Riesgo de flujo de caja',
-        prioridad: 2
+      recomendaciones.push({
+        tipo: "importante",
+        titulo: "Liquidez ajustada",
+        descripcion:
+          "El balance muestra una cobertura estrecha de obligaciones frente a los activos disponibles.",
+        accion: "Definir calendario de cobranzas y pagos por prioridad tributaria y operativa.",
+        impacto: "Alto - riesgo de tension de caja.",
+        prioridad: 2,
       });
     }
 
-    if (productos.length > 50 && rotacionInventario < 2) {
-      nuevasRecomendaciones.push({
-        tipo: 'sugerencia',
-        titulo: 'Optimización de Inventario',
-        descripcion: 'El inventario presenta baja rotación, lo que puede indicar productos de lento movimiento.',
-        accion: 'Analizar productos de baja rotación y considerar promociones',
-        impacto: 'Medio - Optimización de capital de trabajo',
-        prioridad: 3
+    if (!balance.inventario.conciliado) {
+      recomendaciones.push({
+        tipo: "importante",
+        titulo: "Inventario no conciliado",
+        descripcion:
+          "El saldo fisico de existencias no coincide con el saldo contable usado en el balance.",
+        accion: "Levantar un ajuste o acta de conciliacion antes del siguiente cierre.",
+        impacto: "Alto - impacta balance y costo de ventas.",
+        prioridad: 3,
       });
     }
 
-    nuevasRecomendaciones.push({
-      tipo: 'sugerencia',
-      titulo: 'Automatización Contable',
-      descripcion: 'El sistema de integración automática está funcionando correctamente.',
-      accion: 'Expandir automatización a más procesos contables',
-      impacto: 'Bajo - Mejora de eficiencia',
-      prioridad: 4
-    });
+    if (disciplinaRegistro < 95) {
+      recomendaciones.push({
+        tipo: "sugerencia",
+        titulo: "Borradores pendientes de formalizacion",
+        descripcion:
+          "Todavia existen asientos fuera de estado registrado, lo que debilita trazabilidad y cierre mensual.",
+        accion: "Depurar borradores y establecer control de aprobacion por periodo.",
+        impacto: "Medio - mejora trazabilidad y auditoria.",
+        prioridad: 4,
+      });
+    }
 
-    setMetricas(nuevasMetricas);
-    setRecomendaciones(nuevasRecomendaciones.sort((a, b) => a.prioridad - b.prioridad));
-    setCargando(false);
+    if (rotacionInventario > 0 && rotacionInventario < 1) {
+      recomendaciones.push({
+        tipo: "sugerencia",
+        titulo: "Rotacion de inventario lenta",
+        descripcion:
+          "Las ventas del mes muestran un movimiento bajo frente al inventario contable disponible.",
+        accion: "Revisar productos de baja salida y politicas de reposicion.",
+        impacto: "Medio - libera capital de trabajo.",
+        prioridad: 5,
+      });
+    }
+
+    if (recomendaciones.length === 0) {
+      recomendaciones.push({
+        tipo: "sugerencia",
+        titulo: "Base contable estable",
+        descripcion:
+          "Los indicadores revisados no muestran alertas mayores en esta lectura del sistema.",
+        accion: "Continuar con conciliaciones mensuales y controles de cierre.",
+        impacto: "Medio - sostiene disciplina operativa.",
+        prioridad: 6,
+      });
+    }
+
+    return {
+      balance,
+      facturasPendientes,
+      ingresosMes,
+      gastosMes,
+      rotacionInventario,
+      metricas,
+      recomendaciones: recomendaciones.sort((a, b) => a.prioridad - b.prioridad),
+    };
+  }, [
+    asientos,
+    currentMonth,
+    facturas,
+    getBalanceSheetData,
+    getIncomeStatementData,
+  ]);
+
+  const refrescarAnalisis = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([refetchFacturas(), refetchProductos(), refetchAsientos()]);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
-  const getTendenciaIcon = (tendencia: string) => {
+  const getTendenciaIcon = (tendencia: MetricaAnalisis["tendencia"]) => {
     switch (tendencia) {
-      case 'subida': return <TrendingUp className="w-4 h-4 text-green-600" />;
-      case 'bajada': return <TrendingDown className="w-4 h-4 text-red-600" />;
-      default: return <Activity className="w-4 h-4 text-yellow-600" />;
+      case "subida":
+        return <TrendingUp className="w-4 h-4 text-green-600" />;
+      case "bajada":
+        return <TrendingDown className="w-4 h-4 text-red-600" />;
+      default:
+        return <Activity className="w-4 h-4 text-yellow-600" />;
     }
   };
 
-  const getTipoIcon = (tipo: string) => {
+  const getTipoIcon = (tipo: RecomendacionIA["tipo"]) => {
     switch (tipo) {
-      case 'critico': return <AlertTriangle className="w-5 h-5 text-red-600" />;
-      case 'importante': return <Target className="w-5 h-5 text-yellow-600" />;
-      default: return <Lightbulb className="w-5 h-5 text-blue-600" />;
+      case "critico":
+        return <AlertTriangle className="w-5 h-5 text-red-600" />;
+      case "importante":
+        return <Target className="w-5 h-5 text-yellow-600" />;
+      default:
+        return <Lightbulb className="w-5 h-5 text-blue-600" />;
     }
   };
 
-  const getTipoColor = (tipo: string) => {
+  const getTipoColor = (tipo: RecomendacionIA["tipo"]) => {
     switch (tipo) {
-      case 'critico': return 'border-red-200 bg-red-50';
-      case 'importante': return 'border-yellow-200 bg-yellow-50';
-      default: return 'border-blue-200 bg-blue-50';
+      case "critico":
+        return "border-red-200 bg-red-50";
+      case "importante":
+        return "border-yellow-200 bg-yellow-50";
+      default:
+        return "border-blue-200 bg-blue-50";
     }
   };
 
-  if (cargando) {
+  if (isLoading) {
     return (
       <div className="space-y-6 p-6">
         <div className="flex items-center gap-2">
           <Brain className="w-6 h-6 text-primary animate-pulse" />
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-variant bg-clip-text text-transparent">
-            Análisis Inteligente
-          </h1>
+          <h1 className="text-2xl font-bold">Analisis Inteligente</h1>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="animate-pulse">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((index) => (
+            <Card key={index} className="animate-pulse">
               <CardContent className="p-6">
-                <div className="h-4 bg-muted rounded w-3/4 mb-4"></div>
-                <div className="h-8 bg-muted rounded w-1/2 mb-2"></div>
-                <div className="h-2 bg-muted rounded w-full"></div>
+                <div className="mb-4 h-4 w-3/4 rounded bg-muted" />
+                <div className="mb-2 h-8 w-1/2 rounded bg-muted" />
+                <div className="h-2 w-full rounded bg-muted" />
               </CardContent>
             </Card>
           ))}
@@ -219,36 +336,43 @@ const AnalisisInteligente = () => {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Brain className="w-6 h-6 text-primary" />
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-variant bg-clip-text text-transparent">
-            Análisis Inteligente
-          </h1>
+          <h1 className="text-2xl font-bold">Analisis Inteligente</h1>
           <Badge variant="secondary" className="ml-2">
-            <Sparkles className="w-3 h-3 mr-1" />
-            IA Activada
+            <Sparkles className="mr-1 h-3 w-3" />
+            Motor contable
           </Badge>
         </div>
-        <Button onClick={generarAnalisisInteligente} variant="outline">
-          <Zap className="w-4 h-4 mr-2" />
-          Actualizar Análisis
+        <Button variant="outline" onClick={refrescarAnalisis} disabled={isRefreshing}>
+          <Zap className="mr-2 h-4 w-4" />
+          {isRefreshing ? "Actualizando..." : "Actualizar analisis"}
         </Button>
       </div>
 
+      {!analysis.balance.inventario.conciliado && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            Existe una diferencia entre inventario fisico y contable por Bs.{" "}
+            {Math.abs(analysis.balance.inventario.diferencia).toFixed(2)}. La lectura inteligente ya
+            la considera como alerta de cierre.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Tabs defaultValue="metricas" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="metricas">Métricas Clave</TabsTrigger>
-          <TabsTrigger value="recomendaciones">Recomendaciones IA</TabsTrigger>
+          <TabsTrigger value="metricas">Metricas clave</TabsTrigger>
+          <TabsTrigger value="recomendaciones">Recomendaciones</TabsTrigger>
           <TabsTrigger value="proyecciones">Proyecciones</TabsTrigger>
         </TabsList>
 
         <TabsContent value="metricas" className="space-y-6">
-          {/* Métricas principales */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {metricas.map((metrica, index) => (
-              <Card key={index} className="group hover:shadow-elegant transition-all duration-300">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {analysis.metricas.map((metrica) => (
+              <Card key={metrica.nombre} className="transition-all duration-300 hover:shadow-elegant">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium">{metrica.nombre}</CardTitle>
@@ -258,7 +382,8 @@ const AnalisisInteligente = () => {
                 <CardContent>
                   <div className="space-y-3">
                     <div className={`text-2xl font-bold ${metrica.color}`}>
-                      {metrica.nombre.includes('Índice') ? metrica.valor.toFixed(2) : `${metrica.valor.toFixed(1)}%`}
+                      {metrica.valor.toFixed(1)}
+                      {metrica.sufijo ?? ""}
                     </div>
                     <Progress value={metrica.porcentaje} className="h-2" />
                     <div className="space-y-1">
@@ -271,19 +396,32 @@ const AnalisisInteligente = () => {
             ))}
           </div>
 
-          {/* Gráfico de tendencias */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <LineChart className="w-5 h-5" />
-                Tendencias Financieras
+                <LineChart className="h-5 w-5" />
+                Lectura financiera del periodo
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-64 flex items-center justify-center text-muted-foreground">
-                <div className="text-center">
-                  <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>Gráfico de tendencias disponible próximamente</p>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-lg border p-4">
+                  <p className="text-sm text-muted-foreground">Ingresos del mes</p>
+                  <p className="text-xl font-semibold text-green-600">
+                    Bs. {analysis.ingresosMes.toFixed(2)}
+                  </p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="text-sm text-muted-foreground">Gastos del mes</p>
+                  <p className="text-xl font-semibold text-red-600">
+                    Bs. {analysis.gastosMes.toFixed(2)}
+                  </p>
+                </div>
+                <div className="rounded-lg border p-4">
+                  <p className="text-sm text-muted-foreground">Facturas pendientes</p>
+                  <p className="text-xl font-semibold text-amber-600">
+                    {analysis.facturasPendientes.length}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -292,31 +430,44 @@ const AnalisisInteligente = () => {
 
         <TabsContent value="recomendaciones" className="space-y-6">
           <div className="grid gap-4">
-            {recomendaciones.map((rec, index) => (
-              <Card key={index} className={`${getTipoColor(rec.tipo)} border-l-4`}>
+            {analysis.recomendaciones.map((recomendacion) => (
+              <Card
+                key={recomendacion.titulo}
+                className={`${getTipoColor(recomendacion.tipo)} border-l-4`}
+              >
                 <CardHeader>
                   <div className="flex items-start gap-3">
-                    {getTipoIcon(rec.tipo)}
+                    {getTipoIcon(recomendacion.tipo)}
                     <div className="flex-1">
-                      <CardTitle className="text-lg">{rec.titulo}</CardTitle>
-                      <CardDescription className="mt-1">{rec.descripcion}</CardDescription>
+                      <CardTitle className="text-lg">{recomendacion.titulo}</CardTitle>
+                      <CardDescription className="mt-1">
+                        {recomendacion.descripcion}
+                      </CardDescription>
                     </div>
-                    <Badge variant={rec.tipo === 'critico' ? 'destructive' : rec.tipo === 'importante' ? 'default' : 'secondary'}>
-                      Prioridad {rec.prioridad}
+                    <Badge
+                      variant={
+                        recomendacion.tipo === "critico"
+                          ? "destructive"
+                          : recomendacion.tipo === "importante"
+                            ? "default"
+                            : "secondary"
+                      }
+                    >
+                      Prioridad {recomendacion.prioridad}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span className="font-medium">Acción recomendada:</span>
-                      <span className="text-sm">{rec.accion}</span>
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="font-medium">Accion recomendada:</span>
+                      <span className="text-sm">{recomendacion.accion}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Target className="w-4 h-4 text-blue-600" />
+                      <Target className="h-4 w-4 text-blue-600" />
                       <span className="font-medium">Impacto esperado:</span>
-                      <span className="text-sm">{rec.impacto}</span>
+                      <span className="text-sm">{recomendacion.impacto}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -329,29 +480,36 @@ const AnalisisInteligente = () => {
           <Alert>
             <Lightbulb className="h-4 w-4" />
             <AlertDescription>
-              Las proyecciones se basan en el análisis de tendencias históricas y patrones de comportamiento financiero.
+              Las proyecciones de esta vista son orientativas y se basan en la lectura actual de
+              ingresos, gastos, inventario y cartera. No sustituyen un cierre formal.
             </AlertDescription>
           </Alert>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle>Proyección de Ingresos</CardTitle>
-                <CardDescription>Próximos 3 meses</CardDescription>
+                <CardTitle>Proyeccion operativa</CardTitle>
+                <CardDescription>Siguiente revision de corto plazo</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span>Mes 1</span>
-                    <span className="font-bold text-green-600">+8.5%</span>
+                  <div className="flex items-center justify-between">
+                    <span>Rentabilidad</span>
+                    <span className="font-bold text-green-600">
+                      {analysis.metricas[0]?.valor.toFixed(1) ?? "0.0"}%
+                    </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span>Mes 2</span>
-                    <span className="font-bold text-green-600">+12.3%</span>
+                  <div className="flex items-center justify-between">
+                    <span>Liquidez</span>
+                    <span className="font-bold text-blue-600">
+                      {analysis.metricas[1]?.valor.toFixed(2) ?? "0.00"}
+                    </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span>Mes 3</span>
-                    <span className="font-bold text-green-600">+15.7%</span>
+                  <div className="flex items-center justify-between">
+                    <span>Rotacion inventario</span>
+                    <span className="font-bold text-amber-600">
+                      {analysis.rotacionInventario.toFixed(2)}x
+                    </span>
                   </div>
                 </div>
               </CardContent>
@@ -359,22 +517,34 @@ const AnalisisInteligente = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>Análisis de Riesgos</CardTitle>
-                <CardDescription>Factores a monitorear</CardDescription>
+                <CardTitle>Semaforo de control</CardTitle>
+                <CardDescription>Factores de cierre a monitorear</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm">Flujo de caja: Estable</span>
+                    <div
+                      className={`h-2 w-2 rounded-full ${
+                        analysis.metricas[1]?.valor >= 1.2 ? "bg-green-500" : "bg-yellow-500"
+                      }`}
+                    />
+                    <span className="text-sm">Liquidez</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                    <span className="text-sm">Cartera: Revisar</span>
+                    <div
+                      className={`h-2 w-2 rounded-full ${
+                        analysis.balance.inventario.conciliado ? "bg-green-500" : "bg-red-500"
+                      }`}
+                    />
+                    <span className="text-sm">Conciliacion de inventario</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span className="text-sm">Costos: Controlados</span>
+                    <div
+                      className={`h-2 w-2 rounded-full ${
+                        analysis.facturasPendientes.length === 0 ? "bg-green-500" : "bg-yellow-500"
+                      }`}
+                    />
+                    <span className="text-sm">Cartera pendiente</span>
                   </div>
                 </div>
               </CardContent>

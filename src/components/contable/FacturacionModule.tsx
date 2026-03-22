@@ -434,6 +434,14 @@ const FacturacionModule = () => {
         }
       />
 
+      <Alert className="border-amber-300 bg-amber-50">
+        <Shield className="h-4 w-4 text-amber-700" />
+        <AlertDescription className="text-amber-900">
+          La validación con el SIN en este módulo sigue en modo demostración. Al 22 de marzo de 2026,
+          el sistema todavía no usa servicios oficiales de CUIS/CUFD, recepción ni anulación productiva.
+        </AlertDescription>
+      </Alert>
+
       {/* KPIs en línea compacta */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-card animate-slide-up stagger-1 hover-lift">

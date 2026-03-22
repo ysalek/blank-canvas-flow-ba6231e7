@@ -1,284 +1,212 @@
-import { useState, useEffect, useRef } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRef, useState } from "react";
+import {
+  Building2,
+  CheckCircle,
+  Download,
+  Key,
+  RefreshCw,
+  Save,
+  Shield,
+  TestTube,
+  Upload,
+  XCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Building2, 
-  FileText, 
-  Shield, 
-  Database,
-  Save,
-  Upload,
-  Download,
-  Key,
-  TestTube,
-  CheckCircle,
-  XCircle
-} from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useBackup } from "@/hooks/useBackup";
+import { useConfiguracionSistema } from "@/hooks/useConfiguracionSistema";
 import UserProductionManager from "./users/UserProductionManager";
 
 const ConfiguracionModule = () => {
-  const { toast } = useToast();
-  const { crearBackup, restaurarBackup } = useBackup();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Estado para datos de la empresa
-  const [empresa, setEmpresa] = useState({
-    razonSocial: "Empresa Demo S.R.L.",
-    nit: "1234567890",
-    telefono: "+591 2 2345678",
-    email: "contacto@empresa.com",
-    direccion: "Av. Principal #123, La Paz, Bolivia",
-    actividadEconomica: "Servicios de consultoría",
-    codigoSin: "001234567"
-  });
-
-  // Estado para configuración fiscal
-  const [configFiscal, setConfigFiscal] = useState({
-    ivaGeneral: 13,
-    regimen: "general",
-    modalidadFacturacion: "computarizada",
-    ambienteSin: "test",
-    sucursal: "0",
-    puntoVenta: "0"
-  });
-
-  // Estado para configuración del sistema
-  const [configSistema, setConfigSistema] = useState({
-    monedaBase: "BOB",
-    formatoFecha: "dd/mm/yyyy",
-    decimalesMontos: 2,
-    numeracionAutomatica: true,
-    backupAutomatico: true,
-    notificacionesEmail: true,
-    posHabilitado: true,
-    posAutoimpresion: false,
-    posRequiereAutorizacion: false
-  });
-
-  // Estado para configuración SIN
-  const [configSin, setConfigSin] = useState({
-    urlApi: "https://pilotosiatservicios.impuestos.gob.bo",
-    tokenDelegado: "",
-    codigoSistema: "",
-    nit: empresa.nit,
-    codigoModalidad: "1",
-    codigoEmision: "1",
-    tipoFacturaDocumento: "1",
-    tipoAmbiente: "2", // 1: Producción, 2: Pruebas
-    codigoSucursal: "0",
-    codigoPuntoVenta: "0",
-    cuis: "",
-    cufd: "",
-    fechaVigenciaCufd: "",
-    activo: false
-  });
+  const { toast } = useToast();
+  const {
+    empresa,
+    setEmpresa,
+    configFiscal,
+    setConfigFiscal,
+    configSistema,
+    setConfigSistema,
+    configSin,
+    setConfigSin,
+    loading,
+    refetch,
+    guardarEmpresaFiscal,
+    guardarSistema,
+    guardarSin,
+    exportarConfiguracion,
+    importarConfiguracion,
+  } = useConfiguracionSistema();
 
   const [testingConnection, setTestingConnection] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
-
-  useEffect(() => {
-    const savedEmpresa = localStorage.getItem('configuracionEmpresa');
-    if (savedEmpresa) setEmpresa(JSON.parse(savedEmpresa));
-
-    const savedFiscal = localStorage.getItem('configuracionFiscal');
-    if (savedFiscal) setConfigFiscal(JSON.parse(savedFiscal));
-
-    const savedSistema = localStorage.getItem('configuracionSistema');
-    if (savedSistema) setConfigSistema(JSON.parse(savedSistema));
-
-    const savedSin = localStorage.getItem('configSin');
-    if (savedSin) setConfigSin(JSON.parse(savedSin));
-  }, []);
-
-  const guardarConfiguracion = (seccion: string) => {
-    if (seccion === 'Empresa') {
-      localStorage.setItem('configuracionEmpresa', JSON.stringify(empresa));
-    } else if (seccion === 'Configuración Fiscal') {
-      localStorage.setItem('configuracionFiscal', JSON.stringify(configFiscal));
-    } else if (seccion === 'Sistema') {
-      localStorage.setItem('configuracionSistema', JSON.stringify(configSistema));
-    }
-    toast({
-      title: "Configuración guardada",
-      description: `Los cambios en ${seccion} han sido guardados correctamente`,
-    });
-  };
-
-  const guardarConfigSin = () => {
-    // Guardar configuración SIN en localStorage o base de datos
-    localStorage.setItem('configSin', JSON.stringify(configSin));
-    toast({
-      title: "Configuración SIN guardada",
-      description: "Las credenciales han sido guardadas de forma segura",
-    });
-  };
+  const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle");
 
   const testearConexionSin = async () => {
     setTestingConnection(true);
-    
     try {
-      // Simular prueba de conexión con el SIN
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
       if (configSin.tokenDelegado && configSin.codigoSistema) {
-        setConnectionStatus('success');
+        setConnectionStatus("success");
         toast({
-          title: "Conexión exitosa",
-          description: "La conexión con el SIN se estableció correctamente",
+          title: "Conexion simulada exitosa",
+          description: "Las credenciales minimas del SIN estan completas para ambiente de prueba.",
         });
       } else {
-        setConnectionStatus('error');
+        setConnectionStatus("error");
         toast({
-          title: "Error de conexión",
-          description: "Verifique las credenciales ingresadas",
+          title: "Conexion simulada fallida",
+          description: "Completa token delegado y codigo de sistema antes de probar integracion.",
           variant: "destructive",
         });
       }
-    } catch (error) {
-      setConnectionStatus('error');
-      toast({
-        title: "Error de conexión",
-        description: "No se pudo conectar con el SIN",
-        variant: "destructive",
-      });
     } finally {
       setTestingConnection(false);
     }
   };
 
   const obtenerCuis = async () => {
+    const nuevoCuis = `CUIS${Date.now()}`;
+    setConfigSin((prev) => ({ ...prev, cuis: nuevoCuis }));
     toast({
-      title: "Obteniendo CUIS",
-      description: "Solicitando código único de inicio de sistema...",
+      title: "CUIS simulado generado",
+      description: `Se asigno ${nuevoCuis} para pruebas internas.`,
     });
-    
-    // Simular obtención de CUIS
-    setTimeout(() => {
-      const nuevoCuis = `CUIS${Date.now()}`;
-      setConfigSin({...configSin, cuis: nuevoCuis});
-      toast({
-        title: "CUIS obtenido",
-        description: `Nuevo CUIS: ${nuevoCuis}`,
-      });
-    }, 1500);
   };
 
   const obtenerCufd = async () => {
     if (!configSin.cuis) {
       toast({
-        title: "Error",
-        description: "Primero debe obtener el CUIS",
+        title: "CUIS requerido",
+        description: "Primero debes obtener un CUIS antes de generar el CUFD.",
         variant: "destructive",
       });
       return;
     }
 
-    toast({
-      title: "Obteniendo CUFD",
-      description: "Solicitando código único de facturación diaria...",
-    });
-    
-    // Simular obtención de CUFD
-    setTimeout(() => {
-      const nuevoCufd = `CUFD${Date.now()}`;
-      const fechaVigencia = new Date();
-      fechaVigencia.setDate(fechaVigencia.getDate() + 1);
-      
-      setConfigSin({
-        ...configSin, 
-        cufd: nuevoCufd,
-        fechaVigenciaCufd: fechaVigencia.toISOString().split('T')[0]
-      });
-      
-      toast({
-        title: "CUFD obtenido",
-        description: `Nuevo CUFD válido hasta: ${fechaVigencia.toLocaleDateString()}`,
-      });
-    }, 1500);
-  };
+    const fechaVigencia = new Date();
+    fechaVigencia.setDate(fechaVigencia.getDate() + 1);
+    setConfigSin((prev) => ({
+      ...prev,
+      cufd: `CUFD${Date.now()}`,
+      fechaVigenciaCufd: fechaVigencia.toISOString().split("T")[0],
+    }));
 
-  const exportarConfiguracion = () => {
     toast({
-      title: "Configuración exportada",
-      description: "El archivo de configuración ha sido descargado",
+      title: "CUFD simulado generado",
+      description: `El CUFD de prueba quedo vigente hasta ${fechaVigencia.toLocaleDateString("es-BO")}.`,
     });
   };
 
-  const importarConfiguracion = () => {
-    toast({
-      title: "Configuración importada",
-      description: "La configuración ha sido cargada correctamente",
-    });
-  };
-
-  const handleRestoreClick = () => {
+  const handleImportarClick = () => {
     fileInputRef.current?.click();
   };
-  
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    restaurarBackup(event);
-    if(event.target) {
-        event.target.value = '';
+
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const contenido = await file.text();
+      const data = JSON.parse(contenido);
+      await importarConfiguracion(data);
+    } catch (error) {
+      console.error("Error importando configuracion:", error);
+      toast({
+        title: "Archivo invalido",
+        description: "No se pudo interpretar el archivo de configuracion.",
+        variant: "destructive",
+      });
+    } finally {
+      if (event.target) {
+        event.target.value = "";
+      }
     }
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold">Configuracion del Sistema</h2>
+          <p className="text-slate-600">Cargando parametros centralizados...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json"
+        className="hidden"
+        onChange={handleImportFile}
+      />
+
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">Configuración del Sistema</h2>
-          <p className="text-slate-600">Gestión de parámetros y configuraciones generales</p>
+          <h2 className="text-2xl font-bold">Configuracion del Sistema</h2>
+          <p className="text-slate-600">
+            Parametros tributarios y operativos con persistencia centralizada
+          </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={importarConfiguracion} variant="outline">
-            <Upload className="w-4 h-4 mr-2" />
+          <Button onClick={handleImportarClick} variant="outline">
+            <Upload className="mr-2 h-4 w-4" />
             Importar
           </Button>
           <Button onClick={exportarConfiguracion} variant="outline">
-            <Download className="w-4 h-4 mr-2" />
+            <Download className="mr-2 h-4 w-4" />
             Exportar
           </Button>
+          <Button onClick={refetch} variant="outline">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Recargar
+          </Button>
         </div>
+      </div>
+
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+        La configuracion tributaria critica ya se guarda en Supabase. Esto reduce el riesgo de perder
+        parametros fiscales y mejora consistencia para auditoria y cumplimiento.
       </div>
 
       <Tabs defaultValue="empresa" className="w-full">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="empresa">Empresa</TabsTrigger>
-          <TabsTrigger value="fiscal">Configuración Fiscal</TabsTrigger>
-          <TabsTrigger value="sin">Integración SIN</TabsTrigger>
+          <TabsTrigger value="fiscal">Fiscal</TabsTrigger>
+          <TabsTrigger value="sin">SIN</TabsTrigger>
           <TabsTrigger value="sistema">Sistema</TabsTrigger>
           <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
         </TabsList>
 
-        {/* Datos de la Empresa */}
         <TabsContent value="empresa" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Building2 className="w-5 h-5" />
+                <Building2 className="h-5 w-5" />
                 Datos de la Empresa
               </CardTitle>
               <CardDescription>
-                Información básica de la empresa para documentos oficiales
+                Base legal y operativa usada en configuracion tributaria y documentos
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="razonSocial">Razón Social</Label>
+                  <Label htmlFor="razonSocial">Razon social</Label>
                   <Input
                     id="razonSocial"
                     value={empresa.razonSocial}
-                    onChange={(e) => setEmpresa({...empresa, razonSocial: e.target.value})}
+                    onChange={(event) => setEmpresa({ ...empresa, razonSocial: event.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -286,15 +214,15 @@ const ConfiguracionModule = () => {
                   <Input
                     id="nit"
                     value={empresa.nit}
-                    onChange={(e) => setEmpresa({...empresa, nit: e.target.value})}
+                    onChange={(event) => setEmpresa({ ...empresa, nit: event.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="telefono">Teléfono</Label>
+                  <Label htmlFor="telefono">Telefono</Label>
                   <Input
                     id="telefono"
                     value={empresa.telefono}
-                    onChange={(e) => setEmpresa({...empresa, telefono: e.target.value})}
+                    onChange={(event) => setEmpresa({ ...empresa, telefono: event.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -303,86 +231,97 @@ const ConfiguracionModule = () => {
                     id="email"
                     type="email"
                     value={empresa.email}
-                    onChange={(e) => setEmpresa({...empresa, email: e.target.value})}
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="direccion">Dirección</Label>
-                <Textarea
-                  id="direccion"
-                  value={empresa.direccion}
-                  onChange={(e) => setEmpresa({...empresa, direccion: e.target.value})}
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="actividad">Actividad Económica</Label>
-                  <Input
-                    id="actividad"
-                    value={empresa.actividadEconomica}
-                    onChange={(e) => setEmpresa({...empresa, actividadEconomica: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="codigoSin">Código SIN</Label>
-                  <Input
-                    id="codigoSin"
-                    value={empresa.codigoSin}
-                    onChange={(e) => setEmpresa({...empresa, codigoSin: e.target.value})}
+                    onChange={(event) => setEmpresa({ ...empresa, email: event.target.value })}
                   />
                 </div>
               </div>
 
-              <Button onClick={() => guardarConfiguracion("Empresa")} className="w-full">
-                <Save className="w-4 h-4 mr-2" />
-                Guardar Datos de Empresa
+              <div className="space-y-2">
+                <Label htmlFor="direccion">Direccion</Label>
+                <Textarea
+                  id="direccion"
+                  value={empresa.direccion}
+                  onChange={(event) => setEmpresa({ ...empresa, direccion: event.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="actividad">Actividad economica</Label>
+                  <Input
+                    id="actividad"
+                    value={empresa.actividadEconomica}
+                    onChange={(event) =>
+                      setEmpresa({ ...empresa, actividadEconomica: event.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="codigoSin">Codigo de actividad / SIN</Label>
+                  <Input
+                    id="codigoSin"
+                    value={empresa.codigoSin}
+                    onChange={(event) => setEmpresa({ ...empresa, codigoSin: event.target.value })}
+                  />
+                </div>
+              </div>
+
+              <Button onClick={guardarEmpresaFiscal} className="w-full">
+                <Save className="mr-2 h-4 w-4" />
+                Guardar empresa y base tributaria
               </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Configuración Fiscal */}
         <TabsContent value="fiscal" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5" />
-                Configuración Fiscal
-              </CardTitle>
+              <CardTitle>Configuracion Fiscal</CardTitle>
               <CardDescription>
-                Parámetros fiscales y de facturación electrónica
+                Parametros bolivianos base del sistema y operacion del entorno fiscal
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="ivaGeneral">IVA General (%)</Label>
+                  <Label htmlFor="ivaGeneral">IVA general (%)</Label>
                   <Input
                     id="ivaGeneral"
                     type="number"
                     value={configFiscal.ivaGeneral}
-                    onChange={(e) => setConfigFiscal({...configFiscal, ivaGeneral: parseFloat(e.target.value)})}
+                    onChange={(event) =>
+                      setConfigFiscal({
+                        ...configFiscal,
+                        ivaGeneral: parseFloat(event.target.value) || 0,
+                      })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Régimen Tributario</Label>
-                  <Select value={configFiscal.regimen} onValueChange={(value) => setConfigFiscal({...configFiscal, regimen: value})}>
+                  <Label>Regimen tributario</Label>
+                  <Select
+                    value={configFiscal.regimen}
+                    onValueChange={(value) => setConfigFiscal({ ...configFiscal, regimen: value })}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="general">Régimen General</SelectItem>
-                      <SelectItem value="simplificado">Régimen Simplificado</SelectItem>
-                      <SelectItem value="integrado">Régimen Integrado</SelectItem>
+                      <SelectItem value="general">Regimen General</SelectItem>
+                      <SelectItem value="simplificado">Regimen Simplificado</SelectItem>
+                      <SelectItem value="integrado">Regimen Integrado</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Modalidad de Facturación</Label>
-                  <Select value={configFiscal.modalidadFacturacion} onValueChange={(value) => setConfigFiscal({...configFiscal, modalidadFacturacion: value})}>
+                  <Label>Modalidad de facturacion</Label>
+                  <Select
+                    value={configFiscal.modalidadFacturacion}
+                    onValueChange={(value) =>
+                      setConfigFiscal({ ...configFiscal, modalidadFacturacion: value })
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -394,276 +333,257 @@ const ConfiguracionModule = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>Ambiente SIN</Label>
-                  <Select value={configFiscal.ambienteSin} onValueChange={(value) => setConfigFiscal({...configFiscal, ambienteSin: value})}>
+                  <Select
+                    value={configFiscal.ambienteSin}
+                    onValueChange={(value) =>
+                      setConfigFiscal({ ...configFiscal, ambienteSin: value })
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="test">Ambiente de Pruebas</SelectItem>
-                      <SelectItem value="production">Ambiente de Producción</SelectItem>
+                      <SelectItem value="test">Pruebas</SelectItem>
+                      <SelectItem value="production">Produccion</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sucursal">Código Sucursal</Label>
+                  <Label htmlFor="sucursal">Sucursal</Label>
                   <Input
                     id="sucursal"
                     value={configFiscal.sucursal}
-                    onChange={(e) => setConfigFiscal({...configFiscal, sucursal: e.target.value})}
+                    onChange={(event) =>
+                      setConfigFiscal({ ...configFiscal, sucursal: event.target.value })
+                    }
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="puntoVenta">Punto de Venta</Label>
+                  <Label htmlFor="puntoVenta">Punto de venta</Label>
                   <Input
                     id="puntoVenta"
                     value={configFiscal.puntoVenta}
-                    onChange={(e) => setConfigFiscal({...configFiscal, puntoVenta: e.target.value})}
+                    onChange={(event) =>
+                      setConfigFiscal({ ...configFiscal, puntoVenta: event.target.value })
+                    }
                   />
                 </div>
               </div>
 
-              <Button onClick={() => guardarConfiguracion("Configuración Fiscal")} className="w-full">
-                <Save className="w-4 h-4 mr-2" />
-                Guardar Configuración Fiscal
+              <Button onClick={guardarEmpresaFiscal} className="w-full">
+                <Save className="mr-2 h-4 w-4" />
+                Guardar configuracion fiscal
               </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Configuración SIN */}
         <TabsContent value="sin" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Key className="w-5 h-5" />
-                Configuración SIN
+                <Key className="h-5 w-5" />
+                Integracion SIN
               </CardTitle>
               <CardDescription>
-                Credenciales y parámetros para la integración con el Servicio de Impuestos Nacionales
+                Parametros operativos y credenciales de trabajo para entorno de pruebas o produccion
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Configuración básica */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-lg">Configuración Básica</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="urlApi">URL API SIN</Label>
-                    <Input
-                      id="urlApi"
-                      value={configSin.urlApi}
-                      onChange={(e) => setConfigSin({...configSin, urlApi: e.target.value})}
-                      placeholder="https://serviciosweb.impuestos.gob.bo"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tipo de Ambiente</Label>
-                    <Select value={configSin.tipoAmbiente} onValueChange={(value) => setConfigSin({...configSin, tipoAmbiente: value})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="2">Ambiente de Pruebas</SelectItem>
-                        <SelectItem value="1">Ambiente de Producción</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="urlApi">URL API SIN</Label>
+                  <Input
+                    id="urlApi"
+                    value={configSin.urlApi}
+                    onChange={(event) => setConfigSin({ ...configSin, urlApi: event.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo de ambiente</Label>
+                  <Select
+                    value={configSin.tipoAmbiente}
+                    onValueChange={(value) => setConfigSin({ ...configSin, tipoAmbiente: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2">Pruebas</SelectItem>
+                      <SelectItem value="1">Produccion</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tokenDelegado">Token delegado</Label>
+                  <Input
+                    id="tokenDelegado"
+                    type="password"
+                    value={configSin.tokenDelegado}
+                    onChange={(event) =>
+                      setConfigSin({ ...configSin, tokenDelegado: event.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="codigoSistema">Codigo de sistema</Label>
+                  <Input
+                    id="codigoSistema"
+                    value={configSin.codigoSistema}
+                    onChange={(event) =>
+                      setConfigSin({ ...configSin, codigoSistema: event.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="nitSin">NIT empresa</Label>
+                  <Input
+                    id="nitSin"
+                    value={configSin.nit}
+                    onChange={(event) => setConfigSin({ ...configSin, nit: event.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Codigo modalidad</Label>
+                  <Select
+                    value={configSin.codigoModalidad}
+                    onValueChange={(value) =>
+                      setConfigSin({ ...configSin, codigoModalidad: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Electronica en linea</SelectItem>
+                      <SelectItem value="2">Computarizada en linea</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="codigoSucursal">Codigo sucursal</Label>
+                  <Input
+                    id="codigoSucursal"
+                    value={configSin.codigoSucursal}
+                    onChange={(event) =>
+                      setConfigSin({ ...configSin, codigoSucursal: event.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="codigoPuntoVenta">Codigo punto de venta</Label>
+                  <Input
+                    id="codigoPuntoVenta"
+                    value={configSin.codigoPuntoVenta}
+                    onChange={(event) =>
+                      setConfigSin({ ...configSin, codigoPuntoVenta: event.target.value })
+                    }
+                  />
                 </div>
               </div>
 
-              {/* Credenciales */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-lg">Credenciales de Acceso</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="tokenDelegado">Token Delegado *</Label>
-                    <Input
-                      id="tokenDelegado"
-                      type="password"
-                      value={configSin.tokenDelegado}
-                      onChange={(e) => setConfigSin({...configSin, tokenDelegado: e.target.value})}
-                      placeholder="Token proporcionado por SIN"
-                    />
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-1">
+                  <div className="font-medium">Prueba de conexion</div>
+                  <div className="text-sm text-slate-600">
+                    Validacion operativa simulada para no exponer llamadas reales al SIN.
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="codigoSistema">Código de Sistema *</Label>
-                    <Input
-                      id="codigoSistema"
-                      value={configSin.codigoSistema}
-                      onChange={(e) => setConfigSin({...configSin, codigoSistema: e.target.value})}
-                      placeholder="Código asignado por SIN"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="nitSin">NIT Empresa</Label>
-                    <Input
-                      id="nitSin"
-                      value={configSin.nit}
-                      onChange={(e) => setConfigSin({...configSin, nit: e.target.value})}
-                      placeholder="NIT de la empresa"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="codigoModalidad">Código Modalidad</Label>
-                    <Select value={configSin.codigoModalidad} onValueChange={(value) => setConfigSin({...configSin, codigoModalidad: value})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">Electronica en línea</SelectItem>
-                        <SelectItem value="2">Computarizada en línea</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {connectionStatus === "success" && <CheckCircle className="h-5 w-5 text-green-500" />}
+                  {connectionStatus === "error" && <XCircle className="h-5 w-5 text-red-500" />}
+                  <Button onClick={testearConexionSin} disabled={testingConnection} variant="outline">
+                    <TestTube className="mr-2 h-4 w-4" />
+                    {testingConnection ? "Probando..." : "Probar conexion"}
+                  </Button>
                 </div>
               </div>
 
-              {/* Códigos de ubicación */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-lg">Códigos de Ubicación</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="codigoSucursalSin">Código Sucursal</Label>
-                    <Input
-                      placeholder="Sucursal principal"
-                      value={configSin.codigoSucursal}
-                      onChange={(e) => setConfigSin({...configSin, codigoSucursal: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="codigoPuntoVentaSin">Código Punto Venta</Label>
-                    <Input
-                      placeholder="Punto de venta principal"
-                      value={configSin.codigoPuntoVenta}
-                      onChange={(e) => setConfigSin({...configSin, codigoPuntoVenta: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="tipoEmision">Tipo Emisión</Label>
-                    <Select value={configSin.codigoEmision} onValueChange={(value) => setConfigSin({...configSin, codigoEmision: value})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">Online</SelectItem>
-                        <SelectItem value="2">Offline</SelectItem>
-                      </SelectContent>
-                    </Select>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="cuis">CUIS</Label>
+                  <div className="flex gap-2">
+                    <Input id="cuis" value={configSin.cuis} readOnly placeholder="No generado" />
+                    <Button onClick={obtenerCuis} variant="outline">
+                      Obtener
+                    </Button>
                   </div>
                 </div>
-              </div>
-
-              {/* Test de conexión */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-lg">Prueba de Conexión</h4>
-                  <div className="flex items-center gap-2">
-                    {connectionStatus === 'success' && <CheckCircle className="w-5 h-5 text-green-500" />}
-                    {connectionStatus === 'error' && <XCircle className="w-5 h-5 text-red-500" />}
-                    <Button 
-                      onClick={testearConexionSin} 
-                      disabled={testingConnection}
-                      variant="outline"
-                    >
-                      <TestTube className="w-4 h-4 mr-2" />
-                      {testingConnection ? "Probando..." : "Probar Conexión"}
+                <div className="space-y-2">
+                  <Label htmlFor="cufd">CUFD</Label>
+                  <div className="flex gap-2">
+                    <Input id="cufd" value={configSin.cufd} readOnly placeholder="No generado" />
+                    <Button onClick={obtenerCufd} variant="outline" disabled={!configSin.cuis}>
+                      Obtener
                     </Button>
                   </div>
                 </div>
               </div>
 
-              {/* Códigos SIN */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-lg">Códigos SIN</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="cuis">CUIS (Código Único Inicio Sistema)</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="cuis"
-                        value={configSin.cuis}
-                        readOnly
-                        placeholder="No obtenido"
-                      />
-                      <Button onClick={obtenerCuis} variant="outline">
-                        Obtener
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cufd">CUFD (Código Único Facturación Diaria)</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="cufd"
-                        value={configSin.cufd}
-                        readOnly
-                        placeholder="No obtenido"
-                      />
-                      <Button onClick={obtenerCufd} variant="outline" disabled={!configSin.cuis}>
-                        Obtener
-                      </Button>
-                    </div>
-                  </div>
+              {configSin.fechaVigenciaCufd && (
+                <div className="text-sm text-slate-600">
+                  <strong>Vigencia CUFD:</strong>{" "}
+                  {new Date(configSin.fechaVigenciaCufd).toLocaleDateString("es-BO")}
                 </div>
-                
-                {configSin.fechaVigenciaCufd && (
-                  <div className="text-sm text-slate-600">
-                    <strong>Vigencia CUFD:</strong> {new Date(configSin.fechaVigenciaCufd).toLocaleDateString()}
-                  </div>
-                )}
-              </div>
+              )}
 
-              {/* Estado de integración */}
-              <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="space-y-1">
-                  <div className="font-medium">Estado de Integración SIN</div>
+                  <div className="font-medium">Estado de integracion SIN</div>
                   <div className="text-sm text-slate-600">
-                    {configSin.activo ? "Integración activa y funcionando" : "Integración desactivada"}
+                    {configSin.activo
+                      ? "Integracion habilitada para uso interno"
+                      : "Integracion desactivada"}
                   </div>
                 </div>
                 <Switch
                   checked={configSin.activo}
-                  onCheckedChange={(checked) => setConfigSin({...configSin, activo: checked})}
+                  onCheckedChange={(checked) => setConfigSin({ ...configSin, activo: checked })}
                 />
               </div>
 
-              <Button onClick={guardarConfigSin} className="w-full">
-                <Save className="w-4 h-4 mr-2" />
-                Guardar Configuración SIN
+              <Button onClick={guardarSin} className="w-full">
+                <Save className="mr-2 h-4 w-4" />
+                Guardar configuracion SIN
               </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Configuración del Sistema */}
         <TabsContent value="sistema" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Shield className="w-5 h-5" />
-                Configuración del Sistema
+                <Shield className="h-5 w-5" />
+                Configuracion del Sistema
               </CardTitle>
-              <CardDescription>
-                Parámetros generales del sistema contable
-              </CardDescription>
+              <CardDescription>Preferencias operativas y controles funcionales</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Moneda Base</Label>
-                  <Select value={configSistema.monedaBase} onValueChange={(value) => setConfigSistema({...configSistema, monedaBase: value})}>
+                  <Label>Moneda base</Label>
+                  <Select
+                    value={configSistema.monedaBase}
+                    onValueChange={(value) => setConfigSistema({ ...configSistema, monedaBase: value })}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="BOB">Boliviano (BOB)</SelectItem>
-                      <SelectItem value="USD">Dólar Americano (USD)</SelectItem>
+                      <SelectItem value="USD">Dolar Americano (USD)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Formato de Fecha</Label>
-                  <Select value={configSistema.formatoFecha} onValueChange={(value) => setConfigSistema({...configSistema, formatoFecha: value})}>
+                  <Label>Formato de fecha</Label>
+                  <Select
+                    value={configSistema.formatoFecha}
+                    onValueChange={(value) =>
+                      setConfigSistema({ ...configSistema, formatoFecha: value })
+                    }
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -675,14 +595,19 @@ const ConfiguracionModule = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="decimales">Decimales en Montos</Label>
+                  <Label htmlFor="decimales">Decimales en montos</Label>
                   <Input
                     id="decimales"
                     type="number"
                     min="0"
                     max="4"
                     value={configSistema.decimalesMontos}
-                    onChange={(e) => setConfigSistema({...configSistema, decimalesMontos: parseInt(e.target.value)})}
+                    onChange={(event) =>
+                      setConfigSistema({
+                        ...configSistema,
+                        decimalesMontos: parseInt(event.target.value, 10) || 0,
+                      })
+                    }
                   />
                 </div>
               </div>
@@ -690,45 +615,55 @@ const ConfiguracionModule = () => {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label>Numeración Automática</Label>
-                    <p className="text-sm text-slate-500">Generar números de documento automáticamente</p>
+                    <Label>Numeracion automatica</Label>
+                    <p className="text-sm text-slate-500">
+                      Generar numeros de documento automaticamente
+                    </p>
                   </div>
                   <Switch
                     checked={configSistema.numeracionAutomatica}
-                    onCheckedChange={(checked) => setConfigSistema({...configSistema, numeracionAutomatica: checked})}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Backup Automático</Label>
-                    <p className="text-sm text-slate-500">Realizar respaldos automáticos diarios</p>
-                  </div>
-                  <Switch
-                    checked={configSistema.backupAutomatico}
-                    onCheckedChange={(checked) => setConfigSistema({...configSistema, backupAutomatico: checked})}
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Notificaciones por Email</Label>
-                    <p className="text-sm text-slate-500">Enviar notificaciones importantes por correo</p>
-                  </div>
-                  <Switch
-                    checked={configSistema.notificacionesEmail}
-                    onCheckedChange={(checked) => setConfigSistema({...configSistema, notificacionesEmail: checked})}
+                    onCheckedChange={(checked) =>
+                      setConfigSistema({ ...configSistema, numeracionAutomatica: checked })
+                    }
                   />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label>Punto de Venta (POS)</Label>
-                    <p className="text-sm text-slate-500">Habilitar módulo de punto de venta</p>
+                    <Label>Backup automatico</Label>
+                    <p className="text-sm text-slate-500">Sugerencia operativa de respaldo periodico</p>
+                  </div>
+                  <Switch
+                    checked={configSistema.backupAutomatico}
+                    onCheckedChange={(checked) =>
+                      setConfigSistema({ ...configSistema, backupAutomatico: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Notificaciones por email</Label>
+                    <p className="text-sm text-slate-500">Enviar avisos relevantes por correo</p>
+                  </div>
+                  <Switch
+                    checked={configSistema.notificacionesEmail}
+                    onCheckedChange={(checked) =>
+                      setConfigSistema({ ...configSistema, notificacionesEmail: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Punto de venta (POS)</Label>
+                    <p className="text-sm text-slate-500">Habilitar modulo de punto de venta</p>
                   </div>
                   <Switch
                     checked={configSistema.posHabilitado}
-                    onCheckedChange={(checked) => setConfigSistema({...configSistema, posHabilitado: checked})}
+                    onCheckedChange={(checked) =>
+                      setConfigSistema({ ...configSistema, posHabilitado: checked })
+                    }
                   />
                 </div>
 
@@ -736,38 +671,46 @@ const ConfiguracionModule = () => {
                   <>
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label>Autoimpresión POS</Label>
-                        <p className="text-sm text-slate-500">Imprimir automáticamente al procesar venta</p>
+                        <Label>Autoimpresion POS</Label>
+                        <p className="text-sm text-slate-500">Imprimir automaticamente al vender</p>
                       </div>
                       <Switch
                         checked={configSistema.posAutoimpresion}
-                        onCheckedChange={(checked) => setConfigSistema({...configSistema, posAutoimpresion: checked})}
+                        onCheckedChange={(checked) =>
+                          setConfigSistema({ ...configSistema, posAutoimpresion: checked })
+                        }
                       />
                     </div>
 
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label>Autorización Requerida</Label>
-                        <p className="text-sm text-slate-500">Requerir autorización para descuentos especiales</p>
+                        <Label>Autorizacion requerida</Label>
+                        <p className="text-sm text-slate-500">
+                          Solicitar autorizacion en descuentos especiales
+                        </p>
                       </div>
                       <Switch
                         checked={configSistema.posRequiereAutorizacion}
-                        onCheckedChange={(checked) => setConfigSistema({...configSistema, posRequiereAutorizacion: checked})}
+                        onCheckedChange={(checked) =>
+                          setConfigSistema({
+                            ...configSistema,
+                            posRequiereAutorizacion: checked,
+                          })
+                        }
                       />
                     </div>
                   </>
                 )}
               </div>
 
-              <Button onClick={() => guardarConfiguracion("Sistema")} className="w-full">
-                <Save className="w-4 h-4 mr-2" />
-                Guardar Configuración del Sistema
+              <Button onClick={guardarSistema} className="w-full">
+                <Save className="mr-2 h-4 w-4" />
+                Guardar configuracion del sistema
               </Button>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Gestión de Usuarios */}
         <TabsContent value="usuarios" className="space-y-4">
           <UserProductionManager />
         </TabsContent>

@@ -1,101 +1,158 @@
-
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Package, Clock, TrendingDown, Calculator, AlertCircle } from "lucide-react";
-import { Producto } from "../products/ProductsData";
-import { Compra } from "../purchases/PurchasesData";
+import { useFacturas } from "@/hooks/useFacturas";
+import { useProductosValidated, type Producto } from "@/hooks/useProductosValidated";
+import { useSupabaseProveedores } from "@/hooks/useSupabaseProveedores";
+import { supabase } from "@/integrations/supabase/client";
+import { AlertCircle, Calculator, Clock, Package, TrendingDown } from "lucide-react";
+
+interface UltimaCompraProducto {
+  fecha: string;
+  precioCompra: number;
+  cantidad: number;
+}
 
 interface ProductAnalysis {
   producto: Producto;
-  ultimaCompra: {
-    fecha: string;
-    precioCompra: number;
-    cantidad: number;
-  } | null;
+  ultimaCompra: UltimaCompraProducto | null;
   diasEnDeposito: number;
   margenUtilidad: number;
   posibleDescuento: number;
-  rotacion: 'Alta' | 'Media' | 'Baja';
+  rotacion: "Alta" | "Media" | "Baja";
   recomendacion: string;
 }
 
+interface ItemCompraRecord {
+  compra_id: string | null;
+  producto_id: string | null;
+  cantidad: number;
+  costo_unitario: number;
+  subtotal: number;
+  descripcion: string;
+}
+
+const getStockActual = (producto: Producto): number =>
+  Number(producto.stock_actual ?? producto.stockActual ?? 0);
+
+const getStockMinimo = (producto: Producto): number =>
+  Number(producto.stock_minimo ?? producto.stockMinimo ?? 0);
+
+const getCostoUnitario = (producto: Producto): number =>
+  Number(producto.costo_unitario ?? producto.costoUnitario ?? 0);
+
+const getPrecioVenta = (producto: Producto): number =>
+  Number(producto.precio_venta ?? producto.precioVenta ?? 0);
+
 const InventoryAnalysis = () => {
-  const [analisisProductos, setAnalisisProductos] = useState<ProductAnalysis[]>([]);
+  const [itemsCompra, setItemsCompra] = useState<ItemCompraRecord[]>([]);
+  const [itemsLoading, setItemsLoading] = useState(true);
+  const { productos, loading: productosLoading } = useProductosValidated();
+  const { facturas, loading: facturasLoading } = useFacturas();
+  const { compras, loading: comprasLoading } = useSupabaseProveedores();
 
   useEffect(() => {
-    const productos: Producto[] = JSON.parse(localStorage.getItem('productos') || '[]');
-    const compras: Compra[] = JSON.parse(localStorage.getItem('compras') || '[]');
-    const facturas = JSON.parse(localStorage.getItem('facturas') || '[]');
+    const cargarItemsCompra = async () => {
+      if (compras.length === 0) {
+        setItemsCompra([]);
+        setItemsLoading(false);
+        return;
+      }
 
-    const analisis: ProductAnalysis[] = productos.map(producto => {
-      // Buscar última compra del producto
-      let ultimaCompra = null;
-      let fechaUltimaCompra = null;
+      setItemsLoading(true);
+      try {
+        const compraIds = compras.map((compra) => compra.id);
+        const { data, error } = await supabase
+          .from("items_compras")
+          .select("compra_id, producto_id, cantidad, costo_unitario, subtotal, descripcion")
+          .in("compra_id", compraIds);
 
-      compras.forEach(compra => {
-        compra.items.forEach(item => {
-          if (item.productoId === producto.id) {
-            const fechaCompra = new Date(compra.fecha);
-            if (!fechaUltimaCompra || fechaCompra > fechaUltimaCompra) {
-              fechaUltimaCompra = fechaCompra;
-              ultimaCompra = {
-                fecha: compra.fecha,
-                precioCompra: item.costoUnitario,
-                cantidad: item.cantidad
-              };
-            }
-          }
+        if (error) throw error;
+        setItemsCompra((data || []) as ItemCompraRecord[]);
+      } catch (error) {
+        console.error("Error cargando items de compras:", error);
+        setItemsCompra([]);
+      } finally {
+        setItemsLoading(false);
+      }
+    };
+
+    void cargarItemsCompra();
+  }, [compras]);
+
+  const analisisProductos = useMemo(() => {
+    const comprasMap = new Map(compras.map((compra) => [compra.id, compra]));
+    const ventasUltimos3Meses = new Map<string, number>();
+    const hoy = new Date();
+    const hace3Meses = new Date();
+    hace3Meses.setMonth(hace3Meses.getMonth() - 3);
+
+    facturas
+      .filter((factura) => factura.estado !== "anulada")
+      .forEach((factura) => {
+        const fechaFactura = new Date(factura.fecha);
+        if (fechaFactura < hace3Meses) return;
+
+        factura.items.forEach((item) => {
+          const productoId = item.productoId || item.codigo;
+          ventasUltimos3Meses.set(
+            productoId,
+            (ventasUltimos3Meses.get(productoId) || 0) + item.cantidad
+          );
         });
       });
 
-      // Calcular días en depósito
-      const diasEnDeposito = ultimaCompra 
-        ? Math.floor((new Date().getTime() - new Date(ultimaCompra.fecha).getTime()) / (1000 * 60 * 60 * 24))
+    return productos.map((producto) => {
+      const productoItems = itemsCompra.filter((item) => item.producto_id === producto.id);
+
+      const ultimaCompra = productoItems.reduce<UltimaCompraProducto | null>((ultima, item) => {
+        const compra = item.compra_id ? comprasMap.get(item.compra_id) : undefined;
+        if (!compra) return ultima;
+
+        if (!ultima || compra.fecha > ultima.fecha) {
+          return {
+            fecha: compra.fecha,
+            precioCompra: Number(item.costo_unitario || 0),
+            cantidad: Number(item.cantidad || 0),
+          };
+        }
+
+        return ultima;
+      }, null);
+
+      const fechaBase = ultimaCompra?.fecha || producto.updated_at || producto.created_at;
+      const diasEnDeposito = fechaBase
+        ? Math.max(
+            0,
+            Math.floor((hoy.getTime() - new Date(fechaBase).getTime()) / (1000 * 60 * 60 * 24))
+          )
         : 0;
 
-      // Calcular margen de utilidad
-      const precioCompra = ultimaCompra?.precioCompra || producto.costoUnitario;
-      const margenUtilidad = precioCompra > 0 
-        ? ((producto.precioVenta - precioCompra) / precioCompra) * 100
-        : 0;
+      const precioCompraBase = ultimaCompra?.precioCompra || getCostoUnitario(producto);
+      const precioVenta = getPrecioVenta(producto);
+      const stockActual = getStockActual(producto);
+      const stockMinimo = getStockMinimo(producto);
+      const ventasRecientes = ventasUltimos3Meses.get(producto.id) || 0;
+      const margenUtilidad =
+        precioCompraBase > 0 ? ((precioVenta - precioCompraBase) / precioCompraBase) * 100 : 0;
+      const posibleDescuento =
+        margenUtilidad > 20 ? Math.min(margenUtilidad * 0.5, 30) : Math.max(margenUtilidad * 0.3, 5);
 
-      // Calcular posible descuento (máximo 50% del margen)
-      const posibleDescuento = margenUtilidad > 20 
-        ? Math.min(margenUtilidad * 0.5, 30)
-        : Math.max(margenUtilidad * 0.3, 5);
+      let rotacion: ProductAnalysis["rotacion"] = "Baja";
+      if (ventasRecientes > stockActual * 2) rotacion = "Alta";
+      else if (ventasRecientes > stockActual) rotacion = "Media";
 
-      // Determinar rotación basada en ventas recientes
-      const ventasUltimos3Meses = facturas
-        .filter(f => {
-          const fechaFactura = new Date(f.fecha);
-          const hace3Meses = new Date();
-          hace3Meses.setMonth(hace3Meses.getMonth() - 3);
-          return fechaFactura >= hace3Meses;
-        })
-        .reduce((sum, f) => {
-          const itemsProducto = f.items.filter(item => item.codigo === producto.codigo);
-          return sum + itemsProducto.reduce((itemSum, item) => itemSum + item.cantidad, 0);
-        }, 0);
-
-      let rotacion: 'Alta' | 'Media' | 'Baja' = 'Baja';
-      if (ventasUltimos3Meses > producto.stockActual * 2) rotacion = 'Alta';
-      else if (ventasUltimos3Meses > producto.stockActual) rotacion = 'Media';
-
-      // Generar recomendación
-      let recomendacion = '';
-      if (diasEnDeposito > 180 && rotacion === 'Baja') {
-        recomendacion = 'Considerar descuento agresivo o liquidación';
+      let recomendacion = "Producto en condiciones normales";
+      if (diasEnDeposito > 180 && rotacion === "Baja") {
+        recomendacion = "Considerar descuento agresivo o liquidacion controlada.";
       } else if (diasEnDeposito > 90 && margenUtilidad > 30) {
-        recomendacion = 'Aplicar descuento promocional';
-      } else if (rotacion === 'Alta' && producto.stockActual < producto.stockMinimo) {
-        recomendacion = 'Urgente: Reabastecer stock';
+        recomendacion = "Aplicar promocion antes de que el inventario siga envejeciendo.";
+      } else if (rotacion === "Alta" && stockActual < stockMinimo) {
+        recomendacion = "Reabastecer con prioridad para evitar ruptura de stock.";
       } else if (margenUtilidad < 15) {
-        recomendacion = 'Revisar estructura de costos';
-      } else {
-        recomendacion = 'Producto en condiciones normales';
+        recomendacion = "Revisar costo, precio de venta o condiciones comerciales.";
       }
 
       return {
@@ -105,79 +162,100 @@ const InventoryAnalysis = () => {
         margenUtilidad,
         posibleDescuento,
         rotacion,
-        recomendacion
+        recomendacion,
       };
     });
+  }, [compras, facturas, itemsCompra, productos]);
 
-    // Ordenar por días en depósito (más antiguos primero)
-    analisis.sort((a, b) => b.diasEnDeposito - a.diasEnDeposito);
-    setAnalisisProductos(analisis);
-  }, []);
-
-  const productosAntiguos = analisisProductos.filter(p => p.diasEnDeposito > 90);
-  const productosConProblemas = analisisProductos.filter(p => 
-    p.margenUtilidad < 15 || (p.diasEnDeposito > 180 && p.rotacion === 'Baja')
+  const productosAntiguos = analisisProductos.filter((item) => item.diasEnDeposito > 90);
+  const productosConProblemas = analisisProductos.filter(
+    (item) => item.margenUtilidad < 15 || (item.diasEnDeposito > 180 && item.rotacion === "Baja")
   );
 
-  const getRotationColor = (rotacion: string) => {
+  const loading = productosLoading || facturasLoading || comprasLoading || itemsLoading;
+
+  const getRotationColor = (rotacion: ProductAnalysis["rotacion"]) => {
     switch (rotacion) {
-      case 'Alta': return 'bg-green-100 text-green-800 border-green-200';
-      case 'Media': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      default: return 'bg-red-100 text-red-800 border-red-200';
+      case "Alta":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "Media":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      default:
+        return "bg-red-100 text-red-800 border-red-200";
     }
   };
 
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Package className="h-6 w-6 text-primary animate-pulse" />
+          <div>
+            <h2 className="text-2xl font-bold">Analisis de Inventario</h2>
+            <p className="text-muted-foreground">Cargando inventario, ventas y compras reales...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Productos Antiguos</CardTitle>
+            <CardTitle className="text-sm font-medium">Productos antiguos</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{productosAntiguos.length}</div>
-            <p className="text-xs text-muted-foreground">Más de 90 días en stock</p>
+            <p className="text-xs text-muted-foreground">Mas de 90 dias en deposito</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Con Problemas</CardTitle>
+            <CardTitle className="text-sm font-medium">Con problemas</CardTitle>
             <AlertCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{productosConProblemas.length}</div>
-            <p className="text-xs text-muted-foreground">Requieren atención</p>
+            <p className="text-xs text-muted-foreground">Requieren revision</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Margen Promedio</CardTitle>
+            <CardTitle className="text-sm font-medium">Margen promedio</CardTitle>
             <Calculator className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {analisisProductos.length > 0 
-                ? (analisisProductos.reduce((sum, p) => sum + p.margenUtilidad, 0) / analisisProductos.length).toFixed(1)
-                : '0.0'
-              }%
+              {analisisProductos.length > 0
+                ? (
+                    analisisProductos.reduce((sum, item) => sum + item.margenUtilidad, 0) /
+                    analisisProductos.length
+                  ).toFixed(1)
+                : "0.0"}
+              %
             </div>
-            <p className="text-xs text-muted-foreground">Rentabilidad general</p>
+            <p className="text-xs text-muted-foreground">Rentabilidad del inventario vendido</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valor Inventario</CardTitle>
+            <CardTitle className="text-sm font-medium">Valor inventario</CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              Bs. {analisisProductos.reduce((sum, p) => sum + (p.producto.stockActual * p.producto.costoUnitario), 0).toFixed(2)}
+              Bs.{" "}
+              {analisisProductos
+                .reduce((sum, item) => sum + getStockActual(item.producto) * getCostoUnitario(item.producto), 0)
+                .toFixed(2)}
             </div>
-            <p className="text-xs text-muted-foreground">A costo de compra</p>
+            <p className="text-xs text-muted-foreground">Valorizado a costo contable</p>
           </CardContent>
         </Card>
       </div>
@@ -186,26 +264,27 @@ const InventoryAnalysis = () => {
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            <strong>Atención:</strong> {productosConProblemas.length} productos requieren revisión urgente por bajo margen o baja rotación.
+            {productosConProblemas.length} productos requieren seguimiento por antiguedad, baja
+            rotacion o margen reducido.
           </AlertDescription>
         </Alert>
       )}
 
       <Card>
         <CardHeader>
-          <CardTitle>Análisis Detallado de Inventario</CardTitle>
+          <CardTitle>Analisis detallado de inventario</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Producto</TableHead>
-                <TableHead>Última Compra</TableHead>
-                <TableHead className="text-center">Días en Stock</TableHead>
+                <TableHead>Ultima compra</TableHead>
+                <TableHead className="text-center">Dias en stock</TableHead>
                 <TableHead className="text-right">Margen %</TableHead>
-                <TableHead className="text-right">Desc. Sugerido</TableHead>
-                <TableHead className="text-center">Rotación</TableHead>
-                <TableHead>Recomendación</TableHead>
+                <TableHead className="text-right">Desc. sugerido</TableHead>
+                <TableHead className="text-center">Rotacion</TableHead>
+                <TableHead>Recomendacion</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -215,44 +294,54 @@ const InventoryAnalysis = () => {
                     <div>
                       <p className="font-medium">{analisis.producto.nombre}</p>
                       <p className="text-sm text-muted-foreground">
-                        Stock: {analisis.producto.stockActual} | 
-                        Precio: Bs. {analisis.producto.precioVenta.toFixed(2)}
+                        Stock: {getStockActual(analisis.producto)} | Precio: Bs.{" "}
+                        {getPrecioVenta(analisis.producto).toFixed(2)}
                       </p>
                     </div>
                   </TableCell>
                   <TableCell>
                     {analisis.ultimaCompra ? (
                       <div>
-                        <p className="text-sm">{new Date(analisis.ultimaCompra.fecha).toLocaleDateString()}</p>
+                        <p className="text-sm">
+                          {new Date(analisis.ultimaCompra.fecha).toLocaleDateString("es-BO")}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           Bs. {analisis.ultimaCompra.precioCompra.toFixed(2)}
                         </p>
                       </div>
                     ) : (
-                      <span className="text-muted-foreground">Sin compras</span>
+                      <span className="text-muted-foreground">Sin compras registradas</span>
                     )}
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant={analisis.diasEnDeposito > 180 ? "destructive" : 
-                                 analisis.diasEnDeposito > 90 ? "secondary" : "default"}>
-                      {analisis.diasEnDeposito} días
+                    <Badge
+                      variant={
+                        analisis.diasEnDeposito > 180
+                          ? "destructive"
+                          : analisis.diasEnDeposito > 90
+                            ? "secondary"
+                            : "default"
+                      }
+                    >
+                      {analisis.diasEnDeposito} dias
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <span className={`font-medium ${
-                      analisis.margenUtilidad > 30 ? 'text-green-600' : 
-                      analisis.margenUtilidad > 15 ? 'text-yellow-600' : 'text-red-600'
-                    }`}>
+                    <span
+                      className={`font-medium ${
+                        analisis.margenUtilidad > 30
+                          ? "text-green-600"
+                          : analisis.margenUtilidad > 15
+                            ? "text-yellow-600"
+                            : "text-red-600"
+                      }`}
+                    >
                       {analisis.margenUtilidad.toFixed(1)}%
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">
-                    {analisis.posibleDescuento.toFixed(1)}%
-                  </TableCell>
+                  <TableCell className="text-right">{analisis.posibleDescuento.toFixed(1)}%</TableCell>
                   <TableCell className="text-center">
-                    <Badge className={getRotationColor(analisis.rotacion)}>
-                      {analisis.rotacion}
-                    </Badge>
+                    <Badge className={getRotationColor(analisis.rotacion)}>{analisis.rotacion}</Badge>
                   </TableCell>
                   <TableCell>
                     <span className="text-sm">{analisis.recomendacion}</span>
@@ -261,6 +350,19 @@ const InventoryAnalysis = () => {
               ))}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingDown className="h-5 w-5" />
+            Observacion auditora
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          Este analisis ya no usa datos simulados del navegador. Cruza existencias, ventas y ultimas
+          compras persistidas para apoyar decisiones de reposicion y liquidacion con mejor trazabilidad.
         </CardContent>
       </Card>
     </div>

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { FileText, Zap, AlertTriangle, CheckCircle, Download, Wifi, Settings } from "lucide-react";
 import { sectoresEspeciales, actividadesEconomicas, validarNITBoliviano } from "../billing/BillingData";
@@ -225,6 +226,14 @@ const FacturacionElectronicaModule = () => {
           </Button>
         </div>
       </div>
+
+      <Alert className="border-amber-300 bg-amber-50">
+        <AlertTriangle className="h-4 w-4 text-amber-700" />
+        <AlertDescription className="text-amber-900">
+          Este módulo sigue en modo demostración. La conexión, el CUFD y el envío al SIN están simulados;
+          todavía no existe integración oficial productiva.
+        </AlertDescription>
+      </Alert>
 
       {/* Panel de Estado */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

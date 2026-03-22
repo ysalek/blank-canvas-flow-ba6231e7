@@ -18,7 +18,7 @@ const InvoiceSummary = ({ facturas }: InvoiceSummaryProps) => {
         <CardContent className="p-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-green-600">{aceptadas}</div>
-            <div className="text-sm text-gray-600">Aceptadas SIN</div>
+            <div className="text-sm text-gray-600">Aceptadas (sim.)</div>
           </div>
         </CardContent>
       </Card>
@@ -26,7 +26,7 @@ const InvoiceSummary = ({ facturas }: InvoiceSummaryProps) => {
         <CardContent className="p-4">
           <div className="text-center">
             <div className="text-2xl font-bold text-yellow-600">{pendientes}</div>
-            <div className="text-sm text-gray-600">Pendientes SIN</div>
+            <div className="text-sm text-gray-600">Pendientes (sim.)</div>
           </div>
         </CardContent>
       </Card>

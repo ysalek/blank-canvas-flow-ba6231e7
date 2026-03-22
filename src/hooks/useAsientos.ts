@@ -177,6 +177,123 @@ export const useAsientos = () => {
     }
   };
 
+  const updateAsiento = async (asiento: AsientoContable): Promise<boolean> => {
+    if (!asiento.id) {
+      toast({
+        title: "Error al actualizar asiento",
+        description: "El asiento no tiene un identificador valido.",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    if (!validarTransaccion(asiento)) {
+      toast({
+        title: "Error en el asiento contable",
+        description: "El asiento no esta balanceado. Debe = Haber.",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast({
+          title: "Error de autenticacion",
+          description: "Debes iniciar sesion para actualizar asientos contables.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      const { data: asientoActual, error: fetchError } = await supabase
+        .from('asientos_contables')
+        .select('id, estado')
+        .eq('id', asiento.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (!asientoActual) {
+        toast({
+          title: "Asiento no encontrado",
+          description: "No se encontro el asiento en la base de datos.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      if (asientoActual.estado !== 'borrador') {
+        toast({
+          title: "Edicion bloqueada",
+          description: "Solo los asientos en borrador pueden editarse. Los asientos registrados deben revertirse, no modificarse.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      const { error: asientoError } = await supabase
+        .from('asientos_contables')
+        .update({
+          numero: asiento.numero,
+          fecha: asiento.fecha,
+          concepto: asiento.concepto,
+          referencia: asiento.referencia || null,
+          debe: asiento.debe,
+          haber: asiento.haber
+        })
+        .eq('id', asiento.id)
+        .eq('user_id', user.id);
+
+      if (asientoError) throw asientoError;
+
+      const { error: deleteCuentasError } = await supabase
+        .from('cuentas_asientos')
+        .delete()
+        .eq('asiento_id', asiento.id);
+
+      if (deleteCuentasError) throw deleteCuentasError;
+
+      if (asiento.cuentas.length > 0) {
+        const cuentasParaInsertar = asiento.cuentas.map(cuenta => ({
+          asiento_id: asiento.id,
+          codigo_cuenta: cuenta.codigo,
+          nombre_cuenta: cuenta.nombre,
+          debe: cuenta.debe,
+          haber: cuenta.haber
+        }));
+
+        const { error: cuentasError } = await supabase
+          .from('cuentas_asientos')
+          .insert(cuentasParaInsertar);
+
+        if (cuentasError) throw cuentasError;
+      }
+
+      setAsientos(prev => prev.map(item => (
+        item.id === asiento.id ? asiento : item
+      )));
+
+      toast({
+        title: "Asiento actualizado",
+        description: `El asiento ${asiento.numero} se actualizo correctamente.`
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error actualizando asiento:', error);
+      toast({
+        title: "Error al actualizar asiento",
+        description: "No se pudo actualizar el asiento en la base de datos.",
+        variant: "destructive"
+      });
+      return false;
+    }
+  };
+
   const actualizarEstadoAsiento = async (id: string, nuevoEstado: 'borrador' | 'registrado' | 'anulado'): Promise<boolean> => {
     try {
       const { error } = await supabase
@@ -205,6 +322,7 @@ export const useAsientos = () => {
     getAsientos,
     asientos,
     guardarAsiento, 
+    updateAsiento,
     validarTransaccion,
     actualizarEstadoAsiento,
     loading,

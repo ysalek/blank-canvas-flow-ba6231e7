@@ -1,6 +1,7 @@
+import type { AsientoContable } from "@/components/contable/diary/DiaryData";
+import type { Producto } from "./useProductosValidated";
 import { useAsientos } from "./useAsientos";
 
-// Type Definitions
 export interface TrialBalanceDetail {
   codigo: string;
   nombre: string;
@@ -38,15 +39,22 @@ export interface BalanceSheetData {
   };
   totalPasivoPatrimonio: number;
   ecuacionCuadrada: boolean;
+  inventario: {
+    saldoFisico: number;
+    saldoContable: number;
+    diferencia: number;
+    conciliado: boolean;
+    criterioBalance: "contable";
+  };
 }
 
 export interface IncomeStatementData {
   ingresos: {
-    cuentas: { codigo: string; nombre: string; saldo: number }[];
+    cuentas: BalanceSheetAccount[];
     total: number;
   };
   gastos: {
-    cuentas: { codigo: string; nombre: string; saldo: number }[];
+    cuentas: BalanceSheetAccount[];
     total: number;
   };
   utilidadNeta: number;
@@ -67,138 +75,142 @@ export interface DeclaracionIVAData {
   };
 }
 
+export interface LibroMayorMovimiento {
+  fecha: string;
+  concepto: string;
+  referencia: string;
+  debe: number;
+  haber: number;
+}
 
-export const useReportesContables = (productos?: any[]) => {
+export interface LibroMayorCuenta {
+  nombre: string;
+  codigo: string;
+  movimientos: LibroMayorMovimiento[];
+  totalDebe: number;
+  totalHaber: number;
+}
+
+type LedgerMap = Record<string, LibroMayorCuenta>;
+type BalanceFilters = {
+  fechaInicio?: string;
+  fechaFin?: string;
+};
+
+const normalizarValorProducto = (
+  valorSnake?: number | null,
+  valorAlias?: number | null
+): number => Number(valorSnake ?? valorAlias ?? 0);
+
+const estaDentroDeRango = (asiento: AsientoContable, filtros?: BalanceFilters): boolean => {
+  if (asiento.estado !== "registrado") return false;
+  if (!filtros?.fechaInicio && !filtros?.fechaFin) return true;
+
+  const fechaAsiento = new Date(asiento.fecha);
+  if (filtros.fechaInicio && fechaAsiento < new Date(filtros.fechaInicio)) {
+    return false;
+  }
+  if (filtros.fechaFin && fechaAsiento > new Date(`${filtros.fechaFin}T23:59:59`)) {
+    return false;
+  }
+
+  return true;
+};
+
+export const useReportesContables = (productos: Producto[] = []) => {
   const { getAsientos } = useAsientos();
 
-  const getLibroMayor = (): { [key: string]: { nombre: string, codigo: string, movimientos: any[], totalDebe: number, totalHaber: number } } => {
-    const asientos = getAsientos();
-    const libroMayor: { [key: string]: { nombre: string, codigo: string, movimientos: any[], totalDebe: number, totalHaber: number } } = {};
+  const construirLibroMayor = (asientos: AsientoContable[]): LedgerMap => {
+    const libroMayor: LedgerMap = {};
 
-    asientos.filter(a => a.estado === 'registrado').reverse().forEach(asiento => {
-        asiento.cuentas.forEach(cuenta => {
-            if (!libroMayor[cuenta.codigo]) {
-                libroMayor[cuenta.codigo] = {
-                    codigo: cuenta.codigo,
-                    nombre: cuenta.nombre,
-                    movimientos: [],
-                    totalDebe: 0,
-                    totalHaber: 0,
-                };
-            }
-            libroMayor[cuenta.codigo].movimientos.push({
-                fecha: asiento.fecha,
-                concepto: asiento.concepto,
-                referencia: asiento.referencia,
-                debe: cuenta.debe,
-                haber: cuenta.haber,
-            });
-            libroMayor[cuenta.codigo].totalDebe += cuenta.debe;
-            libroMayor[cuenta.codigo].totalHaber += cuenta.haber;
+    asientos.forEach((asiento) => {
+      asiento.cuentas.forEach((cuenta) => {
+        if (!libroMayor[cuenta.codigo]) {
+          libroMayor[cuenta.codigo] = {
+            codigo: cuenta.codigo,
+            nombre: cuenta.nombre,
+            movimientos: [],
+            totalDebe: 0,
+            totalHaber: 0,
+          };
+        }
+
+        libroMayor[cuenta.codigo].movimientos.push({
+          fecha: asiento.fecha,
+          concepto: asiento.concepto,
+          referencia: asiento.referencia,
+          debe: cuenta.debe,
+          haber: cuenta.haber,
         });
+        libroMayor[cuenta.codigo].totalDebe += cuenta.debe;
+        libroMayor[cuenta.codigo].totalHaber += cuenta.haber;
+      });
     });
 
-    // Sort movements by date
-    for (const codigo in libroMayor) {
-        libroMayor[codigo].movimientos.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
-    }
+    Object.values(libroMayor).forEach((cuenta) => {
+      cuenta.movimientos.sort(
+        (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+      );
+    });
 
     return libroMayor;
   };
 
-  const getTrialBalanceData = (filtros?: { fechaInicio?: string, fechaFin?: string, cuentaInicio?: string, cuentaFin?: string }): { details: TrialBalanceDetail[], totals: TrialBalanceTotals } => {
-    const asientos = getAsientos();
+  const getLibroMayor = (): LedgerMap => {
+    const asientos = getAsientos().filter((asiento) => asiento.estado === "registrado");
+    return construirLibroMayor([...asientos].reverse());
+  };
 
-    const filteredAsientos = asientos.filter(asiento => {
-      if (asiento.estado !== 'registrado') return false;
-      
-      // Filtro por fechas
-      if (filtros?.fechaInicio || filtros?.fechaFin) {
-        const fechaAsiento = new Date(asiento.fecha);
-        if (filtros.fechaInicio && fechaAsiento < new Date(filtros.fechaInicio)) return false;
-        if (filtros.fechaFin && fechaAsiento > new Date(filtros.fechaFin + 'T23:59:59')) return false;
-      }
-      
-      return true;
-    });
+  const getTrialBalanceData = (filtros?: {
+    fechaInicio?: string;
+    fechaFin?: string;
+    cuentaInicio?: string;
+    cuentaFin?: string;
+  }): { details: TrialBalanceDetail[]; totals: TrialBalanceTotals } => {
+    const asientosFiltrados = getAsientos().filter((asiento) => estaDentroDeRango(asiento, filtros));
+    const libroMayor = construirLibroMayor([...asientosFiltrados].reverse());
 
-    // Recrear libro mayor con asientos filtrados
-    const libroMayorFiltrado: { [key: string]: { nombre: string, codigo: string, movimientos: any[], totalDebe: number, totalHaber: number } } = {};
-    
-    filteredAsientos.reverse().forEach(asiento => {
-        asiento.cuentas.forEach(cuenta => {
-            if (!libroMayorFiltrado[cuenta.codigo]) {
-                libroMayorFiltrado[cuenta.codigo] = {
-                    codigo: cuenta.codigo,
-                    nombre: cuenta.nombre,
-                    movimientos: [],
-                    totalDebe: 0,
-                    totalHaber: 0,
-                };
-            }
-            libroMayorFiltrado[cuenta.codigo].movimientos.push({
-                fecha: asiento.fecha,
-                concepto: asiento.concepto,
-                referencia: asiento.referencia,
-                debe: cuenta.debe,
-                haber: cuenta.haber,
-            });
-            libroMayorFiltrado[cuenta.codigo].totalDebe += cuenta.debe;
-            libroMayorFiltrado[cuenta.codigo].totalHaber += cuenta.haber;
-        });
-    });
+    let cuentasOrdenadas = Object.values(libroMayor).sort((a, b) => a.codigo.localeCompare(b.codigo));
 
-    const details: TrialBalanceDetail[] = [];
-    const totals: TrialBalanceTotals = {
-        sumaDebe: 0,
-        sumaHaber: 0,
-        saldoDeudor: 0,
-        saldoAcreedor: 0,
-    };
-
-    let sortedAccounts = Object.values(libroMayorFiltrado).sort((a, b) => a.codigo.localeCompare(b.codigo));
-
-    // Filtro por rango de cuentas
     if (filtros?.cuentaInicio || filtros?.cuentaFin) {
-      sortedAccounts = sortedAccounts.filter(cuenta => {
+      cuentasOrdenadas = cuentasOrdenadas.filter((cuenta) => {
         if (filtros.cuentaInicio && cuenta.codigo < filtros.cuentaInicio) return false;
         if (filtros.cuentaFin && cuenta.codigo > filtros.cuentaFin) return false;
         return true;
       });
     }
 
-    sortedAccounts.forEach(cuenta => {
-        const { codigo, nombre, totalDebe, totalHaber } = cuenta;
-        let saldoDeudor = 0;
-        let saldoAcreedor = 0;
+    const totals: TrialBalanceTotals = {
+      sumaDebe: 0,
+      sumaHaber: 0,
+      saldoDeudor: 0,
+      saldoAcreedor: 0,
+    };
 
-        const saldo = totalDebe - totalHaber;
-        
-        if (saldo > 0) {
-            saldoDeudor = saldo;
-        } else {
-            saldoAcreedor = -saldo;
-        }
-        
-        details.push({
-            codigo,
-            nombre,
-            sumaDebe: totalDebe,
-            sumaHaber: totalHaber,
-            saldoDeudor,
-            saldoAcreedor,
-        });
+    const details = cuentasOrdenadas.map((cuenta) => {
+      const saldo = cuenta.totalDebe - cuenta.totalHaber;
+      const saldoDeudor = saldo > 0 ? saldo : 0;
+      const saldoAcreedor = saldo < 0 ? -saldo : 0;
 
-        totals.sumaDebe += totalDebe;
-        totals.sumaHaber += totalHaber;
-        totals.saldoDeudor += saldoDeudor;
-        totals.saldoAcreedor += saldoAcreedor;
+      totals.sumaDebe += cuenta.totalDebe;
+      totals.sumaHaber += cuenta.totalHaber;
+      totals.saldoDeudor += saldoDeudor;
+      totals.saldoAcreedor += saldoAcreedor;
+
+      return {
+        codigo: cuenta.codigo,
+        nombre: cuenta.nombre,
+        sumaDebe: cuenta.totalDebe,
+        sumaHaber: cuenta.totalHaber,
+        saldoDeudor,
+        saldoAcreedor,
+      };
     });
 
     return { details, totals };
   };
 
-  const getBalanceSheetData = (filtros?: { fechaInicio?: string, fechaFin?: string }): BalanceSheetData => {
+  const getBalanceSheetData = (filtros?: BalanceFilters): BalanceSheetData => {
     const { details } = getTrialBalanceData(filtros);
 
     const activos = { cuentas: [] as BalanceSheetAccount[], total: 0 };
@@ -207,125 +219,142 @@ export const useReportesContables = (productos?: any[]) => {
     const ingresos = { total: 0 };
     const gastos = { total: 0 };
 
-    // PRIMERO: Calcular INVENTARIO según normativa boliviana
-    const productosData = productos || [];
-    let valorInventarioFisico = 0;
-    let valorInventarioContable = 0;
-    
-    // Calcular valor físico del inventario (stock actual * costo unitario)
-    productosData.forEach((producto: any) => {
-      const stockActual = producto.stock_actual || producto.stockActual || 0;
-      const costoUnitario = producto.costo_unitario || producto.costoUnitario || 0;
-      valorInventarioFisico += stockActual * costoUnitario;
-    });
-    
-    // Buscar saldo contable de inventarios (cuenta 1131)
-    const cuentaInventario = details.find(cuenta => cuenta.codigo === '1131' || cuenta.codigo === '1141');
-    if (cuentaInventario) {
-      valorInventarioContable = cuentaInventario.saldoDeudor - cuentaInventario.saldoAcreedor;
-    }
-    
-    // Según normativa boliviana, usar el valor físico real o contable (el que sea mayor)
-    const saldoInventario = Math.max(valorInventarioFisico, valorInventarioContable);
-    let inventarioAgregado = false;
-    
-    // Suppress repeated warnings - only log once
+    const valorInventarioFisico = productos.reduce((total, producto) => {
+      const stockActual = normalizarValorProducto(producto.stock_actual, producto.stockActual);
+      const costoUnitario = normalizarValorProducto(producto.costo_unitario, producto.costoUnitario);
+      return total + stockActual * costoUnitario;
+    }, 0);
 
+    const cuentaInventario = details.find(
+      (cuenta) => cuenta.codigo === "1131" || cuenta.codigo === "1141"
+    );
+    const valorInventarioContable = cuentaInventario
+      ? cuentaInventario.saldoDeudor - cuentaInventario.saldoAcreedor
+      : 0;
 
-    details.forEach(cuenta => {
+    details.forEach((cuenta) => {
       const saldo = cuenta.saldoDeudor - cuenta.saldoAcreedor;
 
-      if (cuenta.codigo.startsWith('1')) { // Activo
-        if (cuenta.codigo === '1131' || cuenta.codigo === '1141') {
-          // Usar el valor físico real calculado arriba
-          activos.cuentas.push({ 
-            codigo: cuenta.codigo, 
-            nombre: "Inventarios de Productos", 
-            saldo: saldoInventario 
-          });
-          activos.total += saldoInventario;
-          inventarioAgregado = true;
-        } else {
-          // Para otras cuentas de activo, usar el saldo contable normal
-          const saldoActivo = Math.max(0, saldo); // Los activos deben ser positivos
-          activos.cuentas.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, saldo: saldoActivo });
-          activos.total += saldoActivo;
-        }
-      } else if (cuenta.codigo.startsWith('2')) { // Pasivo
-        pasivos.cuentas.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, saldo: -saldo });
-        pasivos.total -= saldo;
-      } else if (cuenta.codigo.startsWith('3')) { // Patrimonio
-        patrimonio.cuentas.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, saldo: -saldo });
-        patrimonio.total -= saldo;
-      } else if (cuenta.codigo.startsWith('4')) { // Ingresos
-        ingresos.total -= saldo; // Ingresos son acreedores
-      } else if (cuenta.codigo.startsWith('5') || cuenta.codigo.startsWith('6')) { // Gastos (operativos + personal)
-        gastos.total += saldo; // Gastos son deudores
+      if (cuenta.codigo.startsWith("1")) {
+        const saldoActivo =
+          cuenta.codigo === "1131" || cuenta.codigo === "1141"
+            ? Math.max(0, valorInventarioContable)
+            : Math.max(0, saldo);
+
+        activos.cuentas.push({
+          codigo: cuenta.codigo,
+          nombre: cuenta.nombre,
+          saldo: saldoActivo,
+        });
+        activos.total += saldoActivo;
+        return;
+      }
+
+      if (cuenta.codigo.startsWith("2")) {
+        const saldoPasivo = Math.max(0, -saldo);
+        pasivos.cuentas.push({
+          codigo: cuenta.codigo,
+          nombre: cuenta.nombre,
+          saldo: saldoPasivo,
+        });
+        pasivos.total += saldoPasivo;
+        return;
+      }
+
+      if (cuenta.codigo.startsWith("3")) {
+        const saldoPatrimonial = Math.max(0, -saldo);
+        patrimonio.cuentas.push({
+          codigo: cuenta.codigo,
+          nombre: cuenta.nombre,
+          saldo: saldoPatrimonial,
+        });
+        patrimonio.total += saldoPatrimonial;
+        return;
+      }
+
+      if (cuenta.codigo.startsWith("4")) {
+        ingresos.total += Math.max(0, -saldo);
+        return;
+      }
+
+      if (cuenta.codigo.startsWith("5") || cuenta.codigo.startsWith("6")) {
+        gastos.total += Math.max(0, saldo);
       }
     });
 
-    // Si no se encontró la cuenta de inventario en el balance de comprobación, agregarla
-    if (!inventarioAgregado && saldoInventario > 0) {
-      activos.cuentas.push({
-        codigo: '1131',
-        nombre: "Inventarios de Productos",
-        saldo: saldoInventario
-      });
-      activos.total += saldoInventario;
-    }
-
     const utilidadPeriodo = ingresos.total - gastos.total;
     if (Math.abs(utilidadPeriodo) > 0.01) {
-        patrimonio.cuentas.push({
-            codigo: '3211',
-            nombre: 'Utilidad (o Pérdida) del Ejercicio',
-            saldo: utilidadPeriodo
-        });
-        patrimonio.total += utilidadPeriodo;
+      patrimonio.cuentas.push({
+        codigo: "3211",
+        nombre: "Utilidad (o Perdida) del Ejercicio",
+        saldo: utilidadPeriodo,
+      });
+      patrimonio.total += utilidadPeriodo;
     }
-
-    const totalPasivoPatrimonio = pasivos.total + patrimonio.total;
-    const ecuacionCuadrada = Math.abs(activos.total - totalPasivoPatrimonio) < 0.01;
 
     activos.cuentas.sort((a, b) => a.codigo.localeCompare(b.codigo));
     pasivos.cuentas.sort((a, b) => a.codigo.localeCompare(b.codigo));
     patrimonio.cuentas.sort((a, b) => a.codigo.localeCompare(b.codigo));
+
+    const totalPasivoPatrimonio = pasivos.total + patrimonio.total;
+    const diferenciaInventario = valorInventarioFisico - valorInventarioContable;
 
     return {
       activos,
       pasivos,
       patrimonio,
       totalPasivoPatrimonio,
-      ecuacionCuadrada
+      ecuacionCuadrada: Math.abs(activos.total - totalPasivoPatrimonio) < 0.01,
+      inventario: {
+        saldoFisico: valorInventarioFisico,
+        saldoContable: valorInventarioContable,
+        diferencia: diferenciaInventario,
+        conciliado: Math.abs(diferenciaInventario) < 0.01,
+        criterioBalance: "contable",
+      },
     };
   };
 
-  const getIncomeStatementData = (filtros?: { fechaInicio?: string, fechaFin?: string }): IncomeStatementData => {
+  const getIncomeStatementData = (filtros?: BalanceFilters): IncomeStatementData => {
     const { details } = getTrialBalanceData(filtros);
-    
-    const ingresos = { cuentas: [] as { codigo: string, nombre: string, saldo: number }[], total: 0 };
-    const gastos = { cuentas: [] as { codigo: string, nombre: string, saldo: number }[], total: 0 };
 
-    // Procesar datos del libro mayor (asientos de Supabase)
-    details.forEach(cuenta => {
+    const ingresos: IncomeStatementData["ingresos"] = {
+      cuentas: [],
+      total: 0,
+    };
+    const gastos: IncomeStatementData["gastos"] = {
+      cuentas: [],
+      total: 0,
+    };
+
+    details.forEach((cuenta) => {
       const saldo = cuenta.saldoDeudor - cuenta.saldoAcreedor;
 
-      if (cuenta.codigo.startsWith('4')) { // Ingresos
-        const saldoAcreedor = -saldo;
+      if (cuenta.codigo.startsWith("4")) {
+        const saldoAcreedor = Math.max(0, -saldo);
         if (saldoAcreedor > 0.01) {
-          ingresos.cuentas.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, saldo: saldoAcreedor });
+          ingresos.cuentas.push({
+            codigo: cuenta.codigo,
+            nombre: cuenta.nombre,
+            saldo: saldoAcreedor,
+          });
           ingresos.total += saldoAcreedor;
         }
-      } else if (cuenta.codigo.startsWith('5') || cuenta.codigo.startsWith('6')) { // Gastos
-        const saldoDeudor = saldo;
+        return;
+      }
+
+      if (cuenta.codigo.startsWith("5") || cuenta.codigo.startsWith("6")) {
+        const saldoDeudor = Math.max(0, saldo);
         if (saldoDeudor > 0.01) {
-          gastos.cuentas.push({ codigo: cuenta.codigo, nombre: cuenta.nombre, saldo: saldoDeudor });
+          gastos.cuentas.push({
+            codigo: cuenta.codigo,
+            nombre: cuenta.nombre,
+            saldo: saldoDeudor,
+          });
           gastos.total += saldoDeudor;
         }
       }
     });
-
-    const utilidadNeta = ingresos.total - gastos.total;
 
     ingresos.cuentas.sort((a, b) => a.codigo.localeCompare(b.codigo));
     gastos.cuentas.sort((a, b) => a.codigo.localeCompare(b.codigo));
@@ -333,24 +362,24 @@ export const useReportesContables = (productos?: any[]) => {
     return {
       ingresos,
       gastos,
-      utilidadNeta
+      utilidadNeta: ingresos.total - gastos.total,
     };
   };
 
-  const getDeclaracionIVAData = (fechas: { fechaInicio: string, fechaFin: string }): DeclaracionIVAData => {
-    const asientos = getAsientos();
+  const getDeclaracionIVAData = (fechas: {
+    fechaInicio: string;
+    fechaFin: string;
+  }): DeclaracionIVAData => {
     const startDate = new Date(fechas.fechaInicio);
     const endDate = new Date(fechas.fechaFin);
 
-    // Adding time to endDate to include the whole day
-    endDate.setHours(23, 59, 59, 999);
-    // Adjusting startDate to the beginning of the day
     startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
 
-    const asientosEnPeriodo = asientos.filter(a => {
-        if (!a.fecha) return false;
-        const fechaAsiento = new Date(a.fecha);
-        return fechaAsiento >= startDate && fechaAsiento <= endDate && a.estado === 'registrado';
+    const asientosEnPeriodo = getAsientos().filter((asiento) => {
+      if (!asiento.fecha || asiento.estado !== "registrado") return false;
+      const fechaAsiento = new Date(asiento.fecha);
+      return fechaAsiento >= startDate && fechaAsiento <= endDate;
     });
 
     let debitoFiscalTotal = 0;
@@ -358,60 +387,71 @@ export const useReportesContables = (productos?: any[]) => {
     let creditoFiscalTotal = 0;
     let baseImponibleCompras = 0;
 
-    asientosEnPeriodo.forEach(asiento => {
-      // Ventas (Débito Fiscal): Se identifica por un crédito a una cuenta de Ingresos (código 4xxx)
-      const ventaCuenta = asiento.cuentas.find(c => c.codigo.startsWith('4') && c.haber > 0);
-      // IVA Débito puede estar en 2113 o 2131 por compatibilidad
-      const ivaDebitoCuenta = asiento.cuentas.find(c => (c.codigo === '2113' || c.codigo === '2131') && c.haber > 0);
+    asientosEnPeriodo.forEach((asiento) => {
+      const ventaCuenta = asiento.cuentas.find((cuenta) => cuenta.codigo.startsWith("4") && cuenta.haber > 0);
+      const ivaDebitoCuenta = asiento.cuentas.find(
+        (cuenta) => (cuenta.codigo === "2113" || cuenta.codigo === "2131") && cuenta.haber > 0
+      );
+
       if (ventaCuenta && ivaDebitoCuenta) {
         baseImponibleVentas += ventaCuenta.haber;
         debitoFiscalTotal += ivaDebitoCuenta.haber;
       }
 
-      // Anulación de Ventas (Notas de Crédito): Se identifica por un débito a una cuenta de Ingresos
-      const reversionVentaCuenta = asiento.cuentas.find(c => c.codigo.startsWith('4') && c.debe > 0);
-      const reversionIvaDebito = asiento.cuentas.find(c => (c.codigo === '2113' || c.codigo === '2131') && c.debe > 0);
+      const reversionVentaCuenta = asiento.cuentas.find(
+        (cuenta) => cuenta.codigo.startsWith("4") && cuenta.debe > 0
+      );
+      const reversionIvaDebito = asiento.cuentas.find(
+        (cuenta) => (cuenta.codigo === "2113" || cuenta.codigo === "2131") && cuenta.debe > 0
+      );
+
       if (reversionVentaCuenta && reversionIvaDebito) {
         baseImponibleVentas -= reversionVentaCuenta.debe;
         debitoFiscalTotal -= reversionIvaDebito.debe;
       }
 
-      // Compras (Crédito Fiscal): Se identifica por un débito a la cuenta de IVA Crédito Fiscal (1142)
-      const ivaCreditoCuenta = asiento.cuentas.find(c => c.codigo === '1142' && c.debe > 0);
+      const ivaCreditoCuenta = asiento.cuentas.find(
+        (cuenta) => cuenta.codigo === "1142" && cuenta.debe > 0
+      );
+
       if (ivaCreditoCuenta) {
         creditoFiscalTotal += ivaCreditoCuenta.debe;
-        // La base imponible son los otros débitos (Inventario, Gastos) en la misma transacción
         const baseCompra = asiento.cuentas
-          .filter(c => (c.codigo === '1131' || c.codigo === '1141' || c.codigo.startsWith('5')) && c.debe > 0)
-          .reduce((sum, c) => sum + c.debe, 0);
+          .filter(
+            (cuenta) =>
+              (cuenta.codigo === "1131" ||
+                cuenta.codigo === "1141" ||
+                cuenta.codigo.startsWith("5")) &&
+              cuenta.debe > 0
+          )
+          .reduce((sum, cuenta) => sum + cuenta.debe, 0);
         baseImponibleCompras += baseCompra;
       }
     });
 
     const diferencia = debitoFiscalTotal - creditoFiscalTotal;
-    const saldo = {
-      aFavorFisco: diferencia > 0 ? diferencia : 0,
-      aFavorContribuyente: diferencia < 0 ? -diferencia : 0
-    };
 
     return {
       ventas: {
         baseImponible: baseImponibleVentas,
-        debitoFiscal: debitoFiscalTotal
+        debitoFiscal: debitoFiscalTotal,
       },
       compras: {
         baseImponible: baseImponibleCompras,
-        creditoFiscal: creditoFiscalTotal
+        creditoFiscal: creditoFiscalTotal,
       },
-      saldo
+      saldo: {
+        aFavorFisco: diferencia > 0 ? diferencia : 0,
+        aFavorContribuyente: diferencia < 0 ? -diferencia : 0,
+      },
     };
   };
-  
+
   return {
     getLibroMayor,
     getTrialBalanceData,
     getBalanceSheetData,
     getIncomeStatementData,
-    getDeclaracionIVAData
-  }
+    getDeclaracionIVAData,
+  };
 };
