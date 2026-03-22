@@ -1938,6 +1938,7 @@ export type Database = {
           created_at: string | null
           descripcion: string | null
           id: string
+          imagen_storage_path: string | null
           imagen_url: string | null
           nombre: string
           precio_compra: number
@@ -1957,6 +1958,7 @@ export type Database = {
           created_at?: string | null
           descripcion?: string | null
           id?: string
+          imagen_storage_path?: string | null
           imagen_url?: string | null
           nombre: string
           precio_compra?: number
@@ -1976,6 +1978,7 @@ export type Database = {
           created_at?: string | null
           descripcion?: string | null
           id?: string
+          imagen_storage_path?: string | null
           imagen_url?: string | null
           nombre?: string
           precio_compra?: number

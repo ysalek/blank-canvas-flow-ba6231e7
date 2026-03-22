@@ -2,6 +2,28 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+interface ProductoRow {
+  id: string;
+  codigo: string;
+  nombre: string;
+  descripcion?: string | null;
+  categoria_id?: string | null;
+  unidad_medida?: string | null;
+  precio_venta?: number | null;
+  precio_compra?: number | null;
+  costo_unitario?: number | null;
+  stock_actual?: number | null;
+  stock_minimo?: number | null;
+  codigo_sin?: string | null;
+  activo?: boolean | null;
+  imagen_url?: string | null;
+  imagen_storage_path?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
+
 export interface CategoriaProducto {
   id: string;
   nombre: string;
@@ -27,6 +49,7 @@ export interface Producto {
   codigo_sin?: string;
   activo: boolean;
   imagen_url?: string;
+  imagen_storage_path?: string | null;
   created_at?: string;
   updated_at?: string;
   fechaCreacion?: string;
@@ -40,6 +63,7 @@ export interface Producto {
   stockMinimo?: number;
   codigoSIN?: string;
   imagenUrl?: string;
+  imagenStoragePath?: string | null;
 }
 
 export interface ConnectivityStatus {
@@ -86,14 +110,14 @@ export const useProductosValidated = () => {
       setConnectivity(status);
 
       return status;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [ProductosValidated] Error de conectividad:', error);
       
       const errorStatus: ConnectivityStatus = {
         isConnected: false,
         isAuthenticated: false,
         lastCheck: new Date(),
-        error: error.message
+        error: getErrorMessage(error)
       };
       
       setConnectivity(errorStatus);
@@ -102,7 +126,7 @@ export const useProductosValidated = () => {
   }, []);
 
   // Función para transformar producto de Supabase al formato unificado
-  const transformarProducto = useCallback((producto: any, categoriasMap: Map<string, string>): Producto => {
+  const transformarProducto = useCallback((producto: ProductoRow, categoriasMap: Map<string, string>): Producto => {
     const nombreCategoria = categoriasMap.get(producto.categoria_id) || 'General';
     
     return {
@@ -121,6 +145,7 @@ export const useProductosValidated = () => {
       codigo_sin: producto.codigo_sin || '00000000',
       activo: Boolean(producto.activo),
       imagen_url: producto.imagen_url,
+      imagen_storage_path: producto.imagen_storage_path || null,
       created_at: producto.created_at,
       updated_at: producto.updated_at,
       fechaCreacion: producto.created_at?.split('T')[0] || new Date().toISOString().slice(0, 10),
@@ -133,7 +158,8 @@ export const useProductosValidated = () => {
       stockActual: Number(producto.stock_actual) || 0,
       stockMinimo: Number(producto.stock_minimo) || 0,
       codigoSIN: producto.codigo_sin || '00000000',
-      imagenUrl: producto.imagen_url
+      imagenUrl: producto.imagen_url,
+      imagenStoragePath: producto.imagen_storage_path || null
     };
   }, []);
 
@@ -171,7 +197,7 @@ export const useProductosValidated = () => {
       
       // Cargar datos en paralelo con reintentos
       let categoriasData: CategoriaProducto[] = [];
-      let productosData: any[] = [];
+      let productosData: ProductoRow[] = [];
       
       // Reintentos para categorías
       for (let attempt = 1; attempt <= 3; attempt++) {
@@ -190,7 +216,7 @@ export const useProductosValidated = () => {
           categoriasData = categoriasResult.data || [];
           
           break;
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error(`❌ [ProductosValidated] Error cargando categorías (intento ${attempt}):`, error);
           if (attempt === 3) throw error;
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
@@ -214,7 +240,7 @@ export const useProductosValidated = () => {
           productosData = productosResult.data || [];
           
           break;
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error(`❌ [ProductosValidated] Error cargando productos (intento ${attempt}):`, error);
           if (attempt === 3) throw error;
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
@@ -235,16 +261,16 @@ export const useProductosValidated = () => {
         
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [ProductosValidated] Error cargando datos:', error);
       
       if (mountedRef.current) {
-        setError(error.message);
+        setError(getErrorMessage(error));
         // Don't show toast for auth errors - they're expected during init
-        if (error.message !== 'Usuario no autenticado') {
+        if (getErrorMessage(error) !== 'Usuario no autenticado') {
           toast({
             title: "Error al cargar productos",
-            description: `${error.message}`,
+            description: getErrorMessage(error),
             variant: "destructive"
           });
         }
@@ -304,11 +330,11 @@ export const useProductosValidated = () => {
       });
 
       return productoTransformado;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [ProductosValidated] Error creando producto:', error);
       toast({
         title: "Error al crear producto",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
       throw error;
@@ -352,7 +378,7 @@ export const useProductosValidated = () => {
 
       // Actualizar con reintentos
       let updateSuccess = false;
-      let lastError: any = null;
+      let lastError: unknown = null;
       
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
@@ -382,7 +408,7 @@ export const useProductosValidated = () => {
 
           updateSuccess = true;
           break;
-        } catch (error: any) {
+        } catch (error: unknown) {
           lastError = error;
           console.error(`❌ [ProductosValidated] Error en intento ${attempt}:`, error);
           if (attempt < 3) {
@@ -411,7 +437,7 @@ export const useProductosValidated = () => {
             observaciones: `Movimiento ${tipo} por facturación - Sistema validado`
           }]);
         console.log('✅ [ProductosValidated] Movimiento de inventario creado');
-      } catch (movError: any) {
+      } catch (movError: unknown) {
         console.warn('⚠️ [ProductosValidated] Error creando movimiento (no crítico):', movError);
       }
 
@@ -426,11 +452,11 @@ export const useProductosValidated = () => {
 
       console.log('✅ [ProductosValidated] Stock actualizado exitosamente');
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ [ProductosValidated] Error actualizando stock:', error);
       toast({
         title: "Error al actualizar stock",
-        description: error.message,
+        description: getErrorMessage(error),
         variant: "destructive"
       });
       return false;

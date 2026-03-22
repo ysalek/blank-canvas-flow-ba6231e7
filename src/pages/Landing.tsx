@@ -73,9 +73,10 @@ const Landing = () => {
   ];
 
   return (
-    <main className="bg-background min-h-screen">
+    <main className="executive-shell bg-background min-h-screen">
       {/* Header */}
-      <header className="container mx-auto px-4 py-4 flex items-center justify-between backdrop-blur-md sticky top-0 z-50 bg-background/80 border-b border-border/40">
+      <header className="shell-topbar sticky top-0 z-50">
+        <div className="container mx-auto flex items-center justify-between px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center shadow-md">
             <Building2 className="w-5 h-5 text-white" />
@@ -90,6 +91,7 @@ const Landing = () => {
         <div className="flex gap-2">
           <Link to="/"><Button size="sm" variant="ghost" className="font-medium">Acceder</Button></Link>
           <Link to="/signup"><Button size="sm" className="btn-gradient text-white font-medium">Crear cuenta</Button></Link>
+        </div>
         </div>
       </header>
 
@@ -139,7 +141,7 @@ const Landing = () => {
           {/* Stats Card */}
           <div className="relative animate-scale-in animate-float" style={{ animationDelay: '0.2s' }}>
             <div className="absolute -inset-4 bg-gradient-hero opacity-10 rounded-3xl blur-2xl"></div>
-            <Card className="relative border-border/50 shadow-xl overflow-hidden">
+            <Card className="hero-panel relative overflow-hidden rounded-[2rem]">
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-primary"></div>
               <CardContent className="p-10">
                 <div className="grid grid-cols-3 gap-8 text-center">
@@ -173,7 +175,7 @@ const Landing = () => {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, i) => (
-            <Card key={i} className="group border-border/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 animate-fade-in-up" style={{ animationDelay: `${i * 0.08}s` }}>
+            <Card key={i} className="card-modern group animate-fade-in-up rounded-[1.75rem]" style={{ animationDelay: `${i * 0.08}s` }}>
               <CardContent className="p-7 space-y-4">
                 <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-300`}>
                   <feature.icon className="w-6 h-6 text-white" />
@@ -197,7 +199,7 @@ const Landing = () => {
 
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {plans.map((plan, i) => (
-            <Card key={i} className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 animate-fade-in-up ${plan.featured ? 'border-primary shadow-lg ring-1 ring-primary/20' : 'border-border/50'}`} style={{ animationDelay: `${i * 0.15}s` }}>
+            <Card key={i} className={`card-modern relative overflow-hidden animate-fade-in-up rounded-[1.9rem] ${plan.featured ? 'border-primary shadow-lg ring-1 ring-primary/20' : 'border-border/50'}`} style={{ animationDelay: `${i * 0.15}s` }}>
               {plan.featured && (
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-primary"></div>
               )}
@@ -248,7 +250,7 @@ const Landing = () => {
 
         <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {testimonials.map((t, i) => (
-            <Card key={i} className="border-border/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 animate-fade-in-up" style={{ animationDelay: `${i * 0.1}s` }}>
+            <Card key={i} className="card-modern animate-fade-in-up rounded-[1.75rem]" style={{ animationDelay: `${i * 0.1}s` }}>
               <CardContent className="p-7">
                 <div className="flex gap-1 mb-4">
                   {[...Array(5)].map((_, j) => (
@@ -273,7 +275,7 @@ const Landing = () => {
 
       {/* CTA Section */}
       <section className="container mx-auto px-4 py-24 border-t border-border/40">
-        <div className="max-w-3xl mx-auto text-center space-y-8 animate-fade-in-up">
+        <div className="hero-panel mx-auto max-w-4xl rounded-[2rem] px-6 py-12 text-center space-y-8 animate-fade-in-up md:px-12">
           <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight">
             Comienza <span className="text-gradient-primary">Gratis</span> Hoy
           </h2>

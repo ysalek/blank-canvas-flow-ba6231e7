@@ -12,6 +12,7 @@ import { useProductosValidated, type Producto } from "@/hooks/useProductosValida
 import { useSupabaseClientes, type ClienteSupabase } from "@/hooks/useSupabaseClientes";
 import { useFacturas } from "@/hooks/useFacturas";
 import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
+import ProductThumbnail from "../products/ProductThumbnail";
 import type { Factura } from "../billing/BillingData";
 import type { MovimientoInventario } from "../inventory/InventoryData";
 import {
@@ -558,9 +559,13 @@ const EnhancedPOSModule = () => {
                     <Card key={producto.id} className="cursor-pointer border-2 transition-all duration-200 hover:scale-105 hover:border-primary/50 hover:shadow-md" onClick={() => agregarAlCarrito(producto)}>
                       <CardContent className="p-3">
                         <div className="space-y-2">
-                          <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-muted">
-                            {producto.imagen_url ? <img src={producto.imagen_url} alt={producto.nombre} loading="lazy" className="h-full w-full object-cover" /> : <Package className="h-8 w-8 text-muted-foreground" />}
-                          </div>
+                          <ProductThumbnail
+                            imageUrl={producto.imagen_url}
+                            name={producto.nombre}
+                            className="aspect-square w-full"
+                            iconClassName="h-8 w-8"
+                            roundedClassName="rounded-lg"
+                          />
                           <div><h4 className="line-clamp-2 text-sm font-medium">{producto.nombre}</h4><p className="text-xs text-muted-foreground">{producto.codigo}</p></div>
                           <div className="space-y-1">
                             <div className="flex items-center justify-between"><span className="text-lg font-bold text-primary">Bs. {Number(producto.precio_venta || 0).toFixed(2)}</span></div>
