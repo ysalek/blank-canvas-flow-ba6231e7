@@ -178,8 +178,9 @@ export const simularValidacionSIN = (factura: Factura): Promise<Factura> => {
   });
 };
 
-// Normativa actualizada 2026 - IVA 13%
-// Sectores especiales según RNDs 2025-2026. Nota: DS 5503 abrogado por DS 5516 (enero 2026)
+// Normativa actualizada marzo 2026 - IVA 13%
+// DS 5503 abrogado por DS 5516 (enero 2026). DS 5563 (marzo 2026): depreciación acelerada + ICE.
+// RND 102600000001: transición beneficios DS 5503. RND 102600000005: reglamentación DS 5563.
 export const sectoresEspeciales = {
   biodiesel: { codigo: 54, tasa: 0 }, // Tasa cero según Ley 1613
   combustibleNoSubvencionado: { codigo: 55, tasa: 13 },
