@@ -200,7 +200,7 @@ export const useProductosValidated = () => {
       // Reintentos para productos
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-          console.log(`🔄 [ProductosValidated] Intento ${attempt} - Cargando productos...`);
+          
           const productosResult = await supabase
             .from('productos')
             .select('id, codigo, nombre, descripcion, categoria_id, unidad_medida, precio_venta, precio_compra, costo_unitario, stock_actual, stock_minimo, codigo_sin, activo, imagen_url, created_at, updated_at')
