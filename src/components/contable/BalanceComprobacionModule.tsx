@@ -12,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { EnhancedHeader, EnhancedMetricCard, MetricGrid } from './dashboard/EnhancedLayout';
 
 const BalanceComprobacionModule = () => {
     const { getTrialBalanceData } = useReportesContables();
@@ -42,6 +43,23 @@ const BalanceComprobacionModule = () => {
     const balancesMatch = Math.abs(totals.saldoDeudor - totals.saldoAcreedor) < 0.01;
 
     return (
+        <div className="page-shell space-y-6 pb-12">
+            <EnhancedHeader
+                title="Balance de comprobacion"
+                subtitle="Controla sumas, saldos y cuadre contable con filtros mas claros para revision operativa y auditoria."
+                badge={{
+                    text: totalsMatch && balancesMatch ? 'Cuadre correcto' : 'Revisar diferencias',
+                    variant: totalsMatch && balancesMatch ? 'secondary' : 'destructive'
+                }}
+            />
+
+            <MetricGrid columns={4}>
+                <EnhancedMetricCard title="Suma debe" value={`Bs ${totals.sumaDebe.toFixed(2)}`} subtitle="Movimiento acumulado" icon={Scale} />
+                <EnhancedMetricCard title="Suma haber" value={`Bs ${totals.sumaHaber.toFixed(2)}`} subtitle="Contrapartida acumulada" icon={Scale} />
+                <EnhancedMetricCard title="Saldo deudor" value={`Bs ${totals.saldoDeudor.toFixed(2)}`} subtitle="Saldos del periodo" icon={FileWarning} variant={balancesMatch ? 'success' : 'warning'} />
+                <EnhancedMetricCard title="Saldo acreedor" value={`Bs ${totals.saldoAcreedor.toFixed(2)}`} subtitle="Comparativo de saldos" icon={Filter} variant={balancesMatch ? 'success' : 'warning'} />
+            </MetricGrid>
+
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center justify-between">
@@ -241,6 +259,7 @@ const BalanceComprobacionModule = () => {
                 )}
             </CardContent>
         </Card>
+        </div>
     );
 };
 

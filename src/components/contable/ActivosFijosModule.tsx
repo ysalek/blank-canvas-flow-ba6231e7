@@ -18,6 +18,18 @@ import { EnhancedHeader, EnhancedMetricCard, MetricGrid } from "./dashboard/Enha
 
 type ActivoFijo = Database['public']['Tables']['activos_fijos']['Row'];
 type DepreciacionActivo = Database['public']['Tables']['depreciaciones_activos']['Row'];
+type NuevoActivoFormData = {
+  codigo: string;
+  descripcion: string;
+  categoria: string;
+  fechaAdquisicion: string;
+  costoAdquisicion: number;
+  vidaUtilAnios: number;
+  valorResidual: number;
+  metodoDepreciacion: string;
+  ubicacion: string;
+  estado: string;
+};
 
 const categoriasActivos = [
   { value: 'edificios', label: 'Edificios y Construcciones', vidaUtil: 40, coeficiente: 2.5 },
@@ -46,7 +58,7 @@ const ActivosFijosModule = () => {
     refetch
   } = useSupabaseActivosFijos();
 
-  const guardarActivo = async (nuevoActivo: any) => {
+  const guardarActivo = async (nuevoActivo: NuevoActivoFormData) => {
     try {
       const activoData = {
         codigo: nuevoActivo.codigo,
@@ -208,7 +220,7 @@ const ActivosFijosModule = () => {
         <EnhancedMetricCard title="% depreciacion" value={`${valorTotalActivos > 0 ? ((depreciacionTotalAcumulada / valorTotalActivos) * 100).toFixed(1) : 0}%`} subtitle="Promedio general" icon={Wrench} />
       </MetricGrid>
 
-      <div className="hidden">
+      <>
       <div className="flex items-center gap-3">
           <Building className="w-6 h-6 text-primary" />
           <div>
@@ -242,7 +254,7 @@ const ActivosFijosModule = () => {
             Calcular Depreciación
           </Button>
         </div>
-      </div>
+      </>
 
       {/* Métricas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -396,7 +408,7 @@ const ActivosFijosModule = () => {
 
 // Componente para formulario de nuevo activo
 const NewActivoForm = ({ onSave, onCancel }: { 
-  onSave: (activo: any) => void, 
+  onSave: (activo: NuevoActivoFormData) => void, 
   onCancel: () => void 
 }) => {
   const [formData, setFormData] = useState({

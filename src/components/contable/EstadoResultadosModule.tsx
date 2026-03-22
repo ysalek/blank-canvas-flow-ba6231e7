@@ -13,6 +13,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import * as XLSX from '@e965/xlsx';
+import { EnhancedHeader, EnhancedMetricCard, MetricGrid } from './dashboard/EnhancedLayout';
 
 const EstadoResultadosModule = () => {
   const [fechaInicio, setFechaInicio] = useState<Date>(new Date(new Date().getFullYear(), 0, 1));
@@ -180,7 +181,7 @@ const EstadoResultadosModule = () => {
     sectionKey: string,
     title: string,
     total: number,
-    subcategorias: any,
+    subcategorias: Record<string, unknown>,
     todasLasCuentas: { codigo: string; nombre: string; saldo: number }[],
     percentage: string,
     isNegative: boolean = false,
@@ -220,14 +221,15 @@ const EstadoResultadosModule = () => {
             <CollapsibleContent asChild>
               <>
                 {/* Mostrar subcategorías si existen y tienen cuentas */}
-                {Object.entries(subcategorias).map(([key, subcategoria]: [string, any]) => {
-                  if (key === 'total' || key === 'todasLasCuentas' || !subcategoria?.cuentas || subcategoria.cuentas.length === 0) return null;
+                {Object.entries(subcategorias).map(([key, subcategoria]) => {
+                  const currentSubcategoria = subcategoria as { total: number; cuentas: { codigo: string; nombre: string; saldo: number }[] } | undefined;
+                  if (key === 'total' || key === 'todasLasCuentas' || !currentSubcategoria?.cuentas || currentSubcategoria.cuentas.length === 0) return null;
                   
                   return renderSubcategoria(
                     `${sectionKey}_${key}`,
                     getSubcategoriaTitle(key),
-                    subcategoria.total,
-                    subcategoria.cuentas,
+                    currentSubcategoria.total,
+                    currentSubcategoria.cuentas,
                     isNegative
                   );
                 })}
@@ -394,7 +396,23 @@ const EstadoResultadosModule = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell space-y-6 pb-12">
+      <EnhancedHeader
+        title="Estado de resultados"
+        subtitle="Analiza ingresos, costos, gastos y utilidad con una lectura ejecutiva y trazable para gerencia y contabilidad."
+        badge={{
+          text: `${margenNeto.toFixed(1)}% margen neto`,
+          variant: utilidadNeta >= 0 ? "secondary" : "destructive"
+        }}
+      />
+
+      <MetricGrid columns={4}>
+        <EnhancedMetricCard title="Ingresos" value={`Bs ${estadoResultados.ingresos.totalIngresos.toFixed(2)}`} subtitle="Ventas e ingresos visibles" icon={TrendingUp} />
+        <EnhancedMetricCard title="Utilidad bruta" value={`Bs ${utilidadBruta.toFixed(2)}`} subtitle={`${margenBruto.toFixed(1)}% margen bruto`} icon={ChevronRight} variant="success" />
+        <EnhancedMetricCard title="Utilidad operativa" value={`Bs ${utilidadOperativa.toFixed(2)}`} subtitle={`${margenOperativo.toFixed(1)}% margen operativo`} icon={Calendar} variant="warning" />
+        <EnhancedMetricCard title="Utilidad neta" value={`Bs ${utilidadNeta.toFixed(2)}`} subtitle={`${margenNeto.toFixed(1)}% margen neto`} icon={Download} variant={utilidadNeta >= 0 ? "success" : "destructive"} />
+      </MetricGrid>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">

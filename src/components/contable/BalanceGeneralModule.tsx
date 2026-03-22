@@ -18,6 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
 import { cn } from "@/lib/utils";
+import { EnhancedHeader, EnhancedMetricCard, MetricGrid } from "./dashboard/EnhancedLayout";
 
 const BalanceGeneralModule = () => {
   const [fechaInicio, setFechaInicio] = useState<Date>(new Date(new Date().getFullYear(), 0, 1));
@@ -75,7 +76,23 @@ const BalanceGeneralModule = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell space-y-6 pb-12">
+      <EnhancedHeader
+        title="Balance general"
+        subtitle="Estado de situacion financiera con lectura mas ejecutiva, exportacion y control de equilibrio contable."
+        badge={{
+          text: ecuacionCuadrada ? "Ecuacion balanceada" : "Revisar equilibrio",
+          variant: ecuacionCuadrada ? "secondary" : "destructive"
+        }}
+      />
+
+      <MetricGrid columns={4}>
+        <EnhancedMetricCard title="Activos" value={`Bs ${activos.total.toFixed(2)}`} subtitle="Total del periodo" icon={Scale} />
+        <EnhancedMetricCard title="Pasivos" value={`Bs ${pasivos.total.toFixed(2)}`} subtitle="Obligaciones acumuladas" icon={AlertCircle} variant="warning" />
+        <EnhancedMetricCard title="Patrimonio" value={`Bs ${patrimonio.total.toFixed(2)}`} subtitle="Valor residual del negocio" icon={CheckCircle} variant="success" />
+        <EnhancedMetricCard title="Inventario" value={`Bs ${inventario.saldoContable.toFixed(2)}`} subtitle={inventario.conciliado ? "Saldo conciliado" : "Pendiente de conciliacion"} icon={Calendar} />
+      </MetricGrid>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">

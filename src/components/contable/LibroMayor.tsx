@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { BookOpenCheck, Calendar, Filter, Download, Search } from 'lucide-react'
 import { useAsientos } from '@/hooks/useAsientos';
 import { useSupabasePlanCuentas } from '@/hooks/useSupabasePlanCuentas';
 import { AsientoContable } from './diary/DiaryData';
+import { EnhancedHeader, EnhancedMetricCard, MetricGrid } from './dashboard/EnhancedLayout';
 
 interface MovimientoCuenta {
   fecha: string;
@@ -42,11 +43,7 @@ const LibroMayor = () => {
   const { getAsientos, asientos, loading } = useAsientos();
   const { planCuentas: planCuentasSupabase, loading: loadingPlan } = useSupabasePlanCuentas();
 
-  useEffect(() => {
-    generarLibroMayor();
-  }, [fechaInicio, fechaFin, planCuentasSupabase, asientos]);
-
-  const generarLibroMayor = () => {
+  const generarLibroMayor = useCallback(() => {
     const asientos = getAsientos();
     const planCuentas = planCuentasSupabase;
     
@@ -79,7 +76,7 @@ const LibroMayor = () => {
     const cuentasInfo = new Map<string, string>();
 
     // Llenar información de cuentas desde el plan de cuentas
-    planCuentas.forEach((cuenta: any) => {
+    planCuentas.forEach((cuenta) => {
       cuentasInfo.set(cuenta.codigo, cuenta.nombre);
     });
 
@@ -177,7 +174,11 @@ const LibroMayor = () => {
       .map(([codigo, nombre]) => ({ codigo, nombre }))
       .sort((a, b) => a.codigo.localeCompare(b.codigo));
     setCuentasDisponibles(cuentasUnicas);
-  };
+  }, [fechaFin, fechaInicio, getAsientos, planCuentasSupabase]);
+
+  useEffect(() => {
+    generarLibroMayor();
+  }, [asientos, generarLibroMayor]);
 
   const filtrarCuentas = () => {
     let cuentasFiltradas = cuentasMayor;
@@ -224,9 +225,34 @@ const LibroMayor = () => {
   };
 
   const cuentasFiltradas = filtrarCuentas();
+  const totalDebe = cuentasFiltradas.reduce((sum, cuenta) => sum + cuenta.totalDebe, 0);
+  const totalHaber = cuentasFiltradas.reduce((sum, cuenta) => sum + cuenta.totalHaber, 0);
+  const cuentasConMovimiento = cuentasFiltradas.filter((cuenta) => cuenta.movimientos.length > 0).length;
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell space-y-6 pb-12">
+      <EnhancedHeader
+        title="Libro mayor"
+        subtitle="Consulta el detalle por cuenta contable con saldos iniciales, movimientos y cierre del periodo."
+        badge={{
+          text: `${cuentasFiltradas.length} cuentas`,
+          variant: 'secondary'
+        }}
+        actions={
+          <Button onClick={exportarLibroMayor} variant="outline" size="sm">
+            <Download className="mr-2 h-4 w-4" />
+            Exportar
+          </Button>
+        }
+      />
+
+      <MetricGrid columns={4}>
+        <EnhancedMetricCard title="Cuentas visibles" value={cuentasFiltradas.length} subtitle="Segun filtros aplicados" icon={BookOpenCheck} />
+        <EnhancedMetricCard title="Con movimiento" value={cuentasConMovimiento} subtitle="Cuentas con actividad" icon={Search} variant="success" />
+        <EnhancedMetricCard title="Debe acumulado" value={`Bs ${totalDebe.toFixed(2)}`} subtitle="Movimiento deudor" icon={Filter} />
+        <EnhancedMetricCard title="Haber acumulado" value={`Bs ${totalHaber.toFixed(2)}`} subtitle="Movimiento acreedor" icon={Calendar} />
+      </MetricGrid>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
