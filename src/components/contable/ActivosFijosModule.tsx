@@ -14,6 +14,7 @@ import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
 import { useSupabaseActivosFijos } from "@/hooks/useSupabaseActivosFijos";
 import { Building, Plus, Calculator, TrendingDown, FileText, Wrench } from "lucide-react";
 import { Database } from "@/integrations/supabase/types";
+import { EnhancedHeader, EnhancedMetricCard, MetricGrid } from "./dashboard/EnhancedLayout";
 
 type ActivoFijo = Database['public']['Tables']['activos_fijos']['Row'];
 type DepreciacionActivo = Database['public']['Tables']['depreciaciones_activos']['Row'];
@@ -164,9 +165,51 @@ const ActivosFijosModule = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <div className="page-shell space-y-6 pb-12">
+      <EnhancedHeader
+        title="Activos fijos"
+        subtitle="Gestiona altas, depreciacion y valor en libros con una vista mas ejecutiva y auditable."
+        badge={{
+          text: `${activosActivos.length} activos`,
+          variant: "secondary"
+        }}
+        actions={
+          <div className="flex gap-2">
+            <Dialog open={showNewActivo} onOpenChange={setShowNewActivo}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nuevo Activo
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-4xl">
+                <DialogHeader>
+                  <DialogTitle>Registrar Activo Fijo</DialogTitle>
+                  <DialogDescription>
+                    Ingrese la informaciÃ³n del nuevo activo fijo
+                  </DialogDescription>
+                </DialogHeader>
+                <NewActivoForm onSave={guardarActivo} onCancel={() => setShowNewActivo(false)} />
+              </DialogContent>
+            </Dialog>
+            
+            <Button onClick={calcularDepreciacionMensual}>
+              <Calculator className="w-4 h-4 mr-2" />
+              Calcular DepreciaciÃ³n
+            </Button>
+          </div>
+        }
+      />
+
+      <MetricGrid columns={4}>
+        <EnhancedMetricCard title="Total activos" value={`Bs ${valorTotalActivos.toFixed(2)}`} subtitle={`${activosActivos.length} activos registrados`} icon={Building} />
+        <EnhancedMetricCard title="Valor en libros" value={`Bs ${valorTotalLibros.toFixed(2)}`} subtitle="Valor actual neto" icon={FileText} variant="success" />
+        <EnhancedMetricCard title="Depreciacion acumulada" value={`Bs ${depreciacionTotalAcumulada.toFixed(2)}`} subtitle="Total depreciado" icon={TrendingDown} variant="warning" />
+        <EnhancedMetricCard title="% depreciacion" value={`${valorTotalActivos > 0 ? ((depreciacionTotalAcumulada / valorTotalActivos) * 100).toFixed(1) : 0}%`} subtitle="Promedio general" icon={Wrench} />
+      </MetricGrid>
+
+      <div className="hidden">
+      <div className="flex items-center gap-3">
           <Building className="w-6 h-6 text-primary" />
           <div>
             <h2 className="text-2xl font-bold">Activos Fijos</h2>

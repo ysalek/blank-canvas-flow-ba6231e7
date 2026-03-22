@@ -16,6 +16,7 @@ import {
   validarCI,
   validarEmail
 } from "./EmpleadosData";
+import { EnhancedHeader, EnhancedMetricCard, MetricGrid } from "../dashboard/EnhancedLayout";
 
 const EmpleadosModule: React.FC = () => {
   const { empleados, loading, crearEmpleado, actualizarEmpleado, eliminarEmpleado, generarNumeroEmpleado } = useSupabaseEmpleados();
@@ -167,7 +168,23 @@ const EmpleadosModule: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell space-y-6 pb-12">
+      <EnhancedHeader
+        title="Gestion de empleados"
+        subtitle="Controla estructura laboral, estados del personal y base para procesos de nomina desde una vista mas ejecutiva."
+        badge={{
+          text: `${estadisticas.activos} activos`,
+          variant: "secondary"
+        }}
+      />
+
+      <MetricGrid columns={4}>
+        <EnhancedMetricCard title="Total empleados" value={estadisticas.total} subtitle="Base total" icon={Users} />
+        <EnhancedMetricCard title="Activos" value={estadisticas.activos} subtitle="Equipo operativo" icon={UserPlus} variant="success" />
+        <EnhancedMetricCard title="Vacaciones" value={estadisticas.enVacaciones} subtitle="Seguimiento de ausencias" icon={Calendar} variant="warning" />
+        <EnhancedMetricCard title="Nomina total" value={`Bs ${estadisticas.totalNomina.toLocaleString()}`} subtitle="Costo salarial visible" icon={DollarSign} />
+      </MetricGrid>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
