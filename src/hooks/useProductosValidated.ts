@@ -454,7 +454,6 @@ export const useProductosValidated = () => {
 
   // Inicialización
   useEffect(() => {
-    console.log('🎯 [ProductosValidated] Inicializando...');
     loadData();
     
     return () => {
