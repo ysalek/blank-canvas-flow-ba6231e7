@@ -94,7 +94,7 @@ const CumplimientoNormativoModule = () => {
           <div>
             <h1 className="text-3xl font-bold">Cumplimiento Normativo</h1>
             <p className="text-muted-foreground">
-              Gestión integral del cumplimiento de normativas bolivianas 2024-2025
+              Gestión integral del cumplimiento de normativas bolivianas 2025-2026 (actualizado marzo 2026)
             </p>
           </div>
           <Button onClick={cargarDatos} variant="outline">
