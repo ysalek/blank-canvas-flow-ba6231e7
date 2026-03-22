@@ -47,7 +47,7 @@ const PresupuestosEmpresariales = () => {
     }
   };
 
-  const integrarConContabilidad = (presupuestoId: string) => {
+  const integrarConContabilidad = async (presupuestoId: string) => {
     const presupuesto = presupuestos.find(p => p.id === presupuestoId);
     if (!presupuesto) return;
 
@@ -77,7 +77,10 @@ const PresupuestosEmpresariales = () => {
       ]
     };
 
-    guardarAsiento(asiento);
+    const asientoGuardado = await guardarAsiento(asiento);
+    if (!asientoGuardado) {
+      return;
+    }
     
     toast({
       title: "Integración contable completada",
@@ -85,12 +88,12 @@ const PresupuestosEmpresariales = () => {
     });
   };
 
-  const handleCrearPresupuesto = (data: any) => {
+  const handleCrearPresupuesto = async (data: any) => {
     const nuevoPresupuesto = crearPresupuesto(data);
     
     // Auto-integrar con contabilidad si está aprobado
     if (data.estado === 'aprobado') {
-      integrarConContabilidad(nuevoPresupuesto.id);
+      await integrarConContabilidad(nuevoPresupuesto.id);
     }
   };
 

@@ -629,10 +629,12 @@ export type Database = {
         Row: {
           activa: boolean | null
           banco: string
+          codigo_cuenta_contable: string | null
           created_at: string
           id: string
           moneda: string | null
           nombre: string
+          nombre_cuenta_contable: string | null
           numero_cuenta: string
           saldo: number | null
           tipo_cuenta: string | null
@@ -642,10 +644,12 @@ export type Database = {
         Insert: {
           activa?: boolean | null
           banco: string
+          codigo_cuenta_contable?: string | null
           created_at?: string
           id?: string
           moneda?: string | null
           nombre: string
+          nombre_cuenta_contable?: string | null
           numero_cuenta: string
           saldo?: number | null
           tipo_cuenta?: string | null
@@ -655,10 +659,12 @@ export type Database = {
         Update: {
           activa?: boolean | null
           banco?: string
+          codigo_cuenta_contable?: string | null
           created_at?: string
           id?: string
           moneda?: string | null
           nombre?: string
+          nombre_cuenta_contable?: string | null
           numero_cuenta?: string
           saldo?: number | null
           tipo_cuenta?: string | null
@@ -666,6 +672,135 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      conciliacion_bancaria_items: {
+        Row: {
+          asiento_id: string | null
+          conciliacion_id: string
+          conciliado: boolean
+          created_at: string
+          descripcion: string
+          estado: string
+          fecha: string
+          id: string
+          monto: number
+          movimiento_bancario_id: string | null
+          origen: string
+          referencia: string | null
+          requiere_ajuste: boolean
+          tipo_partida: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asiento_id?: string | null
+          conciliacion_id: string
+          conciliado?: boolean
+          created_at?: string
+          descripcion: string
+          estado?: string
+          fecha: string
+          id?: string
+          monto?: number
+          movimiento_bancario_id?: string | null
+          origen: string
+          referencia?: string | null
+          requiere_ajuste?: boolean
+          tipo_partida: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asiento_id?: string | null
+          conciliacion_id?: string
+          conciliado?: boolean
+          created_at?: string
+          descripcion?: string
+          estado?: string
+          fecha?: string
+          id?: string
+          monto?: number
+          movimiento_bancario_id?: string | null
+          origen?: string
+          referencia?: string | null
+          requiere_ajuste?: boolean
+          tipo_partida?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conciliacion_bancaria_items_asiento_id_fkey"
+            columns: ["asiento_id"]
+            isOneToOne: false
+            referencedRelation: "asientos_contables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conciliacion_bancaria_items_conciliacion_id_fkey"
+            columns: ["conciliacion_id"]
+            isOneToOne: false
+            referencedRelation: "conciliaciones_bancarias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conciliacion_bancaria_items_movimiento_bancario_id_fkey"
+            columns: ["movimiento_bancario_id"]
+            isOneToOne: false
+            referencedRelation: "movimientos_bancarios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conciliaciones_bancarias: {
+        Row: {
+          created_at: string
+          cuenta_bancaria_id: string
+          diferencia: number
+          estado: string
+          fecha_corte: string
+          id: string
+          observaciones: string | null
+          saldo_banco: number
+          saldo_libros: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cuenta_bancaria_id: string
+          diferencia?: number
+          estado?: string
+          fecha_corte: string
+          id?: string
+          observaciones?: string | null
+          saldo_banco?: number
+          saldo_libros?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cuenta_bancaria_id?: string
+          diferencia?: number
+          estado?: string
+          fecha_corte?: string
+          id?: string
+          observaciones?: string | null
+          saldo_banco?: number
+          saldo_libros?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conciliaciones_bancarias_cuenta_bancaria_id_fkey"
+            columns: ["cuenta_bancaria_id"]
+            isOneToOne: false
+            referencedRelation: "cuentas_bancarias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cumplimiento_normativo_2025: {
         Row: {
@@ -1415,11 +1550,14 @@ export type Database = {
           beneficiario: string | null
           created_at: string
           cuenta_bancaria_id: string
+          detalle_importacion: Json | null
           descripcion: string
           fecha: string
           id: string
           monto: number
+          naturaleza_movimiento: string
           numero_comprobante: string | null
+          origen_registro: string
           saldo_actual: number | null
           saldo_anterior: number | null
           tipo: string
@@ -1429,11 +1567,14 @@ export type Database = {
           beneficiario?: string | null
           created_at?: string
           cuenta_bancaria_id: string
+          detalle_importacion?: Json | null
           descripcion: string
           fecha: string
           id?: string
           monto: number
+          naturaleza_movimiento?: string
           numero_comprobante?: string | null
+          origen_registro?: string
           saldo_actual?: number | null
           saldo_anterior?: number | null
           tipo: string
@@ -1443,11 +1584,14 @@ export type Database = {
           beneficiario?: string | null
           created_at?: string
           cuenta_bancaria_id?: string
+          detalle_importacion?: Json | null
           descripcion?: string
           fecha?: string
           id?: string
           monto?: number
+          naturaleza_movimiento?: string
           numero_comprobante?: string | null
+          origen_registro?: string
           saldo_actual?: number | null
           saldo_anterior?: number | null
           tipo?: string

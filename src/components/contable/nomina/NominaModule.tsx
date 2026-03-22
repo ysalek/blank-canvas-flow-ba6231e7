@@ -458,7 +458,7 @@ const NominaModule = () => {
     });
   };
 
-  const pagarPlanilla = (planillaId: string) => {
+  const pagarPlanilla = async (planillaId: string) => {
     const planilla = planillas.find(p => p.id === planillaId);
     if (!planilla) return;
 
@@ -522,7 +522,10 @@ const NominaModule = () => {
       cuentas: cuentasAsiento
     };
 
-    const success = guardarAsiento(asiento);
+    const success = await guardarAsiento(asiento);
+    if (!success) {
+      return;
+    }
 
     const planillasActualizadas = planillas.map(p => 
       p.id === planillaId ? { 

@@ -89,7 +89,15 @@ const ActivosFijosModule = () => {
         ]
       };
 
-      guardarAsiento(asientoCompra);
+      const asientoGuardado = await guardarAsiento(asientoCompra);
+      if (!asientoGuardado) {
+        toast({
+          title: "Activo registrado sin asiento",
+          description: `${activo.codigo} fue creado, pero el asiento contable necesita revision manual`,
+          variant: "destructive"
+        });
+        return;
+      }
       
       toast({
         title: "Activo fijo registrado",

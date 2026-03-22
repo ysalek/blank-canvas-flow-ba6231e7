@@ -114,7 +114,7 @@ const AdvancesManagement = () => {
     }
   };
 
-  const handleSaveAnticipo = () => {
+  const handleSaveAnticipo = async () => {
     if (!newAnticipo.entidadId || newAnticipo.monto <= 0) {
       toast({
         title: "Error",
@@ -151,7 +151,8 @@ const AdvancesManagement = () => {
     // Generar asiento contable
     const asientoContable = generateAccountingEntry(nuevoAnticipo);
     
-    if (!guardarAsiento(asientoContable)) {
+    const asientoGuardado = await guardarAsiento(asientoContable);
+    if (!asientoGuardado) {
       return; // Error ya mostrado por el hook
     }
 
