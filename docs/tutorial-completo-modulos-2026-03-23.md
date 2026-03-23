@@ -376,3 +376,24 @@ flowchart LR
 3. Equipo contable: Comprobantes, Diario, Mayor, Balance de Comprobacion y estados financieros.
 4. Equipo tributario: Facturacion Electronica, Libro C/V, Declaraciones y Cumplimiento.
 5. Equipo financiero: Bancos, Conciliacion, Flujo Caja y CxC / CxP.
+
+## Playbooks por rol
+### Administrador
+- Objetivo: dejar la empresa operativa, segura y bien parametrizada.
+- Modulos clave: Configuracion, Plan de Cuentas, Dashboard, Backup y Tutorial.
+- Resultado esperado: sistema listo para operar y equipo con ruta de capacitacion clara.
+
+### Contador
+- Objetivo: cerrar el periodo con consistencia contable y fiscal.
+- Modulos clave: Diario, Mayor, Balance de Comprobacion, Libro C/V, Facturacion Electronica, Declaraciones, Balance General y Resultados.
+- Resultado esperado: balances mas confiables y obligaciones revisadas antes de presentar.
+
+### Ventas
+- Objetivo: vender rapido sin perder control de stock, facturacion ni cartera.
+- Modulos clave: Clientes, Productos, Facturacion, POS, Ventas Credito y CxC / CxP.
+- Resultado esperado: ventas bien documentadas y cartera controlada.
+
+### Usuario operativo
+- Objetivo: usar correctamente el flujo asignado sin romper controles de otras areas.
+- Modulos clave: Dashboard, Tutorial y el modulo operativo asignado.
+- Resultado esperado: menos errores de captura y mejor escalamiento de incidencias.

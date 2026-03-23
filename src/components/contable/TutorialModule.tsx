@@ -49,6 +49,16 @@ interface VisualSpotlight {
   caption: string;
 }
 
+interface RolePlaybook {
+  role: keyof typeof quickStartByRole;
+  title: string;
+  description: string;
+  goal: string;
+  modules: string[];
+  deliverables: string[];
+  mistakes: string[];
+}
+
 const quickStartByRole = {
   admin: [
     "Completa Configuracion con NIT, razon social y parametros fiscales.",
@@ -184,6 +194,89 @@ const faqItems = [
     question: "Este tutorial ya refleja el sistema real?",
     answer:
       "Si. La guia maestra usa el menu actual del sistema y el manual en docs fue reescrito para eliminar contenido ficticio o poco util.",
+  },
+];
+
+const rolePlaybooks: RolePlaybook[] = [
+  {
+    role: "admin",
+    title: "Implementacion y control del sistema",
+    description: "Ruta para quien configura, habilita y supervisa el uso global de la plataforma.",
+    goal: "Dejar la empresa operativa, segura y con parametros consistentes.",
+    modules: ["configuracion", "plan-cuentas", "dashboard", "backup", "tutorial"],
+    deliverables: [
+      "Empresa configurada con datos fiscales correctos.",
+      "Plan de cuentas listo para operar.",
+      "Usuarios alineados a roles y procesos.",
+      "Equipo con ruta de capacitacion inicial definida.",
+    ],
+    mistakes: [
+      "Abrir operacion sin completar parametros SIN.",
+      "No revisar plan de cuentas antes de ventas y compras.",
+      "No validar salud del sistema desde dashboard y backup.",
+    ],
+  },
+  {
+    role: "contador",
+    title: "Operacion contable y cierre",
+    description: "Ruta para quien revisa asientos, libros, declaraciones y estados financieros.",
+    goal: "Cerrar el periodo con consistencia contable y fiscal.",
+    modules: [
+      "diario",
+      "mayor",
+      "balance-comprobacion",
+      "libro-compras-ventas",
+      "facturacion-electronica",
+      "declaraciones-tributarias",
+      "balance-general",
+      "estado-resultados",
+    ],
+    deliverables: [
+      "Asientos revisados y diferencias explicadas.",
+      "Libro fiscal sin incidencias abiertas.",
+      "Declaraciones registradas con periodo controlado.",
+      "Estados financieros listos para gerencia.",
+    ],
+    mistakes: [
+      "Presentar IVA o IT sin revisar facturas observadas.",
+      "Confiar en balances sin revisar conciliaciones y cuentas sensibles.",
+      "No rastrear el origen de saldos raros desde diario y mayor.",
+    ],
+  },
+  {
+    role: "ventas",
+    title: "Operacion comercial y cobranza",
+    description: "Ruta para el equipo que vende, factura y hace seguimiento a cobros.",
+    goal: "Vender mas rapido sin perder control fiscal, stock ni cartera.",
+    modules: ["clientes", "productos", "facturacion", "punto-venta", "credit-sales", "cuentas-cobrar-pagar"],
+    deliverables: [
+      "Clientes y productos limpios antes de vender.",
+      "Facturas emitidas correctamente.",
+      "Stock actualizado despues de cada venta.",
+      "Cobranza y vencimientos visibles en cartera.",
+    ],
+    mistakes: [
+      "Facturar con datos fiscales incompletos.",
+      "Vender sin revisar stock o precio correcto.",
+      "No pasar a cartera las ventas a credito.",
+    ],
+  },
+  {
+    role: "usuario",
+    title: "Induccion operativa por modulo",
+    description: "Ruta para usuarios que operan una parte del sistema y necesitan claridad de proceso.",
+    goal: "Usar solo el flujo asignado sin romper controles del resto del sistema.",
+    modules: ["dashboard", "tutorial", "facturacion", "compras", "bancos"],
+    deliverables: [
+      "Comprension clara del modulo asignado.",
+      "Capacidad de reconocer que datos necesita antes de guardar.",
+      "Capacidad de identificar a que area escalar una incidencia.",
+    ],
+    mistakes: [
+      "Intentar resolver incidencias tributarias o contables desde el modulo equivocado.",
+      "Guardar informacion incompleta por no revisar requisitos previos.",
+      "No usar dashboard ni tutorial como punto de referencia.",
+    ],
   },
 ];
 
@@ -387,6 +480,10 @@ const TutorialModule = () => {
         .filter((item): item is VisualSpotlight & { module: TutorialIndexModule; group: string } => item !== null),
     [groupLookup, moduleLookup],
   );
+  const activePlaybook = useMemo(
+    () => rolePlaybooks.find((playbook) => playbook.role === role) || rolePlaybooks.find((playbook) => playbook.role === "usuario"),
+    [role],
+  );
 
   const togglePath = (pathId: string) => {
     setCompletedPaths((prev) =>
@@ -460,7 +557,7 @@ const TutorialModule = () => {
       </section>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="inicio" className="flex items-center gap-2">
             <Zap className="h-4 w-4" />
             Inicio
@@ -472,6 +569,10 @@ const TutorialModule = () => {
           <TabsTrigger value="visuales" className="flex items-center gap-2">
             <Monitor className="h-4 w-4" />
             Visuales
+          </TabsTrigger>
+          <TabsTrigger value="playbooks" className="flex items-center gap-2">
+            <Lightbulb className="h-4 w-4" />
+            Playbooks
           </TabsTrigger>
           <TabsTrigger value="rutas" className="flex items-center gap-2">
             <Route className="h-4 w-4" />
@@ -612,6 +713,83 @@ const TutorialModule = () => {
                 group={spotlight.group}
                 caption={spotlight.caption}
               />
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="playbooks" className="space-y-6">
+          {activePlaybook ? (
+            <Card className="border-sky-200 bg-sky-50">
+              <CardContent className="space-y-3 p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="bg-sky-900 text-white hover:bg-sky-900">Playbook sugerido para tu rol</Badge>
+                  <Badge variant="outline">{activePlaybook.role}</Badge>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-sky-950">{activePlaybook.title}</h3>
+                  <p className="mt-1 text-sm text-sky-900">{activePlaybook.description}</p>
+                </div>
+                <div className="rounded-2xl border border-sky-200 bg-white/70 p-4 text-sm text-sky-950">
+                  <span className="font-semibold">Objetivo:</span> {activePlaybook.goal}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <div className="grid gap-4">
+            {rolePlaybooks.map((playbook) => (
+              <Card key={playbook.role} className="border-slate-200">
+                <CardHeader>
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <CardTitle>{playbook.title}</CardTitle>
+                      <CardDescription>{playbook.description}</CardDescription>
+                    </div>
+                    <Badge variant={playbook.role === role ? "default" : "outline"}>{playbook.role}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700">
+                    <span className="font-semibold text-slate-950">Objetivo del playbook:</span> {playbook.goal}
+                  </div>
+
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Modulos que debe dominar</p>
+                    <div className="flex flex-wrap gap-2">
+                      {playbook.modules.map((view) => (
+                        <Button key={view} size="sm" variant="secondary" onClick={() => navigateTo(view)}>
+                          {moduleLookup[view]?.title || view}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Resultados esperados</p>
+                      <ul className="space-y-2 text-sm text-slate-700">
+                        {playbook.deliverables.map((deliverable) => (
+                          <li key={deliverable} className="flex items-start gap-2">
+                            <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-600" />
+                            <span>{deliverable}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Errores frecuentes a evitar</p>
+                      <ul className="space-y-2 text-sm text-slate-700">
+                        {playbook.mistakes.map((mistake) => (
+                          <li key={mistake} className="flex items-start gap-2">
+                            <div className="mt-1.5 h-2 w-2 rounded-full bg-rose-500" />
+                            <span>{mistake}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </TabsContent>
