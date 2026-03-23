@@ -6,7 +6,7 @@ import InventoryAnalysis from "../inventory/InventoryAnalysis";
 import AdvancesManagement from "../advances/AdvancesManagement";
 import BalanceComprobacionModule from "../BalanceComprobacionModule";
 import DeclaracionIVA from "../DeclaracionIVA";
-import { EnhancedHeader, Section } from "../dashboard/EnhancedLayout";
+import { EnhancedHeader, EnhancedMetricCard, MetricGrid, Section } from "../dashboard/EnhancedLayout";
 
 const ImprovedReportsModule = () => {
   return (
@@ -19,6 +19,35 @@ const ImprovedReportsModule = () => {
           variant: "secondary",
         }}
       />
+
+      <MetricGrid columns={4}>
+        <EnhancedMetricCard
+          title="Frentes de analisis"
+          value="5"
+          subtitle="Cartera, inventario, anticipos, balance e IVA"
+          icon={LayoutPanelLeft}
+        />
+        <EnhancedMetricCard
+          title="Cobranza"
+          value="Clientes"
+          subtitle="Lectura de cartera y cuentas por cobrar"
+          icon={Users}
+          variant="success"
+        />
+        <EnhancedMetricCard
+          title="Operacion"
+          value="Inventario"
+          subtitle="Control de stock, rotacion y capital inmovilizado"
+          icon={Package}
+        />
+        <EnhancedMetricCard
+          title="Control fiscal"
+          value="IVA"
+          subtitle="Base rapida para revision tributaria"
+          icon={TrendingUp}
+          variant="warning"
+        />
+      </MetricGrid>
 
       <div className="hero-panel rounded-[2rem] p-6">
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_340px]">

@@ -57,6 +57,11 @@ interface NuevaFacturaElectronicaForm {
   observaciones: string;
 }
 
+interface ResultadoRecepcionSimulada {
+  aceptada: boolean;
+  motivo?: string;
+}
+
 const FORM_INITIAL_STATE: NuevaFacturaElectronicaForm = {
   codigoPuntoVenta: 0,
   nit: "",
@@ -108,6 +113,57 @@ const InfoStrip = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
+const hasText = (value?: string | null) => Boolean(value?.trim());
+
+const obtenerPendientesSin = (
+  configSin: ReturnType<typeof useConfiguracionSistema>["configSin"],
+  nitEmpresa: string,
+) => {
+  const pendientes: string[] = [];
+
+  if (!configSin.activo) pendientes.push("Activar integracion SIN");
+  if (!hasText(configSin.codigoSistema)) pendientes.push("Codigo de sistema");
+  if (!hasText(configSin.tokenDelegado)) pendientes.push("Token delegado");
+  if (!hasText(configSin.urlApi)) pendientes.push("URL API");
+  if (!hasText(configSin.tipoAmbiente)) pendientes.push("Tipo de ambiente");
+  if (!hasText(configSin.codigoSucursal)) pendientes.push("Codigo de sucursal");
+  if (!hasText(configSin.codigoPuntoVenta)) pendientes.push("Codigo de punto de venta");
+  if (!hasText(configSin.nit || nitEmpresa)) pendientes.push("NIT emisor");
+
+  return pendientes;
+};
+
+const esFacturaElectronica = (factura: Factura) =>
+  Boolean(factura.cuf || factura.cufd || factura.codigoControl) ||
+  factura.observaciones.includes("Registro creado desde Facturacion Electronica.");
+
+const simularRecepcionElectronica = (
+  factura: Factura,
+  conectadoSIN: boolean,
+): ResultadoRecepcionSimulada => {
+  if (!conectadoSIN) {
+    return { aceptada: false, motivo: "La configuracion operativa del SIN no esta lista." };
+  }
+
+  if (!validarNITBoliviano(factura.cliente.nit).valido) {
+    return { aceptada: false, motivo: "El NIT del cliente no supera la validacion boliviana." };
+  }
+
+  if (!hasText(factura.cufd)) {
+    return { aceptada: false, motivo: "La factura no tiene CUFD operativo asociado." };
+  }
+
+  if (!hasText(factura.cuf)) {
+    return { aceptada: false, motivo: "La factura no tiene CUF generado." };
+  }
+
+  if (!factura.items.length || !hasText(factura.items[0]?.codigoSIN)) {
+    return { aceptada: false, motivo: "La factura no tiene sector/documento tributario enlazado." };
+  }
+
+  return { aceptada: true };
+};
+
 const EstadoSinBadge = ({ estado }: { estado: Factura["estadoSIN"] }) => {
   if (estado === "aceptado") {
     return (
@@ -140,6 +196,7 @@ const FacturacionElectronicaModule = () => {
   const { empresa, configSin, configFiscal } = useConfiguracionSistema();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("operaciones");
+  const [periodoFiltro, setPeriodoFiltro] = useState("");
   const [conectadoSIN, setConectadoSIN] = useState(false);
   const [verificandoSIN, setVerificandoSIN] = useState(false);
   const [facturaEnProcesoId, setFacturaEnProcesoId] = useState<string | null>(null);
@@ -154,6 +211,24 @@ const FacturacionElectronicaModule = () => {
       codigoPuntoVenta: Number(configSin.codigoPuntoVenta || configFiscal.puntoVenta || prev.codigoPuntoVenta || 0),
     }));
   }, [configFiscal.puntoVenta, configSin.codigoPuntoVenta]);
+
+  useEffect(() => {
+    const applyUrlContext = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const tab = urlParams.get("tab");
+      const periodo = urlParams.get("periodo");
+
+      if (tab && ["operaciones", "nueva", "puntos-venta", "sectores"].includes(tab)) {
+        setActiveTab(tab);
+      }
+
+      setPeriodoFiltro(periodo || "");
+    };
+
+    applyUrlContext();
+    window.addEventListener("popstate", applyUrlContext);
+    return () => window.removeEventListener("popstate", applyUrlContext);
+  }, []);
 
   const puntosVenta = useMemo<PuntoVentaElectronico[]>(() => {
     const discovered = new Set<number>();
@@ -174,9 +249,15 @@ const FacturacionElectronicaModule = () => {
   const facturasElectronicas = useMemo(
     () =>
       [...facturas]
-        .filter((factura) => factura.cuf || factura.cufd || factura.estadoSIN !== "pendiente" || factura.puntoVenta >= 0)
+        .filter(esFacturaElectronica)
+        .filter((factura) => !periodoFiltro || factura.fecha?.startsWith(periodoFiltro))
         .sort((a, b) => (a.fecha < b.fecha ? 1 : -1)),
-    [facturas]
+    [facturas, periodoFiltro]
+  );
+
+  const pendientesSin = useMemo(
+    () => obtenerPendientesSin(configSin, empresa.nit),
+    [configSin, empresa.nit],
   );
 
   const resumen = useMemo(() => {
@@ -204,11 +285,7 @@ const FacturacionElectronicaModule = () => {
     setVerificandoSIN(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 900));
-      const listo =
-        Boolean(configSin.activo) &&
-        Boolean(configSin.codigoSistema) &&
-        Boolean(configSin.nit || empresa.nit) &&
-        Boolean(configSin.tipoAmbiente);
+      const listo = obtenerPendientesSin(configSin, empresa.nit).length === 0;
 
       setConectadoSIN(listo);
 
@@ -216,13 +293,13 @@ const FacturacionElectronicaModule = () => {
         title: listo ? "Conectividad SIN validada" : "Configuracion SIN incompleta",
         description: listo
           ? "La capa operativa puede simular recepcion sobre facturas reales."
-          : "Revise codigo de sistema, NIT, ambiente y activacion en configuracion.",
+          : "Revise configuracion SIN: faltan credenciales o parametros operativos.",
         variant: listo ? "default" : "destructive",
       });
     } finally {
       setVerificandoSIN(false);
     }
-  }, [configSin.activo, configSin.codigoSistema, configSin.nit, configSin.tipoAmbiente, empresa.nit, toast]);
+  }, [configSin, empresa.nit, toast]);
 
   useEffect(() => {
     void verificarConexionSIN();
@@ -284,6 +361,15 @@ const FacturacionElectronicaModule = () => {
       toast({
         title: "Datos incompletos",
         description: "La razon social y el monto total son obligatorios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.actividadEconomica) {
+      toast({
+        title: "Actividad requerida",
+        description: "Selecciona la actividad economica antes de registrar la factura electronica.",
         variant: "destructive",
       });
       return;
@@ -383,18 +469,21 @@ const FacturacionElectronicaModule = () => {
     setFacturaEnProcesoId(factura.id);
     await new Promise((resolve) => setTimeout(resolve, 1600));
 
-    const aceptada = Math.random() < 0.85;
-    const observaciones = aceptada
+    const resultado = simularRecepcionElectronica(factura, conectadoSIN);
+    const observaciones = resultado.aceptada
       ? [factura.observaciones, "Recepcion SIN simulada: aceptada y auditada sobre la factura real."]
           .filter(Boolean)
           .join(" ")
-      : [factura.observaciones, "Recepcion SIN simulada: rechazada por validacion tributaria de demostracion."]
+      : [
+          factura.observaciones,
+          `Recepcion SIN simulada: rechazada por validacion funcional. Motivo: ${resultado.motivo}.`,
+        ]
           .filter(Boolean)
           .join(" ");
 
     const actualizado = await actualizarFacturaElectronica(factura.id, {
-      estado: aceptada ? "enviada" : "borrador",
-      estadoSIN: aceptada ? "aceptado" : "rechazado",
+      estado: resultado.aceptada ? "enviada" : "borrador",
+      estadoSIN: resultado.aceptada ? "aceptado" : "rechazado",
       cuf: factura.cuf,
       cufd: factura.cufd || cufdActual,
       puntoVenta: factura.puntoVenta,
@@ -406,11 +495,11 @@ const FacturacionElectronicaModule = () => {
     if (!actualizado) return;
 
     toast({
-      title: aceptada ? "Factura autorizada" : "Factura rechazada",
-      description: aceptada
+      title: resultado.aceptada ? "Factura autorizada" : "Factura rechazada",
+      description: resultado.aceptada
         ? `La factura ${factura.numero} quedo aceptada en el flujo simulado del SIN.`
-        : `La factura ${factura.numero} quedo observada y requiere correccion funcional.`,
-      variant: aceptada ? "default" : "destructive",
+        : `La factura ${factura.numero} quedo observada: ${resultado.motivo}.`,
+      variant: resultado.aceptada ? "default" : "destructive",
     });
   };
 
@@ -504,6 +593,37 @@ const FacturacionElectronicaModule = () => {
           El flujo sigue en modo demostracion para CUIS, CUFD, recepcion y rechazo. Ahora todo opera sobre la factura real que usan ventas, libros y cobranza.
         </AlertDescription>
       </Alert>
+
+      {!conectadoSIN && pendientesSin.length > 0 && (
+        <Alert className="border-rose-300 bg-rose-50">
+          <XCircle className="h-4 w-4 text-rose-700" />
+          <AlertDescription className="text-rose-900">
+            Antes de operar faltan estos datos SIN: {pendientesSin.join(", ")}.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {periodoFiltro && (
+        <Alert className="border-sky-300 bg-sky-50">
+          <FileText className="h-4 w-4 text-sky-700" />
+          <AlertDescription className="flex flex-col gap-3 text-sky-900 md:flex-row md:items-center md:justify-between">
+            <span>Vista enfocada en facturas electronicas del periodo {periodoFiltro}.</span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const url = new URL(window.location.href);
+                url.searchParams.delete("periodo");
+                window.history.pushState({}, "", url.toString());
+                setPeriodoFiltro("");
+              }}
+            >
+              Limpiar filtro
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Facturas auditadas" value={String(resumen.total)} detail="Base unica electronica" tone="slate" icon={<FileText className="h-4 w-4" />} />

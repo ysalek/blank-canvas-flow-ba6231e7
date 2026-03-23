@@ -83,12 +83,24 @@ interface ConfigRow {
   sistema_contable: string | null;
 }
 
+interface FacturaSinRow {
+  id: string;
+  numero: string;
+  fecha: string;
+  estado: string | null;
+  estado_sin: string | null;
+  cuf: string | null;
+  cufd: string | null;
+  observaciones: string | null;
+}
+
 const DECLARACIONES_TABLE = "declaraciones_tributarias" as const;
 const CUMPLIMIENTO_TABLE = "cumplimiento_normativo_2025" as const;
 const RETENCIONES_TABLE = "retenciones_fiscales" as never;
 const CONCILIACIONES_TABLE = "conciliaciones_bancarias" as const;
 const NOMINA_TABLE = "nomina_planillas" as never;
 const CONFIG_TABLE = "configuracion_tributaria" as const;
+const FACTURAS_TABLE = "facturas" as const;
 
 const daysBetween = (targetDate: string) => {
   const today = new Date();
@@ -122,6 +134,7 @@ export const useCumplimientoEjecutivo = () => {
   const [retenciones, setRetenciones] = useState<RetencionRow[]>([]);
   const [conciliaciones, setConciliaciones] = useState<ConciliacionRow[]>([]);
   const [planillas, setPlanillas] = useState<NominaRow[]>([]);
+  const [facturasSin, setFacturasSin] = useState<FacturaSinRow[]>([]);
   const [reportSnapshots, setReportSnapshots] = useState<Record<string, { generatedAt: string; status: AutomatedReportStatus }>>({});
 
   const fetchData = useCallback(async () => {
@@ -136,16 +149,18 @@ export const useCumplimientoEjecutivo = () => {
         setRetenciones([]);
         setConciliaciones([]);
         setPlanillas([]);
+        setFacturasSin([]);
         return;
       }
 
-      const [configResult, declaracionesResult, cumplimientoResult, retencionesResult, conciliacionesResult, planillasResult] = await Promise.all([
+      const [configResult, declaracionesResult, cumplimientoResult, retencionesResult, conciliacionesResult, planillasResult, facturasResult] = await Promise.all([
         supabase.from(CONFIG_TABLE).select("nit, razon_social, actividad_economica, sistema_contable").eq("user_id", userId).maybeSingle(),
         supabase.from(DECLARACIONES_TABLE).select("id, tipo, periodo, fecha_vencimiento, estado, monto_impuesto").eq("user_id", userId).order("fecha_vencimiento", { ascending: true }),
         supabase.from(CUMPLIMIENTO_TABLE).select("id, norma_rnd, descripcion, fecha_vigencia, estado").eq("user_id", userId).order("fecha_vigencia", { ascending: true }),
         supabase.from(RETENCIONES_TABLE).select("id, fecha_retencion, tipo_retencion, estado, monto_retencion").eq("user_id", userId).order("fecha_retencion", { ascending: false }),
         supabase.from(CONCILIACIONES_TABLE).select("id, fecha_corte, estado, diferencia").eq("user_id", userId).order("fecha_corte", { ascending: false }),
         supabase.from(NOMINA_TABLE).select("id, periodo, estado, total_neto, total_rciva, fecha_generacion").eq("user_id", userId).order("periodo", { ascending: false }),
+        supabase.from(FACTURAS_TABLE).select("id, numero, fecha, estado, estado_sin, cuf, cufd, observaciones").eq("user_id", userId).order("fecha", { ascending: false }),
       ]);
 
       if (configResult.error) throw configResult.error;
@@ -154,6 +169,7 @@ export const useCumplimientoEjecutivo = () => {
       if (retencionesResult.error) throw retencionesResult.error;
       if (conciliacionesResult.error) throw conciliacionesResult.error;
       if (planillasResult.error) throw planillasResult.error;
+      if (facturasResult.error) throw facturasResult.error;
 
       setConfig((configResult.data as ConfigRow | null) || null);
       setDeclaraciones((declaracionesResult.data as DeclaracionRow[]) || []);
@@ -161,6 +177,7 @@ export const useCumplimientoEjecutivo = () => {
       setRetenciones((retencionesResult.data as unknown as RetencionRow[]) || []);
       setConciliaciones((conciliacionesResult.data as ConciliacionRow[]) || []);
       setPlanillas((planillasResult.data as unknown as NominaRow[]) || []);
+      setFacturasSin((facturasResult.data as FacturaSinRow[]) || []);
     } catch (error) {
       console.error("Error cargando cumplimiento ejecutivo:", error);
       setConfig(null);
@@ -169,6 +186,7 @@ export const useCumplimientoEjecutivo = () => {
       setRetenciones([]);
       setConciliaciones([]);
       setPlanillas([]);
+      setFacturasSin([]);
     } finally {
       setLoading(false);
     }
@@ -315,6 +333,25 @@ export const useCumplimientoEjecutivo = () => {
       });
     }
 
+    const facturasElectronicasObservadas = facturasSin.filter(
+      (item) => item.estado_sin === "rechazado",
+    );
+    if (facturasElectronicasObservadas.length > 0) {
+      items.push({
+        id: "facturas-sin-observadas",
+        type: "critico",
+        priority: "high",
+        title: `${facturasElectronicasObservadas.length} factura(s) electronica(s) observada(s)`,
+        description: "Hay facturas electronicas rechazadas por el flujo SIN demo y no deberian pasar al libro oficial sin revision.",
+        deadline: facturasElectronicasObservadas[0].fecha,
+        actions: ["Revisar factura observada", "Corregir datos tributarios", "Reintentar recepcion SIN o excluir del libro oficial"],
+        source: "Facturacion electronica",
+        navigation: {
+          view: "facturacion-electronica",
+        },
+      });
+    }
+
     if (items.length === 0) {
       items.push({
         id: "sin-alertas",
@@ -334,7 +371,7 @@ export const useCumplimientoEjecutivo = () => {
       const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
       return priorityOrder[b.priority] - priorityOrder[a.priority];
     });
-  }, [config, conciliaciones, cumplimiento, declaraciones, planillas, retenciones]);
+  }, [config, conciliaciones, cumplimiento, declaraciones, facturasSin, planillas, retenciones]);
 
   const reports = useMemo<AutomatedReportItem[]>(() => {
     const declaracionesPendientes = declaraciones.filter((item) => item.estado !== "presentada");
@@ -356,6 +393,7 @@ export const useCumplimientoEjecutivo = () => {
         payload: {
           pendientes: ivaPendiente.length,
           montoImpuesto: ivaPendiente.reduce((sum, item) => sum + Number(item.monto_impuesto || 0), 0),
+          facturasElectronicasObservadas: facturasSin.filter((item) => item.estado_sin === "rechazado").length,
         },
       },
       {
@@ -437,6 +475,7 @@ export const useCumplimientoEjecutivo = () => {
           totalAlertas: alerts.filter((item) => item.id !== "sin-alertas").length,
           pendientesNormativos: cumplimiento.filter((item) => item.estado !== "cumplido").length,
           declaracionesPendientes: declaracionesPendientes.length,
+          facturasElectronicasObservadas: facturasSin.filter((item) => item.estado_sin === "rechazado").length,
         },
       },
     ];
@@ -451,7 +490,7 @@ export const useCumplimientoEjecutivo = () => {
         lastGenerated: snapshot?.generatedAt,
       };
     });
-  }, [alerts, conciliaciones, config?.razon_social, cumplimiento, declaraciones, planillas, reportSnapshots, retenciones]);
+  }, [alerts, conciliaciones, config?.razon_social, cumplimiento, declaraciones, facturasSin, planillas, reportSnapshots, retenciones]);
 
   const metrics = useMemo(() => {
     const activeAlerts = alerts.filter((item) => item.id !== "sin-alertas");
@@ -463,8 +502,9 @@ export const useCumplimientoEjecutivo = () => {
       conciliacionesAbiertas: conciliaciones.filter((item) => item.estado !== "conciliado").length,
       planillasPendientes: planillas.filter((item) => item.estado !== "pagada").length,
       retencionesPendientes: retenciones.filter((item) => item.estado !== "presentada").length,
+      facturasElectronicasObservadas: facturasSin.filter((item) => item.estado_sin === "rechazado").length,
     };
-  }, [alerts, conciliaciones, cumplimiento, declaraciones, planillas, retenciones]);
+  }, [alerts, conciliaciones, cumplimiento, declaraciones, facturasSin, planillas, retenciones]);
 
   const markReportGenerated = useCallback((reportId: string, submitted = false) => {
     setReportSnapshots((prev) => ({

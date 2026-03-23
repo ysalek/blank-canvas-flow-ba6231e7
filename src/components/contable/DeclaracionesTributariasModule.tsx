@@ -11,6 +11,16 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
@@ -33,6 +43,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useConfiguracionSistema } from "@/hooks/useConfiguracionSistema";
+import { useFacturas } from "@/hooks/useFacturas";
 import {
   calcularFechaVencimiento,
   DECLARACION_DEFINITIONS,
@@ -66,6 +77,14 @@ interface EstimadorState {
   fechaPago: string;
   multaManual: number;
   tasaDiaria: number;
+}
+
+interface ConfirmacionPresentacionState {
+  id: string;
+  periodo: string;
+  tipo: DeclaracionTipo;
+  pendientes: number;
+  rechazadas: number;
 }
 
 const formatDate = (value: string | null) => {
@@ -142,8 +161,23 @@ const getEstadoLabel = (estado: EstadoCalendario) => {
   }
 };
 
+const esFacturaElectronica = (observaciones: string, cuf: string, cufd: string, codigoControl: string) =>
+  Boolean(cuf || cufd || codigoControl) ||
+  observaciones.includes("Registro creado desde Facturacion Electronica.");
+
+const navigateToFacturacionElectronica = (periodo: string) => {
+  const url = new URL(window.location.href);
+  url.searchParams.set("view", "facturacion-electronica");
+  url.searchParams.set("tab", "operaciones");
+  url.searchParams.set("periodo", periodo);
+  window.history.pushState({}, "", url.toString());
+  window.dispatchEvent(new PopStateEvent("popstate"));
+};
+
 const DeclaracionesTributariasModule = () => {
   const [showNewDeclaracion, setShowNewDeclaracion] = useState(false);
+  const [confirmacionPresentacion, setConfirmacionPresentacion] =
+    useState<ConfirmacionPresentacionState | null>(null);
   const [estimador, setEstimador] = useState<EstimadorState>({
     montoImpuesto: 0,
     fechaVencimiento: new Date().toISOString().slice(0, 10),
@@ -153,6 +187,7 @@ const DeclaracionesTributariasModule = () => {
   });
 
   const { empresa, configFiscal, loading: configLoading } = useConfiguracionSistema();
+  const { facturas, loading: facturasLoading } = useFacturas();
   const {
     declaraciones,
     loading,
@@ -255,6 +290,43 @@ const DeclaracionesTributariasModule = () => {
     });
   }, [declaraciones, filtroPeriodo, filtroTipo]);
 
+  const incidenciasElectronicasPorPeriodo = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        pendientes: number;
+        rechazadas: number;
+      }
+    >();
+
+    facturas.forEach((factura) => {
+      if (
+        !esFacturaElectronica(
+          factura.observaciones || "",
+          factura.cuf || "",
+          factura.cufd || "",
+          factura.codigoControl || "",
+        )
+      ) {
+        return;
+      }
+
+      const periodoFactura = factura.fecha?.slice(0, 7);
+      if (!periodoFactura) return;
+
+      const current = map.get(periodoFactura) || { pendientes: 0, rechazadas: 0 };
+      if (factura.estadoSIN === "pendiente") {
+        current.pendientes += 1;
+      }
+      if (factura.estadoSIN === "rechazado") {
+        current.rechazadas += 1;
+      }
+      map.set(periodoFactura, current);
+    });
+
+    return map;
+  }, [facturas]);
+
   const diasRetraso = useMemo(() => {
     const vencimiento = new Date(`${estimador.fechaVencimiento}T00:00:00`);
     const pago = new Date(`${estimador.fechaPago}T00:00:00`);
@@ -269,7 +341,34 @@ const DeclaracionesTributariasModule = () => {
 
   const totalEstimado = estimador.montoImpuesto + estimador.multaManual + interesEstimado;
 
-  if (configLoading || loading) {
+  const handleMarcarPresentada = async (id: string) => {
+    const declaracion = declaraciones.find((item) => item.id === id);
+    if (!declaracion) {
+      return;
+    }
+
+    const incidenciaPeriodo = incidenciasElectronicasPorPeriodo.get(declaracion.periodo);
+    const requiereConfirmacion =
+      (declaracion.tipo === "iva" || declaracion.tipo === "it") &&
+      Boolean(incidenciaPeriodo && (incidenciaPeriodo.pendientes > 0 || incidenciaPeriodo.rechazadas > 0));
+
+    if (!requiereConfirmacion) {
+      await marcarComoPresentada(id);
+      return;
+    }
+
+    setConfirmacionPresentacion({
+      id,
+      periodo: declaracion.periodo,
+      tipo: declaracion.tipo,
+      pendientes: incidenciaPeriodo?.pendientes || 0,
+      rechazadas: incidenciaPeriodo?.rechazadas || 0,
+    });
+  };
+
+  const incidenciasDelFiltro = filtroPeriodo ? incidenciasElectronicasPorPeriodo.get(filtroPeriodo) : null;
+
+  if (configLoading || loading || facturasLoading) {
     return (
       <div className="space-y-6">
         <div>
@@ -315,6 +414,10 @@ const DeclaracionesTributariasModule = () => {
                 nit={empresa.nit}
                 actividadEconomica={empresa.actividadEconomica}
                 ivaRate={configFiscal.ivaGeneral}
+                declaracionesExistentes={declaraciones.map((item) => ({
+                  tipo: item.tipo,
+                  periodo: item.periodo,
+                }))}
                 onSave={async (draft) => {
                   const ok = await crearDeclaracion(draft);
                   if (ok) {
@@ -338,6 +441,28 @@ const DeclaracionesTributariasModule = () => {
           Vista enfocada:
           {filtroTipo !== "todos" && <strong> tipo {filtroTipo}</strong>}
           {filtroPeriodo && <strong> periodo {filtroPeriodo}</strong>}.
+        </div>
+      )}
+
+      {incidenciasDelFiltro && (incidenciasDelFiltro.pendientes > 0 || incidenciasDelFiltro.rechazadas > 0) && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Antes de cerrar o presentar este periodo revisa facturacion electronica:
+          {incidenciasDelFiltro.pendientes > 0 && (
+            <strong> {incidenciasDelFiltro.pendientes} factura(s) pendiente(s)</strong>
+          )}
+          {incidenciasDelFiltro.rechazadas > 0 && (
+            <strong> {incidenciasDelFiltro.rechazadas} factura(s) rechazada(s)</strong>
+          )}.
+          <div className="mt-3">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => navigateToFacturacionElectronica(filtroPeriodo)}
+            >
+              Ir a facturacion electronica
+            </Button>
+          </div>
         </div>
       )}
 
@@ -539,11 +664,21 @@ const DeclaracionesTributariasModule = () => {
                       <TableHead className="text-right">Impuesto</TableHead>
                       <TableHead className="text-right">Pagado</TableHead>
                       <TableHead>Estado</TableHead>
+                      <TableHead>Control</TableHead>
                       <TableHead>Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {declaracionesFiltradas.map((declaracion) => (
+                    {declaracionesFiltradas.map((declaracion) => {
+                      const incidenciaPeriodo = incidenciasElectronicasPorPeriodo.get(declaracion.periodo);
+                      const requiereRevisionElectronica =
+                        (declaracion.tipo === "iva" || declaracion.tipo === "it") &&
+                        Boolean(
+                          incidenciaPeriodo &&
+                            (incidenciaPeriodo.pendientes > 0 || incidenciaPeriodo.rechazadas > 0),
+                        );
+
+                      return (
                       <TableRow key={declaracion.id}>
                         <TableCell>
                           <div>
@@ -568,15 +703,40 @@ const DeclaracionesTributariasModule = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
+                          {requiereRevisionElectronica ? (
+                            <div className="space-y-1 text-xs">
+                              <Badge variant="outline">Revisar fact. electronica</Badge>
+                              <div className="text-amber-700">
+                                {incidenciaPeriodo?.pendientes ? `${incidenciaPeriodo.pendientes} pendiente(s)` : ""}
+                                {incidenciaPeriodo?.pendientes && incidenciaPeriodo?.rechazadas ? " · " : ""}
+                                {incidenciaPeriodo?.rechazadas ? `${incidenciaPeriodo.rechazadas} rechazada(s)` : ""}
+                              </div>
+                              <button
+                                type="button"
+                                className="font-medium text-primary underline-offset-4 hover:underline"
+                                onClick={() => navigateToFacturacionElectronica(declaracion.periodo)}
+                              >
+                                Abrir periodo
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-500">Sin alertas</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           {(declaracion.estado === "pendiente" ||
                             declaracion.estado === "vencida") && (
-                            <Button size="sm" onClick={() => void marcarComoPresentada(declaracion.id)}>
+                            <Button
+                              size="sm"
+                              variant={requiereRevisionElectronica ? "outline" : "default"}
+                              onClick={() => void handleMarcarPresentada(declaracion.id)}
+                            >
                               Marcar presentada
                             </Button>
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )})}
                   </TableBody>
                 </Table>
               )}
@@ -794,6 +954,55 @@ const DeclaracionesTributariasModule = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog
+        open={Boolean(confirmacionPresentacion)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setConfirmacionPresentacion(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar presentacion con alertas electronicas</AlertDialogTitle>
+            <AlertDialogDescription>
+              El periodo {confirmacionPresentacion?.periodo} todavia tiene
+              {confirmacionPresentacion?.pendientes
+                ? ` ${confirmacionPresentacion.pendientes} factura(s) electronica(s) pendiente(s)`
+                : ""}
+              {confirmacionPresentacion?.pendientes && confirmacionPresentacion?.rechazadas ? " y" : ""}
+              {confirmacionPresentacion?.rechazadas
+                ? ` ${confirmacionPresentacion.rechazadas} factura(s) electronica(s) rechazada(s)`
+                : ""}
+              . Si continuas, la declaracion quedara marcada como presentada igual.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (!confirmacionPresentacion) return;
+                navigateToFacturacionElectronica(confirmacionPresentacion.periodo);
+                setConfirmacionPresentacion(null);
+              }}
+            >
+              Revisar facturacion
+            </Button>
+            <AlertDialogAction
+              onClick={() => {
+                if (!confirmacionPresentacion) return;
+                void marcarComoPresentada(confirmacionPresentacion.id);
+                setConfirmacionPresentacion(null);
+              }}
+            >
+              Confirmar presentacion
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
@@ -802,6 +1011,7 @@ interface NewDeclaracionFormProps {
   nit?: string;
   actividadEconomica?: string;
   ivaRate: number;
+  declaracionesExistentes: Array<{ tipo: DeclaracionTipo; periodo: string }>;
   onSave: (draft: DeclaracionDraft) => Promise<void>;
   onCancel: () => void;
 }
@@ -810,6 +1020,7 @@ const NewDeclaracionForm = ({
   nit,
   actividadEconomica,
   ivaRate,
+  declaracionesExistentes,
   onSave,
   onCancel,
 }: NewDeclaracionFormProps) => {
@@ -844,8 +1055,19 @@ const NewDeclaracionForm = ({
     [formData.montoBase, tasaSugerida],
   );
 
+  const periodoValido = /^\d{4}-(0[1-9]|1[0-2])$/.test(formData.periodo);
+  const declaracionDuplicada = declaracionesExistentes.some(
+    (item) => item.tipo === formData.tipo && item.periodo === formData.periodo,
+  );
+  const montosInvalidos =
+    formData.montoBase < 0 || formData.montoImpuesto < 0 || (formData.montoPagado || 0) < 0;
+  const formInvalid = !periodoValido || declaracionDuplicada || montosInvalidos;
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (formInvalid) {
+      return;
+    }
     setSaving(true);
     try {
       await onSave(formData);
@@ -902,6 +1124,30 @@ const NewDeclaracionForm = ({
           </div>
         )}
       </div>
+
+      {!nit && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Define primero el NIT en configuracion. Sin ese dato el vencimiento mensual puede quedar mal calculado.
+        </div>
+      )}
+
+      {!periodoValido && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+          El periodo fiscal debe estar en formato <strong>YYYY-MM</strong>.
+        </div>
+      )}
+
+      {declaracionDuplicada && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+          Ya existe una declaracion de este tipo para el periodo {formData.periodo}.
+        </div>
+      )}
+
+      {montosInvalidos && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+          Los montos base, impuesto y pago no pueden ser negativos.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="space-y-2">
@@ -987,7 +1233,7 @@ const NewDeclaracionForm = ({
         <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" disabled={saving || formInvalid}>
           {saving ? "Guardando..." : "Registrar declaracion"}
         </Button>
       </div>

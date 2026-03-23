@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useConfiguracionSistema } from "@/hooks/useConfiguracionSistema";
 import UserProductionManager from "./users/UserProductionManager";
+import { EnhancedHeader, EnhancedMetricCard, MetricGrid } from "./dashboard/EnhancedLayout";
 
 const ConfiguracionModule = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,6 +47,16 @@ const ConfiguracionModule = () => {
 
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle");
+  const integracionSinLista = Boolean(configSin.tokenDelegado && configSin.codigoSistema);
+  const parametrosEmpresaCompletos = [empresa.razonSocial, empresa.nit, empresa.actividadEconomica].filter(
+    (value) => value?.trim().length > 0
+  ).length;
+  const automatizacionesActivas = [
+    configSistema.numeracionAutomatica,
+    configSistema.backupAutomatico,
+    configSistema.notificacionesEmail,
+    configSistema.posHabilitado,
+  ].filter(Boolean).length;
 
   const testearConexionSin = async () => {
     setTestingConnection(true);
@@ -132,17 +143,17 @@ const ConfiguracionModule = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold">Configuracion del Sistema</h2>
-          <p className="text-slate-600">Cargando parametros centralizados...</p>
-        </div>
+      <div className="page-shell space-y-6 pb-12">
+        <EnhancedHeader
+          title="Configuracion del sistema"
+          subtitle="Cargando parametros fiscales, operativos y de seguridad centralizados."
+        />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="page-shell space-y-6 pb-12">
       <input
         ref={fileInputRef}
         type="file"
@@ -151,36 +162,99 @@ const ConfiguracionModule = () => {
         onChange={handleImportFile}
       />
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Configuracion del Sistema</h2>
-          <p className="text-slate-600">
-            Parametros tributarios y operativos con persistencia centralizada
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={handleImportarClick} variant="outline">
-            <Upload className="mr-2 h-4 w-4" />
-            Importar
-          </Button>
-          <Button onClick={exportarConfiguracion} variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Exportar
-          </Button>
-          <Button onClick={refetch} variant="outline">
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Recargar
-          </Button>
-        </div>
-      </div>
+      <EnhancedHeader
+        title="Configuracion del sistema"
+        subtitle="Administra parametros empresariales, fiscales y operativos desde una sola mesa de control con persistencia centralizada."
+        badge={{
+          text: integracionSinLista ? "Base operativa conectada" : "Pendiente de completar",
+          variant: integracionSinLista ? "secondary" : "warning",
+        }}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={handleImportarClick} variant="outline" size="sm">
+              <Upload className="mr-2 h-4 w-4" />
+              Importar
+            </Button>
+            <Button onClick={exportarConfiguracion} variant="outline" size="sm">
+              <Download className="mr-2 h-4 w-4" />
+              Exportar
+            </Button>
+            <Button onClick={refetch} variant="outline" size="sm">
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Recargar
+            </Button>
+          </div>
+        }
+      />
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-        La configuracion tributaria critica ya se guarda en Supabase. Esto reduce el riesgo de perder
-        parametros fiscales y mejora consistencia para auditoria y cumplimiento.
+      <MetricGrid columns={4}>
+        <EnhancedMetricCard
+          title="Empresa"
+          value={`${parametrosEmpresaCompletos}/3`}
+          subtitle="Campos base completos"
+          icon={Building2}
+          variant={parametrosEmpresaCompletos === 3 ? "success" : "warning"}
+        />
+        <EnhancedMetricCard
+          title="Fiscal"
+          value={configFiscal.regimen || "Sin regimen"}
+          subtitle="Marco tributario activo"
+          icon={Shield}
+        />
+        <EnhancedMetricCard
+          title="Integracion SIN"
+          value={integracionSinLista ? "Lista" : "Pendiente"}
+          subtitle={configSin.cuis ? `CUIS ${configSin.cuis}` : "Sin credenciales activas"}
+          icon={connectionStatus === "success" ? CheckCircle : connectionStatus === "error" ? XCircle : Key}
+          variant={connectionStatus === "success" ? "success" : connectionStatus === "error" ? "danger" : "warning"}
+        />
+        <EnhancedMetricCard
+          title="Automatizaciones"
+          value={automatizacionesActivas}
+          subtitle="Controles operativos activos"
+          icon={RefreshCw}
+        />
+      </MetricGrid>
+
+      <div className="hero-panel rounded-[2rem] p-6">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_340px]">
+          <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+              Gobierno del sistema
+            </p>
+            <h3 className="mt-2 text-lg font-semibold text-slate-950">
+              Parametros fiscales, seguridad y operacion en un solo frente
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              La configuracion critica ya vive en Supabase. Esto reduce perdida de parametros,
+              mejora continuidad operativa y fortalece la trazabilidad para auditoria.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-slate-950 p-5 text-slate-50 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+              Prioridad sugerida
+            </p>
+            <div className="mt-4 space-y-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <p className="text-sm font-semibold">Primero empresa y fiscal</p>
+                <p className="mt-1 text-xs leading-5 text-slate-300">
+                  Completa razon social, NIT y regimen antes de abrir flujos tributarios avanzados.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <p className="text-sm font-semibold">Despues integracion y seguridad</p>
+                <p className="mt-1 text-xs leading-5 text-slate-300">
+                  Valida credenciales SIN, automatizaciones y politicas internas de uso del sistema.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <Tabs defaultValue="empresa" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-1 gap-2 rounded-2xl border border-slate-200 bg-white p-2 md:grid-cols-5">
           <TabsTrigger value="empresa">Empresa</TabsTrigger>
           <TabsTrigger value="fiscal">Fiscal</TabsTrigger>
           <TabsTrigger value="sin">SIN</TabsTrigger>
@@ -497,6 +571,12 @@ const ConfiguracionModule = () => {
                     {testingConnection ? "Probando..." : "Probar conexion"}
                   </Button>
                 </div>
+              </div>
+
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                Este bloque guarda la configuracion operativa del SIN, pero la emision y validacion oficial siguen
+                en modo simulado dentro del sistema. Si falta un dato obligatorio, el guardado se bloqueara para
+                evitar credenciales inconsistentes.
               </div>
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

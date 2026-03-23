@@ -118,6 +118,38 @@ const safeParse = <T>(value: string | null, fallback: T): T => {
   }
 };
 
+const onlyDigits = (value: string) => value.replace(/\D/g, "");
+
+const validarCamposSin = (configSin: SinConfig, nitEmpresa: string) => {
+  const nitNormalizado = onlyDigits(configSin.nit || nitEmpresa);
+
+  if (!nitNormalizado || nitNormalizado.length < 5) {
+    return "El NIT de integracion SIN no es valido.";
+  }
+
+  if (!configSin.urlApi.trim()) {
+    return "Define la URL operativa del SIN antes de guardar.";
+  }
+
+  if (!configSin.codigoSistema.trim()) {
+    return "Completa el codigo de sistema del SIN antes de guardar.";
+  }
+
+  if (!configSin.tokenDelegado.trim()) {
+    return "Completa el token delegado del SIN antes de guardar.";
+  }
+
+  if (!configSin.codigoSucursal.trim()) {
+    return "Completa el codigo de sucursal antes de guardar.";
+  }
+
+  if (!configSin.codigoPuntoVenta.trim()) {
+    return "Completa el codigo de punto de venta antes de guardar.";
+  }
+
+  return null;
+};
+
 export const useConfiguracionSistema = () => {
   const { toast } = useToast();
   const [empresa, setEmpresa] = useState<EmpresaConfig>(DEFAULT_EMPRESA);
@@ -310,7 +342,30 @@ export const useConfiguracionSistema = () => {
 
   const guardarSin = useCallback(async () => {
     try {
-      await upsertAppSetting(SIN_KEY, { ...configSin, nit: empresa.nit });
+      const payload = {
+        ...configSin,
+        urlApi: configSin.urlApi.trim(),
+        tokenDelegado: configSin.tokenDelegado.trim(),
+        codigoSistema: configSin.codigoSistema.trim(),
+        nit: onlyDigits(configSin.nit || empresa.nit),
+        codigoSucursal: configSin.codigoSucursal.trim(),
+        codigoPuntoVenta: configSin.codigoPuntoVenta.trim(),
+        cuis: configSin.cuis.trim(),
+        cufd: configSin.cufd.trim(),
+      };
+
+      const mensajeValidacion = validarCamposSin(payload, empresa.nit);
+      if (mensajeValidacion) {
+        toast({
+          title: "Configuracion SIN incompleta",
+          description: mensajeValidacion,
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      await upsertAppSetting(SIN_KEY, payload);
+      setConfigSin(payload);
       toast({
         title: "Configuracion SIN guardada",
         description: "Las credenciales y parametros operativos del SIN fueron persistidos.",

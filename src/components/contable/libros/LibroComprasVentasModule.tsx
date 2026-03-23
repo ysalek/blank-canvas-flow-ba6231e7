@@ -10,11 +10,51 @@ import { Download, FileSpreadsheet, BookOpen, ShoppingCart } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast';
 import { useFacturas } from '@/hooks/useFacturas';
 import { useSupabaseProveedores } from '@/hooks/useSupabaseProveedores';
+import type { Factura } from '@/components/contable/billing/BillingData';
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
+
+const esFacturaElectronica = (factura: Factura) =>
+  Boolean(factura.cuf || factura.cufd || factura.codigoControl) ||
+  String(factura.observaciones || '').includes('Registro creado desde Facturacion Electronica.');
+
+const getSinBadgeVariant = (estado: string) => {
+  if (estado === 'aceptado') return 'default';
+  if (estado === 'rechazado') return 'destructive';
+  if (estado === 'pendiente') return 'secondary';
+  return 'outline';
+};
+
+const getSinLabel = (estado: string, esElectronica: boolean) => {
+  if (!esElectronica) return 'No electronica';
+  if (estado === 'aceptado') return 'Aceptada';
+  if (estado === 'rechazado') return 'Rechazada';
+  if (estado === 'pendiente') return 'Pendiente';
+  return 'Sin estado';
+};
+
+interface CompraLibro {
+  fecha?: string;
+  total?: number;
+  descuento_total?: number;
+  descuentoTotal?: number;
+  estado?: string;
+  proveedor?: {
+    nit?: string;
+    nombre?: string;
+  };
+  nit_proveedor?: string;
+  razon_social?: string;
+  codigo_autorizacion?: string;
+  cuf?: string;
+  numero_factura?: string;
+  numero?: string;
+  dui_dim?: string;
+  codigo_control?: string;
+}
 
 const LibroComprasVentasModule = () => {
   const { toast } = useToast();
@@ -28,8 +68,9 @@ const LibroComprasVentasModule = () => {
   // ===== LIBRO DE VENTAS IVA (24 columnas formato SIAT) =====
   const ventasMes = useMemo(() => {
     return facturas
-      .filter((f: any) => f.fecha?.startsWith(periodo))
-      .map((f: any, i: number) => {
+      .filter((f: Factura) => f.fecha?.startsWith(periodo))
+      .map((f: Factura, i: number) => {
+        const electronica = esFacturaElectronica(f);
         const importeTotal = f.total || 0;
         const ice = 0;
         const iehd = 0;
@@ -49,12 +90,15 @@ const LibroComprasVentasModule = () => {
         const estado = f.estado === 'anulada' ? 'A' : 'V'; // V=Válida, A=Anulada
         const tipoVenta = 1; // 1=Venta estándar
 
+        const estadoSin = f.estadoSIN || 'pendiente';
+        const exportable = estado === 'V' && (!electronica || estadoSin === 'aceptado');
+
         return {
           nro: i + 1,
           fecha: f.fecha,
           nroFactura: f.numero,
           nroAutorizacion: f.cuf || f.autorizacion || 'PENDIENTE',
-          estado: f.estadoSIN || 'pendiente',
+          estadoSin,
           nitCliente: f.cliente?.nit || '0',
           complemento: '', // Col 7
           nombreCliente: f.cliente?.nombre || 'Sin Nombre',
@@ -74,15 +118,29 @@ const LibroComprasVentasModule = () => {
           estadoVenta: estado,
           codigoControl: f.codigoControl || '',
           tipoVenta,
+          electronica,
+          exportable,
         };
       });
   }, [facturas, periodo]);
 
+  const ventasExportables = useMemo(() => ventasMes.filter((venta) => venta.exportable), [ventasMes]);
+
+  const resumenVentas = useMemo(
+    () => ({
+      total: ventasMes.length,
+      exportables: ventasExportables.length,
+      pendientesSin: ventasMes.filter((venta) => venta.electronica && venta.estadoSin === 'pendiente').length,
+      rechazadasSin: ventasMes.filter((venta) => venta.electronica && venta.estadoSin === 'rechazado').length,
+    }),
+    [ventasExportables.length, ventasMes],
+  );
+
   // ===== LIBRO DE COMPRAS IVA (23 columnas formato SIAT) =====
   const comprasMes = useMemo(() => {
     return (compras || [])
-      .filter((c: any) => c.fecha?.startsWith(periodo))
-      .map((c: any, i: number) => {
+      .filter((c: CompraLibro) => c.fecha?.startsWith(periodo))
+      .map((c: CompraLibro, i: number) => {
         const importeTotal = c.total || 0;
         const ice = 0;
         const iehd = 0;
@@ -145,9 +203,9 @@ const LibroComprasVentasModule = () => {
 
   // Exportar TXT Ventas - 24 columnas formato SIAT
   const exportarTXTVentas = () => {
-    const lineas = ventasMes.map(v =>
+    const lineas = ventasExportables.map(v =>
       [
-        v.nro, v.fecha, v.nroFactura, v.nroAutorizacion, v.estado,
+        v.nro, v.fecha, v.nroFactura, v.nroAutorizacion, v.estadoSin,
         v.nitCliente, v.complemento, v.nombreCliente,
         v.importeTotal.toFixed(2), v.ice.toFixed(2), v.iehd.toFixed(2),
         v.ipj.toFixed(2), v.tasas.toFixed(2), v.otrosNoSujetosIVA.toFixed(2),
@@ -218,8 +276,8 @@ const LibroComprasVentasModule = () => {
           ['N°', 'Fecha', 'N° Factura', 'N° Autorización', 'Estado SIN', 'NIT/CI', 'Complemento', 'Nombre/Razón Social',
            'Importe Total', 'ICE', 'IEHD', 'IPJ', 'Tasas', 'Otros No Sujetos', 'Export/Exentas', 'Tasa Cero',
            'Subtotal', 'Descuentos', 'Gift Card', 'Importe Base DF', 'Débito Fiscal', 'Estado', 'Cód. Control', 'Tipo Venta'],
-          ...ventasMes.map(v => [
-            v.nro, v.fecha, v.nroFactura, v.nroAutorizacion, v.estado, v.nitCliente, v.complemento, v.nombreCliente,
+          ...ventasExportables.map(v => [
+            v.nro, v.fecha, v.nroFactura, v.nroAutorizacion, v.estadoSin, v.nitCliente, v.complemento, v.nombreCliente,
             v.importeTotal, v.ice, v.iehd, v.ipj, v.tasas, v.otrosNoSujetosIVA, v.exportacionesExentas, v.ventasTasaCero,
             v.subtotal, v.descuentos, v.giftCard, v.importeBaseDF, v.debitoFiscal, v.estadoVenta, v.codigoControl, v.tipoVenta
           ]),
@@ -267,6 +325,20 @@ const LibroComprasVentasModule = () => {
           <p className="text-muted-foreground">Formato SIAT — 24 columnas Ventas / 23 columnas Compras (RND 10-0021-16)</p>
         </div>
       </div>
+
+      {(resumenVentas.pendientesSin > 0 || resumenVentas.rechazadasSin > 0) && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardContent className="flex flex-col gap-2 p-4 text-sm text-amber-900 md:flex-row md:items-center md:justify-between">
+            <div>
+              El libro detecto ventas electronicas que todavia no estan listas para exportacion oficial.
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {resumenVentas.pendientesSin > 0 && <Badge variant="secondary">{resumenVentas.pendientesSin} pendiente(s) SIN</Badge>}
+              {resumenVentas.rechazadasSin > 0 && <Badge variant="destructive">{resumenVentas.rechazadasSin} rechazada(s) SIN</Badge>}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Selector de periodo */}
       <Card>
@@ -319,6 +391,11 @@ const LibroComprasVentasModule = () => {
                 <span>Libro de Ventas IVA — {MESES[mesSeleccionado]} {anioSeleccionado}</span>
                 <Badge variant="secondary">{ventasMes.length} registros</Badge>
               </CardTitle>
+              <div className="flex flex-wrap gap-2 text-sm">
+                <Badge variant="outline">{resumenVentas.exportables} exportable(s)</Badge>
+                <Badge variant="secondary">{resumenVentas.pendientesSin} pendiente(s) SIN</Badge>
+                <Badge variant="destructive">{resumenVentas.rechazadasSin} rechazada(s) SIN</Badge>
+              </div>
             </CardHeader>
             <CardContent>
               {ventasMes.length === 0 ? (

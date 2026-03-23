@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Activity, FileText, ShoppingCart, Receipt, Users, Package, Building2, RefreshCw, Search, Filter } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { EnhancedHeader, EnhancedMetricCard, MetricGrid } from '../contable/dashboard/EnhancedLayout';
 
 interface LogEntry {
   id: string;
@@ -14,7 +15,7 @@ interface LogEntry {
   description: string;
   detail: string;
   timestamp: string;
-  icon: any;
+  icon: ComponentType<{ className?: string }>;
 }
 
 const ActivityLogs = () => {
@@ -113,22 +114,66 @@ const ActivityLogs = () => {
     acc[log.type] = (acc[log.type] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+  const categoriasActivas = categories.filter(category => category !== 'all').length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Activity className="w-6 h-6 text-primary" />
+    <div className="page-shell space-y-6 pb-12">
+      <EnhancedHeader
+        title="Logs de actividad"
+        subtitle="Monitorea operaciones recientes, trazabilidad administrativa y eventos relevantes del ecosistema."
+        badge={{
+          text: `${logs.length} registros`,
+          variant: 'secondary',
+        }}
+        actions={
+          <Button variant="outline" size="sm" onClick={loadActivityLogs} className="gap-2">
+            <RefreshCw className="w-4 h-4" /> Actualizar
+          </Button>
+        }
+      />
+
+      <MetricGrid columns={4}>
+        <EnhancedMetricCard title="Actividad total" value={logs.length} subtitle="Eventos recopilados" icon={Activity} />
+        <EnhancedMetricCard title="Categorias" value={categoriasActivas} subtitle="Fuentes activas de trazabilidad" icon={Filter} />
+        <EnhancedMetricCard title="Resultados" value={filteredLogs.length} subtitle="Coincidencias segun filtros" icon={Search} variant="success" />
+        <EnhancedMetricCard title="Ultimo refresco" value={loading ? "Cargando" : "Listo"} subtitle="Estado de sincronizacion" icon={RefreshCw} variant={loading ? 'warning' : 'secondary'} />
+      </MetricGrid>
+
+      <div className="hero-panel rounded-[2rem] p-6">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_340px]">
+          <div className="rounded-3xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+              Trazabilidad ejecutiva
+            </p>
+            <h3 className="mt-2 text-lg font-semibold text-slate-950">
+              Consulta actividad comercial, contable y administrativa desde una sola linea de tiempo
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Esta vista ayuda a detectar cambios relevantes, validar eventos recientes y preparar
+              revisiones operativas o de soporte sin navegar por multiples modulos.
+            </p>
           </div>
-          <div>
-            <h2 className="text-2xl font-bold">Logs de Actividad</h2>
-            <p className="text-sm text-muted-foreground">{logs.length} registros de actividad</p>
+
+          <div className="rounded-3xl border border-slate-200 bg-slate-950 p-5 text-slate-50 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+              Uso sugerido
+            </p>
+            <div className="mt-4 space-y-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <p className="text-sm font-semibold">Filtra por categoria</p>
+                <p className="mt-1 text-xs leading-5 text-slate-300">
+                  Reduce ruido y enfoca la revision por ventas, compras, usuarios o contabilidad.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                <p className="text-sm font-semibold">Valida orden cronologico</p>
+                <p className="mt-1 text-xs leading-5 text-slate-300">
+                  Usa el timeline para reconstruir incidencias y confirmar que los eventos sigan la secuencia esperada.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={loadActivityLogs} className="gap-2">
-          <RefreshCw className="w-4 h-4" /> Actualizar
-        </Button>
       </div>
 
       {/* Activity Summary */}

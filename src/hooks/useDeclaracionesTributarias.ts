@@ -127,6 +127,7 @@ export const NIT_VENCIMIENTO_ROWS = Array.from({ length: 10 }, (_, index) => ({
 }));
 
 const LEGACY_STORAGE_KEY = "declaracionesTributarias";
+const MONTH_PERIOD_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 const toIsoDate = (value: Date) => value.toISOString().slice(0, 10);
 
@@ -155,6 +156,10 @@ const getQuarterEndMonth = (month: number) => {
   if (month <= 9) return 9;
   return 12;
 };
+
+const normalizarPeriodoFiscal = (value: string) => value.trim().slice(0, 7);
+
+const esPeriodoFiscalValido = (value: string) => MONTH_PERIOD_REGEX.test(normalizarPeriodoFiscal(value));
 
 const normalizeTipo = (value?: string | null): DeclaracionTipo => {
   switch (value) {
@@ -402,19 +407,75 @@ export const useDeclaracionesTributarias = (contexto: DeclaracionesContexto) => 
         if (!user) throw new Error("Usuario no autenticado");
 
         const tipo = normalizeTipo(draft.tipo);
+        const periodo = normalizarPeriodoFiscal(draft.periodo);
         const definition = DECLARACION_DEFINITIONS[tipo];
-        const fechaVencimiento = calcularFechaVencimiento(tipo, draft.periodo, contexto.nit);
+        const montoBase = Number(draft.montoBase || 0);
+        const montoImpuesto = Number(draft.montoImpuesto || 0);
+        const montoPagado = Number(draft.montoPagado || 0);
+
+        if (!esPeriodoFiscalValido(periodo)) {
+          toast({
+            title: "Periodo fiscal invalido",
+            description: "Usa un periodo en formato YYYY-MM para registrar la declaracion.",
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        if (montoBase < 0 || montoImpuesto < 0 || montoPagado < 0) {
+          toast({
+            title: "Montos invalidos",
+            description: "Los importes tributarios no pueden ser negativos.",
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        const yaExisteEnMemoria = declaraciones.some(
+          (item) => item.tipo === tipo && item.periodo === periodo,
+        );
+
+        if (yaExisteEnMemoria) {
+          toast({
+            title: "Declaracion duplicada",
+            description: `Ya existe un registro ${definition.formulario} para el periodo ${periodo}.`,
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        const { data: existente, error: duplicateError } = await supabase
+          .from("declaraciones_tributarias")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("tipo", tipo)
+          .eq("periodo", periodo)
+          .limit(1)
+          .maybeSingle();
+
+        if (duplicateError) throw duplicateError;
+        if (existente) {
+          toast({
+            title: "Declaracion ya registrada",
+            description: `El formulario ${definition.formulario} del periodo ${periodo} ya fue ingresado anteriormente.`,
+            variant: "destructive",
+          });
+          await fetchDeclaraciones();
+          return false;
+        }
+
+        const fechaVencimiento = calcularFechaVencimiento(tipo, periodo, contexto.nit);
         const payload: DeclaracionInsert = {
           user_id: user.id,
           tipo,
-          periodo: draft.periodo,
-          gestion: Number(draft.periodo.slice(0, 4)),
-          mes: Number(draft.periodo.slice(5, 7)),
+          periodo,
+          gestion: Number(periodo.slice(0, 4)),
+          mes: Number(periodo.slice(5, 7)),
           fecha_vencimiento: fechaVencimiento,
           estado: "pendiente",
-          monto_base: Number(draft.montoBase || 0),
-          monto_impuesto: Number(draft.montoImpuesto || 0),
-          monto_pagado: Number(draft.montoPagado || 0),
+          monto_base: montoBase,
+          monto_impuesto: montoImpuesto,
+          monto_pagado: montoPagado,
           formulario_tipo: definition.formulario,
           modalidad_facturacion: contexto.modalidadFacturacion || null,
           codigo_actividad_caeb: contexto.codigoActividadCaeb || null,
@@ -441,21 +502,32 @@ export const useDeclaracionesTributarias = (contexto: DeclaracionesContexto) => 
 
         toast({
           title: "Declaracion registrada",
-          description: `${definition.formulario} - ${definition.label} para el periodo ${draft.periodo}.`,
+          description: `${definition.formulario} - ${definition.label} para el periodo ${periodo}.`,
         });
 
         return true;
       } catch (error) {
         console.error("Error creando declaracion:", error);
+        const description =
+          error instanceof Error && /duplicate|unique|already/i.test(error.message)
+            ? "Esa declaracion ya existe para el mismo tipo y periodo."
+            : "No se pudo guardar la declaracion tributaria.";
         toast({
           title: "Error al registrar declaracion",
-          description: "No se pudo guardar la declaracion tributaria.",
+          description,
           variant: "destructive",
         });
         return false;
       }
     },
-    [contexto.codigoActividadCaeb, contexto.modalidadFacturacion, contexto.nit, toast],
+    [
+      contexto.codigoActividadCaeb,
+      contexto.modalidadFacturacion,
+      contexto.nit,
+      declaraciones,
+      fetchDeclaraciones,
+      toast,
+    ],
   );
 
   const marcarComoPresentada = useCallback(

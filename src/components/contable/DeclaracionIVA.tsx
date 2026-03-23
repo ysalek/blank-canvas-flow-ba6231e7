@@ -123,6 +123,12 @@ const DeclaracionIVA = ({ onBack }: DeclaracionIVAProps) => {
         </CardContent>
       </Card>
 
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        Este modulo calcula el Formulario 200 y puede generar el asiento de compensacion IVA, pero no registra por
+        si solo una declaracion tributaria oficial en el historial. Ese registro se controla desde el modulo de
+        declaraciones tributarias.
+      </div>
+
       {ivaData && (
         <div className="grid md:grid-cols-2 gap-6 items-start">
             <Card>
