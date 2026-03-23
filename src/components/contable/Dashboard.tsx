@@ -75,6 +75,8 @@ const Dashboard = () => {
   const balanceCuadrado = Math.abs(balance.activos - (balance.pasivos + balance.patrimonio)) <= 0.01;
   const alertasCriticas = complianceAlerts.filter(a => a.priority === 'critical' && a.id !== 'sin-alertas').length;
   const alertasActivas = complianceAlerts.filter(a => a.id !== 'sin-alertas').length;
+  const alertaPrioritaria = complianceAlerts.find(a => a.id !== 'sin-alertas');
+  const alertaCriticaPrioritaria = complianceAlerts.find(a => a.priority === 'critical' && a.id !== 'sin-alertas') || alertaPrioritaria;
 
   return (
     <div className="page-shell space-y-6 pb-12">
@@ -228,13 +230,18 @@ const Dashboard = () => {
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Card className="border-rose-200 bg-rose-50/90">
+          <Card
+            className={`border-rose-200 bg-rose-50/90 ${alertaCriticaPrioritaria ? 'cursor-pointer transition hover:-translate-y-0.5 hover:shadow-sm' : ''}`}
+            onClick={() => alertaCriticaPrioritaria && navigateFromAlert(alertaCriticaPrioritaria)}
+          >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-rose-700">Alertas criticas</p>
                   <p className="mt-2 text-2xl font-bold text-rose-950">{alertasCriticas}</p>
-                  <p className="text-xs text-rose-700">Hallazgos de cierre que requieren accion</p>
+                  <p className="text-xs text-rose-700">
+                    {alertaCriticaPrioritaria ? 'Abrir incidencia prioritaria' : 'Hallazgos de cierre que requieren accion'}
+                  </p>
                 </div>
                 <AlertTriangle className="h-6 w-6 text-rose-600" />
               </div>

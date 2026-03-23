@@ -197,6 +197,9 @@ const FacturacionElectronicaModule = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("operaciones");
   const [periodoFiltro, setPeriodoFiltro] = useState("");
+  const [facturaFocoId, setFacturaFocoId] = useState("");
+  const [accionFoco, setAccionFoco] = useState("");
+  const [correccionPreparadaId, setCorreccionPreparadaId] = useState("");
   const [conectadoSIN, setConectadoSIN] = useState(false);
   const [verificandoSIN, setVerificandoSIN] = useState(false);
   const [facturaEnProcesoId, setFacturaEnProcesoId] = useState<string | null>(null);
@@ -217,12 +220,16 @@ const FacturacionElectronicaModule = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const tab = urlParams.get("tab");
       const periodo = urlParams.get("periodo");
+      const factura = urlParams.get("factura");
+      const accion = urlParams.get("accion");
 
       if (tab && ["operaciones", "nueva", "puntos-venta", "sectores"].includes(tab)) {
         setActiveTab(tab);
       }
 
       setPeriodoFiltro(periodo || "");
+      setFacturaFocoId(factura || "");
+      setAccionFoco(accion || "");
     };
 
     applyUrlContext();
@@ -260,6 +267,19 @@ const FacturacionElectronicaModule = () => {
     [configSin, empresa.nit],
   );
 
+  useEffect(() => {
+    if (!facturaFocoId || activeTab !== "operaciones") {
+      return;
+    }
+
+    const element = document.getElementById(`factura-electronica-${facturaFocoId}`);
+    if (!element) {
+      return;
+    }
+
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [activeTab, facturaFocoId, facturasElectronicas]);
+
   const resumen = useMemo(() => {
     const total = facturasElectronicas.length;
     const autorizadas = facturasElectronicas.filter((factura) => factura.estadoSIN === "aceptado").length;
@@ -278,6 +298,62 @@ const FacturacionElectronicaModule = () => {
       porcentajeExito: total > 0 ? Math.round((autorizadas / total) * 100) : 0,
     };
   }, [facturasElectronicas]);
+
+  const facturaEnfocada = useMemo(
+    () => facturasElectronicas.find((factura) => factura.id === facturaFocoId) ?? null,
+    [facturaFocoId, facturasElectronicas],
+  );
+
+  const accionSugerida = useMemo(() => {
+    if (!facturaEnfocada) {
+      return null;
+    }
+
+    const accion = accionFoco || (facturaEnfocada.estadoSIN === "rechazado" ? "revisar-datos" : "reenviar");
+
+    if (accion === "revisar-datos") {
+      return {
+        titulo: "Revisar datos fiscales",
+        detalle: "La factura enfocada fue observada. Revisa NIT, actividad economica, CUF/CUFD y observaciones antes de reenviar.",
+      };
+    }
+
+    if (accion === "descargar-soporte") {
+      return {
+        titulo: "Descargar soporte auditable",
+        detalle: "Genera el soporte JSON para revisar el rastro fiscal de esta factura con el equipo contable o de sistemas.",
+      };
+    }
+
+    return {
+      titulo: "Reenviar factura al flujo SIN",
+      detalle: "La factura enfocada sigue pendiente. Una vez verificada la configuracion, puedes reenviarla desde esta misma mesa operativa.",
+    };
+  }, [accionFoco, facturaEnfocada]);
+
+  useEffect(() => {
+    if (accionFoco !== "revisar-datos" || !facturaEnfocada || correccionPreparadaId === facturaEnfocada.id) {
+      return;
+    }
+
+    const itemPrincipal = facturaEnfocada.items?.[0];
+    setFormData({
+      codigoPuntoVenta: Number(facturaEnfocada.puntoVenta || configSin.codigoPuntoVenta || configFiscal.puntoVenta || 0),
+      nit: facturaEnfocada.cliente?.nit || "",
+      razonSocial: facturaEnfocada.cliente?.nombre || "",
+      montoTotal: Number(facturaEnfocada.total || 0),
+      codigoSector: Number(itemPrincipal?.codigoSIN || 1),
+      actividadEconomica: itemPrincipal?.codigo || "",
+      observaciones: [
+        `Correccion sugerida de factura ${facturaEnfocada.numero}.`,
+        facturaEnfocada.observaciones || "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+    });
+    setCorreccionPreparadaId(facturaEnfocada.id);
+    setActiveTab("nueva");
+  }, [accionFoco, configFiscal.puntoVenta, configSin.codigoPuntoVenta, correccionPreparadaId, facturaEnfocada]);
 
   const cufdActual = configSin.cufd || obtenerCUFD(Number(configSin.codigoPuntoVenta || 0));
 
@@ -625,6 +701,54 @@ const FacturacionElectronicaModule = () => {
         </Alert>
       )}
 
+      {facturaEnfocada && accionSugerida && (
+        <Alert className="border-amber-300 bg-amber-50">
+          <AlertTriangle className="h-4 w-4 text-amber-700" />
+          <AlertDescription className="flex flex-col gap-3 text-amber-950 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-1">
+              <p className="font-medium">
+                {accionSugerida.titulo}: factura {facturaEnfocada.numero}
+              </p>
+              <p className="text-sm text-amber-900">
+                {accionSugerida.detalle}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(accionFoco === "reenviar" || facturaEnfocada.estadoSIN === "pendiente") && (
+                <Button
+                  size="sm"
+                  onClick={() => void handleEnviarFactura(facturaEnfocada)}
+                  disabled={!conectadoSIN || facturaEnProcesoId === facturaEnfocada.id || facturaEnfocada.estadoSIN === "aceptado"}
+                >
+                  {facturaEnProcesoId === facturaEnfocada.id ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                  Reenviar ahora
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => handleDescargarSoporte(facturaEnfocada)}>
+                <Download className="mr-2 h-4 w-4" />
+                Descargar soporte
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete("factura");
+                  url.searchParams.delete("accion");
+                  window.history.pushState({}, "", url.toString());
+                  setFacturaFocoId("");
+                  setAccionFoco("");
+                  setCorreccionPreparadaId("");
+                }}
+              >
+                Quitar foco
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Facturas auditadas" value={String(resumen.total)} detail="Base unica electronica" tone="slate" icon={<FileText className="h-4 w-4" />} />
         <MetricCard title="Autorizadas" value={String(resumen.autorizadas)} detail={`Bs ${resumen.montoAutorizado.toLocaleString("es-BO", { minimumFractionDigits: 2 })}`} tone="green" icon={<CheckCircle2 className="h-4 w-4" />} />
@@ -667,7 +791,11 @@ const FacturacionElectronicaModule = () => {
                         <TableRow><TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">No hay facturas registradas en la base real todavia.</TableCell></TableRow>
                       ) : (
                         facturasElectronicas.map((factura) => (
-                          <TableRow key={factura.id}>
+                          <TableRow
+                            key={factura.id}
+                            id={`factura-electronica-${factura.id}`}
+                            className={factura.id === facturaFocoId ? "bg-amber-50/80 ring-1 ring-inset ring-amber-200 transition-colors" : ""}
+                          >
                             <TableCell><div className="space-y-1"><div className="font-medium">{factura.numero}</div><div className="text-xs text-muted-foreground">{new Date(factura.fecha).toLocaleDateString("es-BO")} - PV {factura.puntoVenta}</div></div></TableCell>
                             <TableCell><div className="space-y-1"><div className="font-medium">{factura.cliente.nombre}</div><div className="text-xs text-muted-foreground">NIT {factura.cliente.nit}</div></div></TableCell>
                             <TableCell className="max-w-[240px]"><div className="space-y-1"><p className="truncate text-xs text-muted-foreground">{factura.cuf || "Sin CUF"}</p><p className="truncate text-xs text-muted-foreground">{factura.cufd || "Sin CUFD"}</p></div></TableCell>
@@ -690,8 +818,20 @@ const FacturacionElectronicaModule = () => {
                 </div>
 
                 <div className="space-y-3 md:hidden">
+                  {facturaFocoId && !facturasElectronicas.some((factura) => factura.id === facturaFocoId) && (
+                    <Alert className="rounded-2xl border-amber-200 bg-amber-50 text-amber-900">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertDescription>
+                        La factura observada ya no aparece en este filtro. Revisa si cambio de periodo o si su estado fue corregido.
+                      </AlertDescription>
+                    </Alert>
+                  )}
                   {facturasElectronicas.map((factura) => (
-                    <Card key={factura.id} className="rounded-2xl border border-slate-200 shadow-none">
+                    <Card
+                      key={factura.id}
+                      id={`factura-electronica-${factura.id}`}
+                      className={factura.id === facturaFocoId ? "rounded-2xl border-amber-200 bg-amber-50 shadow-none ring-1 ring-amber-200" : "rounded-2xl border border-slate-200 shadow-none"}
+                    >
                       <CardContent className="space-y-4 p-4">
                         <div className="flex items-start justify-between gap-3"><div><div className="font-semibold">{factura.numero}</div><p className="text-sm text-muted-foreground">{factura.cliente.nombre}</p></div><EstadoSinBadge estado={factura.estadoSIN} /></div>
                         <div className="text-sm text-muted-foreground">Bs {factura.total.toLocaleString("es-BO", { minimumFractionDigits: 2 })} - PV {factura.puntoVenta}</div>
@@ -712,7 +852,11 @@ const FacturacionElectronicaModule = () => {
                 <ScrollArea className="h-[460px] pr-4">
                   <div className="space-y-3">
                     {facturasElectronicas.slice(0, 10).map((factura) => (
-                      <div key={factura.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div
+                        key={factura.id}
+                        id={`factura-electronica-${factura.id}-cola`}
+                        className={factura.id === facturaFocoId ? "rounded-2xl border border-amber-200 bg-amber-50 p-4 ring-1 ring-amber-200" : "rounded-2xl border border-slate-200 bg-slate-50 p-4"}
+                      >
                         <div className="flex items-center justify-between gap-3"><div><p className="font-medium">{factura.numero}</p><p className="text-xs text-muted-foreground">{factura.cliente.nombre} - NIT {factura.cliente.nit}</p></div><EstadoSinBadge estado={factura.estadoSIN} /></div>
                         <Separator className="my-3" />
                         <div className="space-y-2 text-sm">
@@ -736,6 +880,25 @@ const FacturacionElectronicaModule = () => {
               <CardDescription>Crea una factura basica sobre la base real para dejar CUF, CUFD y control enlazados.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {accionFoco === "revisar-datos" && facturaEnfocada && correccionPreparadaId === facturaEnfocada.id && (
+                <Alert className="border-amber-300 bg-amber-50">
+                  <AlertTriangle className="h-4 w-4 text-amber-700" />
+                  <AlertDescription className="flex flex-col gap-3 text-amber-950 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      Se preparo un borrador correctivo con base en la factura {facturaEnfocada.numero}. Ajusta los datos fiscales y registra una nueva version antes de reenviar.
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" onClick={() => handleDescargarSoporte(facturaEnfocada)}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Soporte origen
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setActiveTab("operaciones")}>
+                        Volver a operaciones
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
               <div className="grid gap-4 lg:grid-cols-3">
                 <InfoStrip label="Empresa" value={empresa.razonSocial || "Sin configurar"} />
                 <InfoStrip label="NIT emisor" value={configSin.nit || empresa.nit || "Sin NIT"} />

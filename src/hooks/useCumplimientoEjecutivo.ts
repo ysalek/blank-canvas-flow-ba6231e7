@@ -33,6 +33,10 @@ export interface AutomatedReportItem {
   autoSubmit: boolean;
   recipients: string[];
   payload: Record<string, unknown>;
+  navigation?: {
+    view: string;
+    params?: Record<string, string>;
+  };
 }
 
 interface DeclaracionRow {
@@ -231,6 +235,7 @@ export const useCumplimientoEjecutivo = () => {
           params: {
             periodo: overdueDeclaraciones[0].periodo,
             tipo: overdueDeclaraciones[0].tipo.toLowerCase(),
+            accion: "revisar-declaracion",
           },
         },
       });
@@ -252,6 +257,7 @@ export const useCumplimientoEjecutivo = () => {
           params: {
             periodo: upcomingDeclaraciones[0].periodo,
             tipo: upcomingDeclaraciones[0].tipo.toLowerCase(),
+            accion: "registrar-declaracion",
           },
         },
       });
@@ -337,6 +343,7 @@ export const useCumplimientoEjecutivo = () => {
       (item) => item.estado_sin === "rechazado",
     );
     if (facturasElectronicasObservadas.length > 0) {
+      const facturaObjetivo = facturasElectronicasObservadas[0];
       items.push({
         id: "facturas-sin-observadas",
         type: "critico",
@@ -348,6 +355,12 @@ export const useCumplimientoEjecutivo = () => {
         source: "Facturacion electronica",
         navigation: {
           view: "facturacion-electronica",
+          params: {
+            tab: "operaciones",
+            periodo: facturaObjetivo.fecha.slice(0, 7),
+            factura: facturaObjetivo.id,
+            accion: "revisar-datos",
+          },
         },
       });
     }
@@ -379,6 +392,8 @@ export const useCumplimientoEjecutivo = () => {
     const itPendiente = declaracionesPendientes.filter((item) => item.tipo === "IT");
     const rcIvaPendiente = declaracionesPendientes.filter((item) => item.tipo.toLowerCase().includes("rc-iva"));
     const iuePendiente = declaracionesPendientes.filter((item) => item.tipo === "IUE");
+    const facturaObservada = facturasSin.find((item) => item.estado_sin === "rechazado");
+    const alertaPrioritaria = alerts.find((item) => item.id !== "sin-alertas");
     const currentMonthStart = startOfCurrentMonth();
 
     const definitions: Omit<AutomatedReportItem, "status" | "lastGenerated">[] = [
@@ -395,6 +410,26 @@ export const useCumplimientoEjecutivo = () => {
           montoImpuesto: ivaPendiente.reduce((sum, item) => sum + Number(item.monto_impuesto || 0), 0),
           facturasElectronicasObservadas: facturasSin.filter((item) => item.estado_sin === "rechazado").length,
         },
+        navigation: facturaObservada
+          ? {
+              view: "facturacion-electronica",
+              params: {
+                tab: "operaciones",
+                periodo: facturaObservada.fecha.slice(0, 7),
+                factura: facturaObservada.id,
+                accion: "revisar-datos",
+              },
+            }
+          : ivaPendiente[0]
+            ? {
+                view: "declaraciones-tributarias",
+              params: {
+                tipo: "IVA",
+                periodo: ivaPendiente[0].periodo,
+                accion: "registrar-declaracion",
+              },
+            }
+          : undefined,
       },
       {
         id: "it-monthly",
@@ -408,6 +443,16 @@ export const useCumplimientoEjecutivo = () => {
           pendientes: itPendiente.length,
           montoImpuesto: itPendiente.reduce((sum, item) => sum + Number(item.monto_impuesto || 0), 0),
         },
+        navigation: itPendiente[0]
+          ? {
+              view: "declaraciones-tributarias",
+              params: {
+                tipo: "IT",
+                periodo: itPendiente[0].periodo,
+                accion: "registrar-declaracion",
+              },
+            }
+          : undefined,
       },
       {
         id: "rc-iva-monthly",
@@ -424,6 +469,9 @@ export const useCumplimientoEjecutivo = () => {
             .reduce((sum, item) => sum + Number(item.monto_retencion || 0), 0),
           planillasConRCIVA: planillas.filter((item) => Number(item.total_rciva || 0) > 0).length,
         },
+        navigation: {
+          view: "retenciones",
+        },
       },
       {
         id: "rc-it-monthly",
@@ -435,6 +483,9 @@ export const useCumplimientoEjecutivo = () => {
         recipients: [],
         payload: {
           retencionesEmitidas: retenciones.filter((item) => item.tipo_retencion.includes("it")).length,
+        },
+        navigation: {
+          view: "retenciones",
         },
       },
       {
@@ -449,6 +500,18 @@ export const useCumplimientoEjecutivo = () => {
           pendientes: iuePendiente.length,
           conciliacionesAbiertas: conciliaciones.filter((item) => item.estado !== "conciliado").length,
         },
+        navigation: iuePendiente[0]
+          ? {
+              view: "declaraciones-tributarias",
+              params: {
+                tipo: "IUE",
+                periodo: iuePendiente[0].periodo,
+                accion: "revisar-declaracion",
+              },
+            }
+          : {
+              view: "conciliacion-bancaria",
+            },
       },
       {
         id: "estados-financieros",
@@ -461,6 +524,9 @@ export const useCumplimientoEjecutivo = () => {
         payload: {
           planillasPagadas: planillas.filter((item) => item.estado === "pagada").length,
           conciliacionesCerradas: conciliaciones.filter((item) => item.estado === "conciliado").length,
+        },
+        navigation: {
+          view: "balance-general",
         },
       },
       {
@@ -476,6 +542,12 @@ export const useCumplimientoEjecutivo = () => {
           pendientesNormativos: cumplimiento.filter((item) => item.estado !== "cumplido").length,
           declaracionesPendientes: declaracionesPendientes.length,
           facturasElectronicasObservadas: facturasSin.filter((item) => item.estado_sin === "rechazado").length,
+        },
+        navigation: alertaPrioritaria?.navigation || {
+          view: "cumplimiento-normativo",
+          params: {
+            tab: "requisitos",
+          },
         },
       },
     ];

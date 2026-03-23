@@ -36,6 +36,28 @@ const getSinLabel = (estado: string, esElectronica: boolean) => {
   return 'Sin estado';
 };
 
+const navigateToFacturaElectronica = (periodo: string, facturaId?: string, accion?: string) => {
+  const url = new URL(window.location.href);
+  url.searchParams.set('view', 'facturacion-electronica');
+  url.searchParams.set('tab', 'operaciones');
+  url.searchParams.set('periodo', periodo);
+
+  if (facturaId) {
+    url.searchParams.set('factura', facturaId);
+  } else {
+    url.searchParams.delete('factura');
+  }
+
+  if (accion) {
+    url.searchParams.set('accion', accion);
+  } else {
+    url.searchParams.delete('accion');
+  }
+
+  window.history.pushState({}, '', `${url.pathname}${url.search}`);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+};
+
 interface CompraLibro {
   fecha?: string;
   total?: number;
@@ -94,6 +116,7 @@ const LibroComprasVentasModule = () => {
         const exportable = estado === 'V' && (!electronica || estadoSin === 'aceptado');
 
         return {
+          id: f.id,
           nro: i + 1,
           fecha: f.fecha,
           nroFactura: f.numero,
@@ -120,11 +143,16 @@ const LibroComprasVentasModule = () => {
           tipoVenta,
           electronica,
           exportable,
+          accionSugerida: estadoSin === 'rechazado' ? 'revisar-datos' : estadoSin === 'pendiente' ? 'reenviar' : 'descargar-soporte',
         };
       });
   }, [facturas, periodo]);
 
   const ventasExportables = useMemo(() => ventasMes.filter((venta) => venta.exportable), [ventasMes]);
+  const primeraVentaConIncidencia = useMemo(
+    () => ventasMes.find((venta) => venta.electronica && (venta.estadoSin === 'rechazado' || venta.estadoSin === 'pendiente')),
+    [ventasMes],
+  );
 
   const resumenVentas = useMemo(
     () => ({
@@ -335,6 +363,21 @@ const LibroComprasVentasModule = () => {
             <div className="flex flex-wrap gap-2">
               {resumenVentas.pendientesSin > 0 && <Badge variant="secondary">{resumenVentas.pendientesSin} pendiente(s) SIN</Badge>}
               {resumenVentas.rechazadasSin > 0 && <Badge variant="destructive">{resumenVentas.rechazadasSin} rechazada(s) SIN</Badge>}
+              {primeraVentaConIncidencia && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    navigateToFacturaElectronica(
+                      periodo,
+                      primeraVentaConIncidencia.id,
+                      primeraVentaConIncidencia.accionSugerida,
+                    )
+                  }
+                >
+                  Revisar factura observada
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -419,7 +462,9 @@ const LibroComprasVentasModule = () => {
                         <TableHead className="text-right">Descuentos</TableHead>
                         <TableHead className="text-right">Importe Base DF</TableHead>
                         <TableHead className="text-right">Débito Fiscal</TableHead>
+                        <TableHead className="text-center">Estado SIN</TableHead>
                         <TableHead className="text-center">Estado</TableHead>
+                        <TableHead className="text-right">Accion</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -437,9 +482,27 @@ const LibroComprasVentasModule = () => {
                           <TableCell className="text-right">{v.importeBaseDF.toFixed(2)}</TableCell>
                           <TableCell className="text-right font-medium">{v.debitoFiscal.toFixed(2)}</TableCell>
                           <TableCell className="text-center">
+                            <Badge variant={getSinBadgeVariant(v.estadoSin)}>
+                              {getSinLabel(v.estadoSin, v.electronica)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
                             <Badge variant={v.estadoVenta === 'V' ? 'default' : 'destructive'} className="text-xs">
                               {v.estadoVenta === 'V' ? 'Válida' : 'Anulada'}
                             </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {v.electronica && (v.estadoSin === 'rechazado' || v.estadoSin === 'pendiente') ? (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => navigateToFacturaElectronica(periodo, v.id, v.accionSugerida)}
+                              >
+                                Abrir
+                              </Button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Sin accion</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -450,6 +513,8 @@ const LibroComprasVentasModule = () => {
                         <TableCell className="text-right">{totalesVentas.descuentos.toFixed(2)}</TableCell>
                         <TableCell className="text-right">{totalesVentas.importeBaseDF.toFixed(2)}</TableCell>
                         <TableCell className="text-right">{totalesVentas.debitoFiscal.toFixed(2)}</TableCell>
+                        <TableCell />
+                        <TableCell />
                         <TableCell />
                       </TableRow>
                     </TableBody>

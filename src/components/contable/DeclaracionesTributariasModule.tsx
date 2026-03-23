@@ -165,17 +165,40 @@ const esFacturaElectronica = (observaciones: string, cuf: string, cufd: string, 
   Boolean(cuf || cufd || codigoControl) ||
   observaciones.includes("Registro creado desde Facturacion Electronica.");
 
-const navigateToFacturacionElectronica = (periodo: string) => {
+const resolverAccionFacturaElectronica = (estadoSIN?: string | null) => {
+  if (estadoSIN === "rechazado") {
+    return "revisar-datos";
+  }
+
+  if (estadoSIN === "pendiente") {
+    return "reenviar";
+  }
+
+  return "descargar-soporte";
+};
+
+const navigateToFacturacionElectronica = (periodo: string, facturaId?: string, accion?: string) => {
   const url = new URL(window.location.href);
   url.searchParams.set("view", "facturacion-electronica");
   url.searchParams.set("tab", "operaciones");
   url.searchParams.set("periodo", periodo);
+  if (facturaId) {
+    url.searchParams.set("factura", facturaId);
+  } else {
+    url.searchParams.delete("factura");
+  }
+  if (accion) {
+    url.searchParams.set("accion", accion);
+  } else {
+    url.searchParams.delete("accion");
+  }
   window.history.pushState({}, "", url.toString());
   window.dispatchEvent(new PopStateEvent("popstate"));
 };
 
 const DeclaracionesTributariasModule = () => {
   const [showNewDeclaracion, setShowNewDeclaracion] = useState(false);
+  const [accionDeclaracion, setAccionDeclaracion] = useState("");
   const [confirmacionPresentacion, setConfirmacionPresentacion] =
     useState<ConfirmacionPresentacionState | null>(null);
   const [estimador, setEstimador] = useState<EstimadorState>({
@@ -275,12 +298,44 @@ const DeclaracionesTributariasModule = () => {
       const urlParams = new URLSearchParams(window.location.search);
       setFiltroTipo(urlParams.get("tipo") || "todos");
       setFiltroPeriodo(urlParams.get("periodo") || "");
+      setAccionDeclaracion(urlParams.get("accion") || "");
     };
 
     applyUrlFilters();
     window.addEventListener("popstate", applyUrlFilters);
     return () => window.removeEventListener("popstate", applyUrlFilters);
   }, []);
+
+  const clearDeclaracionActionContext = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("accion");
+    window.history.pushState({}, "", url.toString());
+    setAccionDeclaracion("");
+  };
+
+  useEffect(() => {
+    if (!accionDeclaracion || (accionDeclaracion !== "registrar-declaracion" && accionDeclaracion !== "revisar-declaracion")) {
+      return;
+    }
+
+    if (filtroTipo === "todos" && !filtroPeriodo) {
+      return;
+    }
+
+    setShowNewDeclaracion(true);
+  }, [accionDeclaracion, filtroPeriodo, filtroTipo]);
+
+  const tipoInicialFormulario = useMemo<DeclaracionTipo | undefined>(() => {
+    if (filtroTipo === "todos") {
+      return undefined;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(DECLARACION_DEFINITIONS, filtroTipo)) {
+      return filtroTipo as DeclaracionTipo;
+    }
+
+    return undefined;
+  }, [filtroTipo]);
 
   const declaracionesFiltradas = useMemo(() => {
     return declaraciones.filter((item) => {
@@ -321,6 +376,39 @@ const DeclaracionesTributariasModule = () => {
       if (factura.estadoSIN === "rechazado") {
         current.rechazadas += 1;
       }
+      map.set(periodoFactura, current);
+    });
+
+    return map;
+  }, [facturas]);
+
+  const facturasElectronicasConflictivasPorPeriodo = useMemo(() => {
+    const map = new Map<string, Array<{ id: string; accion: string }>>();
+
+    facturas.forEach((factura) => {
+      if (
+        !esFacturaElectronica(
+          factura.observaciones || "",
+          factura.cuf || "",
+          factura.cufd || "",
+          factura.codigoControl || "",
+        )
+      ) {
+        return;
+      }
+
+      if (factura.estadoSIN !== "pendiente" && factura.estadoSIN !== "rechazado") {
+        return;
+      }
+
+      const periodoFactura = factura.fecha?.slice(0, 7);
+      if (!periodoFactura) return;
+
+      const current = map.get(periodoFactura) || [];
+      current.push({
+        id: factura.id,
+        accion: resolverAccionFacturaElectronica(factura.estadoSIN),
+      });
       map.set(periodoFactura, current);
     });
 
@@ -396,7 +484,15 @@ const DeclaracionesTributariasModule = () => {
             <RefreshCw className="mr-2 h-4 w-4" />
             Recargar
           </Button>
-          <Dialog open={showNewDeclaracion} onOpenChange={setShowNewDeclaracion}>
+          <Dialog
+            open={showNewDeclaracion}
+            onOpenChange={(open) => {
+              setShowNewDeclaracion(open);
+              if (!open) {
+                clearDeclaracionActionContext();
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -414,6 +510,13 @@ const DeclaracionesTributariasModule = () => {
                 nit={empresa.nit}
                 actividadEconomica={empresa.actividadEconomica}
                 ivaRate={configFiscal.ivaGeneral}
+                initialTipo={tipoInicialFormulario}
+                initialPeriodo={filtroPeriodo || undefined}
+                initialObservaciones={
+                  accionDeclaracion === "revisar-declaracion"
+                    ? `Revision asistida del periodo ${filtroPeriodo || "actual"} desde mesa de cierre.`
+                    : undefined
+                }
                 declaracionesExistentes={declaraciones.map((item) => ({
                   tipo: item.tipo,
                   periodo: item.periodo,
@@ -422,9 +525,13 @@ const DeclaracionesTributariasModule = () => {
                   const ok = await crearDeclaracion(draft);
                   if (ok) {
                     setShowNewDeclaracion(false);
+                    clearDeclaracionActionContext();
                   }
                 }}
-                onCancel={() => setShowNewDeclaracion(false)}
+                onCancel={() => {
+                  setShowNewDeclaracion(false);
+                  clearDeclaracionActionContext();
+                }}
               />
             </DialogContent>
           </Dialog>
@@ -458,7 +565,13 @@ const DeclaracionesTributariasModule = () => {
               type="button"
               size="sm"
               variant="outline"
-              onClick={() => navigateToFacturacionElectronica(filtroPeriodo)}
+              onClick={() =>
+                navigateToFacturacionElectronica(
+                  filtroPeriodo,
+                  facturasElectronicasConflictivasPorPeriodo.get(filtroPeriodo)?.[0]?.id,
+                  facturasElectronicasConflictivasPorPeriodo.get(filtroPeriodo)?.[0]?.accion,
+                )
+              }
             >
               Ir a facturacion electronica
             </Button>
@@ -714,7 +827,13 @@ const DeclaracionesTributariasModule = () => {
                               <button
                                 type="button"
                                 className="font-medium text-primary underline-offset-4 hover:underline"
-                                onClick={() => navigateToFacturacionElectronica(declaracion.periodo)}
+                                onClick={() =>
+                                  navigateToFacturacionElectronica(
+                                    declaracion.periodo,
+                                    facturasElectronicasConflictivasPorPeriodo.get(declaracion.periodo)?.[0]?.id,
+                                    facturasElectronicasConflictivasPorPeriodo.get(declaracion.periodo)?.[0]?.accion,
+                                  )
+                                }
                               >
                                 Abrir periodo
                               </button>
@@ -985,7 +1104,11 @@ const DeclaracionesTributariasModule = () => {
               variant="outline"
               onClick={() => {
                 if (!confirmacionPresentacion) return;
-                navigateToFacturacionElectronica(confirmacionPresentacion.periodo);
+                navigateToFacturacionElectronica(
+                  confirmacionPresentacion.periodo,
+                  facturasElectronicasConflictivasPorPeriodo.get(confirmacionPresentacion.periodo)?.[0]?.id,
+                  facturasElectronicasConflictivasPorPeriodo.get(confirmacionPresentacion.periodo)?.[0]?.accion,
+                );
                 setConfirmacionPresentacion(null);
               }}
             >
@@ -1011,6 +1134,9 @@ interface NewDeclaracionFormProps {
   nit?: string;
   actividadEconomica?: string;
   ivaRate: number;
+  initialTipo?: DeclaracionTipo;
+  initialPeriodo?: string;
+  initialObservaciones?: string;
   declaracionesExistentes: Array<{ tipo: DeclaracionTipo; periodo: string }>;
   onSave: (draft: DeclaracionDraft) => Promise<void>;
   onCancel: () => void;
@@ -1020,6 +1146,9 @@ const NewDeclaracionForm = ({
   nit,
   actividadEconomica,
   ivaRate,
+  initialTipo,
+  initialPeriodo,
+  initialObservaciones,
   declaracionesExistentes,
   onSave,
   onCancel,
@@ -1031,14 +1160,23 @@ const NewDeclaracionForm = ({
   }, []);
 
   const [formData, setFormData] = useState<DeclaracionDraft>({
-    tipo: "iva",
-    periodo: periodoInicial,
+    tipo: initialTipo || "iva",
+    periodo: initialPeriodo || periodoInicial,
     montoBase: 0,
     montoImpuesto: 0,
     montoPagado: 0,
-    observaciones: "",
+    observaciones: initialObservaciones || "",
   });
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      tipo: initialTipo || "iva",
+      periodo: initialPeriodo || periodoInicial,
+      observaciones: initialObservaciones || "",
+    }));
+  }, [initialObservaciones, initialPeriodo, initialTipo, periodoInicial]);
 
   const fechaVencimiento = useMemo(
     () => calcularFechaVencimiento(formData.tipo, formData.periodo, nit),

@@ -14,6 +14,7 @@ import {
   CheckCircle,
   Clock,
   Download,
+  ExternalLink,
   FileText,
   RefreshCw,
   Settings,
@@ -72,6 +73,14 @@ const AutomatedReporting = () => {
 
   const overdueReports = reports.filter((report) => report.status === "overdue");
   const generatedReports = reports.filter((report) => report.status === "generated" || report.status === "submitted");
+
+  const navigateTo = (view: string, params?: Record<string, string>) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", view);
+    Object.entries(params || {}).forEach(([key, value]) => url.searchParams.set(key, value));
+    window.history.pushState({}, "", `${url.pathname}${url.search}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
 
   const selectedTemplateData = useMemo(
     () => templates.find((template) => template.id === selectedTemplate) || null,
@@ -284,6 +293,12 @@ const AutomatedReporting = () => {
                       </div>
                     ) : (
                       <div className="flex justify-end gap-2">
+                        {report.navigation && (
+                          <Button size="sm" variant="outline" onClick={() => navigateTo(report.navigation!.view, report.navigation!.params)}>
+                            <ExternalLink className="mr-1 h-3.5 w-3.5" />
+                            Abrir origen
+                          </Button>
+                        )}
                         <Button size="sm" variant="outline" onClick={() => void generateReport(report)} disabled={loading}>
                           <FileText className="mr-1 h-3.5 w-3.5" />
                           Generar
