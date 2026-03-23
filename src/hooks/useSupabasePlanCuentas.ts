@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,7 +19,7 @@ export const useSupabasePlanCuentas = () => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchPlanCuentas = async () => {
+  const fetchPlanCuentas = useCallback(async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -52,7 +52,7 @@ export const useSupabasePlanCuentas = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   const createCuenta = async (cuenta: Omit<CuentaContable, 'id'>) => {
     try {
@@ -172,13 +172,75 @@ export const useSupabasePlanCuentas = () => {
     }
   };
 
+  const syncPlanCuentas = async (cuentasBase: Omit<CuentaContable, 'id'>[]) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+
+      const { data: existentes, error: existentesError } = await supabase
+        .from('plan_cuentas')
+        .select('id, codigo')
+        .eq('user_id', user.id);
+
+      if (existentesError) throw existentesError;
+
+      const existentesMap = new Map((existentes || []).map((cuenta) => [cuenta.codigo, cuenta.id]));
+
+      const updates = cuentasBase.filter((cuenta) => existentesMap.has(cuenta.codigo));
+      const inserts = cuentasBase.filter((cuenta) => !existentesMap.has(cuenta.codigo));
+
+      for (const cuenta of updates) {
+        const cuentaId = existentesMap.get(cuenta.codigo);
+        if (!cuentaId) continue;
+
+        const { error } = await supabase
+          .from('plan_cuentas')
+          .update({
+            codigo: cuenta.codigo,
+            nombre: cuenta.nombre,
+            tipo: cuenta.tipo,
+            naturaleza: cuenta.naturaleza,
+            nivel: cuenta.nivel,
+            cuenta_padre: cuenta.cuenta_padre ?? null,
+            saldo: cuenta.saldo ?? 0,
+            activa: cuenta.activa ?? true,
+          })
+          .eq('id', cuentaId)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+      }
+
+      if (inserts.length > 0) {
+        const payload = inserts.map((cuenta) => ({
+          ...cuenta,
+          user_id: user.id,
+        }));
+
+        const { error } = await supabase
+          .from('plan_cuentas')
+          .insert(payload);
+
+        if (error) throw error;
+      }
+
+      await fetchPlanCuentas();
+      toast({ title: "Plan sincronizado", description: "La estructura contable quedo alineada con la base principal." });
+      return true;
+    } catch (error) {
+      console.error('Error syncing plan cuentas:', error);
+      toast({ title: "Error", description: "No se pudo sincronizar el plan de cuentas", variant: "destructive" });
+      return false;
+    }
+  };
+
   useEffect(() => {
     fetchPlanCuentas();
-  }, []);
+  }, [fetchPlanCuentas]);
 
   return {
     planCuentas, loading,
-    createCuenta, updateCuenta, deleteCuenta, initializePlanCuentasBasico,
+    createCuenta, updateCuenta, deleteCuenta, initializePlanCuentasBasico, syncPlanCuentas,
     refetch: fetchPlanCuentas
   };
 };

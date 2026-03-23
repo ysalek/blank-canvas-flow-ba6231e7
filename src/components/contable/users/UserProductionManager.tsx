@@ -1,217 +1,170 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Users, Plus, Edit, Trash2, Shield, UserPlus, AlertTriangle } from "lucide-react";
+import { Users, Edit, Shield, UserPlus, AlertTriangle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { supabase } from "@/integrations/supabase/client";
 
-interface Usuario {
-  id: number;
-  usuario: string;
-  email: string;
-  password: string;
+interface UsuarioProduccion {
+  id: string;
   nombre: string;
-  rol: string;
+  email: string;
+  rol: 'admin' | 'user';
   empresa: string;
   permisos: string[];
-  activo: boolean;
-  fechaCreacion: string;
-  fechaModificacion?: string;
+  plan: string;
+  subscribed: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
+
+const ROLES_DISPONIBLES = [
+  { value: 'admin', label: 'Administrador', permisos: ['*'] },
+  { value: 'user', label: 'Usuario', permisos: ['dashboard'] },
+] as const;
 
 const UserProductionManager = () => {
   const { toast } = useToast();
-  const { user, hasPermission } = useAuth();
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [editingUser, setEditingUser] = useState<Usuario | null>(null);
-  const [changePassword, setChangePassword] = useState('');
-  const [newUser, setNewUser] = useState({
-    usuario: '',
-    email: '',
-    password: '',
+  const { hasPermission } = useAuth();
+  const [usuarios, setUsuarios] = useState<UsuarioProduccion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingUser, setEditingUser] = useState<UsuarioProduccion | null>(null);
+  const [editForm, setEditForm] = useState({
     nombre: '',
-    rol: 'usuario',
-    activo: true
+    rol: 'user' as 'admin' | 'user',
+    permisos: 'dashboard',
   });
 
-  const rolesDisponibles = [
-    { value: 'admin', label: 'Administrador', permisos: ['*'] },
-    { 
-      value: 'contador', 
-      label: 'Contador', 
-      permisos: [
-        'dashboard', 'facturacion', 'clientes', 'productos', 'inventario', 
-        'plan-cuentas', 'libro-diario', 'balance-comprobacion', 'balance-general', 
-        'estado-resultados', 'comprobantes', 'kardex', 'compras', 'cuentas-cobrar-pagar',
-        'bancos', 'activos-fijos', 'reportes', 'declaraciones', 'conciliacion-bancaria',
-        'analisis-rentabilidad', 'analisis-financiero', 'presupuestos', 'centros-costo',
-        'flujo-caja-avanzado', 'auditoria'
-      ] 
-    },
-    { 
-      value: 'ventas', 
-      label: 'Vendedor', 
-      permisos: [
-        'dashboard', 'facturacion', 'punto-venta', 'clientes', 'productos', 
-        'inventario', 'cuentas-cobrar-pagar'
-      ] 
-    },
-    { 
-      value: 'cajero', 
-      label: 'Cajero', 
-      permisos: ['dashboard', 'punto-venta', 'clientes', 'productos'] 
-    },
-    { 
-      value: 'usuario', 
-      label: 'Usuario General', 
-      permisos: ['dashboard'] 
+  const resumen = useMemo(() => ({
+    total: usuarios.length,
+    admins: usuarios.filter((usuario) => usuario.rol === 'admin').length,
+    pro: usuarios.filter((usuario) => usuario.plan === 'pro' || usuario.plan === 'enterprise').length,
+  }), [usuarios]);
+
+  const cargarUsuarios = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [profilesRes, rolesRes, subsRes] = await Promise.all([
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('user_roles').select('user_id, role'),
+        supabase.from('subscribers').select('user_id, subscribed, subscription_tier, email'),
+      ]);
+
+      if (profilesRes.error) throw profilesRes.error;
+      if (rolesRes.error) throw rolesRes.error;
+      if (subsRes.error) throw subsRes.error;
+
+      const roles = new Map((rolesRes.data || []).map((item) => [item.user_id, item.role]));
+      const subs = new Map((subsRes.data || []).map((item) => [item.user_id, item]));
+
+      const usuariosMapeados = (profilesRes.data || []).map((profile) => {
+        const role = (roles.get(profile.id) || 'user') as 'admin' | 'user';
+        const sub = subs.get(profile.id);
+        return {
+          id: profile.id,
+          nombre: profile.display_name || 'Sin nombre',
+          email: sub?.email || '',
+          rol: role,
+          empresa: profile.empresa || 'Sin empresa',
+          permisos: Array.isArray(profile.permisos) ? profile.permisos : [],
+          plan: sub?.subscription_tier || 'basic',
+          subscribed: Boolean(sub?.subscribed),
+          createdAt: profile.created_at,
+          updatedAt: profile.updated_at,
+        };
+      });
+
+      setUsuarios(usuariosMapeados);
+    } catch (error) {
+      console.error('Error cargando usuarios productivos:', error);
+      toast({
+        title: "Error al cargar usuarios",
+        description: "No se pudo conectar la mesa de usuarios con la base principal.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  ];
+  }, [toast]);
 
   useEffect(() => {
-    cargarUsuarios();
-  }, []);
+    void cargarUsuarios();
+  }, [cargarUsuarios]);
 
-  const cargarUsuarios = () => {
-    const usuariosGuardados = localStorage.getItem('usuarios_sistema');
-    if (usuariosGuardados) {
-      const usuarios = JSON.parse(usuariosGuardados);
-      console.log('Usuarios cargados desde localStorage:', usuarios);
-      setUsuarios(usuarios);
-    } else {
-      console.log('No se encontraron usuarios en localStorage');
-    }
-  };
-
-  const guardarUsuarios = (usuariosActualizados: Usuario[]) => {
-    console.log('Guardando usuarios:', usuariosActualizados);
-    localStorage.setItem('usuarios_sistema', JSON.stringify(usuariosActualizados));
-    setUsuarios(usuariosActualizados);
-    
-    // Forzar recarga para ver los cambios inmediatamente
-    setTimeout(() => {
-      cargarUsuarios();
-    }, 100);
-  };
-
-  const crearUsuario = () => {
-    if (!newUser.usuario || !newUser.email || !newUser.password || !newUser.nombre) {
-      toast({
-        title: "Error",
-        description: "Todos los campos son obligatorios",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Verificar si el usuario ya existe
-    if (usuarios.some(u => u.usuario === newUser.usuario || u.email === newUser.email)) {
-      toast({
-        title: "Error",
-        description: "Ya existe un usuario con ese nombre de usuario o email",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const rolData = rolesDisponibles.find(r => r.value === newUser.rol);
-    const nuevoUsuario: Usuario = {
-      id: Math.max(...usuarios.map(u => u.id), 0) + 1,
-      usuario: newUser.usuario,
-      email: newUser.email,
-      password: newUser.password,
-      nombre: newUser.nombre,
-      rol: newUser.rol,
-      empresa: user?.empresa || 'Sistema Contable',
-      permisos: rolData?.permisos || ['dashboard'],
-      activo: newUser.activo,
-      fechaCreacion: new Date().toISOString()
-    };
-
-    const usuariosActualizados = [...usuarios, nuevoUsuario];
-    guardarUsuarios(usuariosActualizados);
-
-    toast({
-      title: "Usuario creado",
-      description: `Usuario ${newUser.usuario} creado exitosamente`
-    });
-
-    setNewUser({ usuario: '', email: '', password: '', nombre: '', rol: 'usuario', activo: true });
-    setShowCreateDialog(false);
-  };
-
-  const editarUsuario = (usuario: Usuario) => {
+  const abrirEdicion = (usuario: UsuarioProduccion) => {
     setEditingUser(usuario);
+    setEditForm({
+      nombre: usuario.nombre,
+      rol: usuario.rol,
+      permisos: usuario.permisos.join(', ') || 'dashboard',
+    });
   };
 
-  const actualizarUsuario = () => {
+  const guardarEdicion = async () => {
     if (!editingUser) return;
 
-    const usuarioActualizado = {
-      ...editingUser,
-      fechaModificacion: new Date().toISOString()
-    };
+    try {
+      const permisos = editForm.permisos
+        .split(',')
+        .map((permiso) => permiso.trim())
+        .filter(Boolean);
 
-    // Si se especificó una nueva contraseña, actualizarla
-    if (changePassword.trim()) {
-      usuarioActualizado.password = changePassword;
-    }
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          display_name: editForm.nombre.trim(),
+          permisos,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingUser.id);
 
-    const usuariosActualizados = usuarios.map(u => 
-      u.id === editingUser.id ? usuarioActualizado : u
-    );
-    guardarUsuarios(usuariosActualizados);
+      if (profileError) throw profileError;
 
-    toast({
-      title: "Usuario actualizado",
-      description: `Usuario ${editingUser.usuario} actualizado exitosamente`
-    });
+      const { data: existingRole, error: existingRoleError } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', editingUser.id)
+        .maybeSingle();
 
-    setEditingUser(null);
-    setChangePassword('');
-  };
+      if (existingRoleError) throw existingRoleError;
 
-  const eliminarUsuario = (userId: number) => {
-    // No permitir eliminar al administrador principal
-    const usuarioAEliminar = usuarios.find(u => u.id === userId);
-    if (usuarioAEliminar?.usuario === 'admin') {
+      if (existingRole) {
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .update({ role: editForm.rol })
+          .eq('user_id', editingUser.id);
+
+        if (roleError) throw roleError;
+      } else {
+        const { error: roleInsertError } = await supabase
+          .from('user_roles')
+          .insert({ user_id: editingUser.id, role: editForm.rol });
+
+        if (roleInsertError) throw roleInsertError;
+      }
+
       toast({
-        title: "Error",
-        description: "No se puede eliminar al administrador principal",
+        title: "Usuario actualizado",
+        description: `La configuracion de ${editForm.nombre.trim() || 'este usuario'} quedo guardada.`,
+      });
+
+      setEditingUser(null);
+      await cargarUsuarios();
+    } catch (error) {
+      console.error('Error actualizando usuario:', error);
+      toast({
+        title: "No se pudo actualizar el usuario",
+        description: "Revise permisos o integridad del registro e intente nuevamente.",
         variant: "destructive"
       });
-      return;
     }
-
-    const usuariosActualizados = usuarios.filter(u => u.id !== userId);
-    guardarUsuarios(usuariosActualizados);
-
-    toast({
-      title: "Usuario eliminado",
-      description: "Usuario eliminado exitosamente"
-    });
-  };
-
-  const toggleUsuarioActivo = (userId: number) => {
-    const usuariosActualizados = usuarios.map(u => 
-      u.id === userId 
-        ? { ...u, activo: !u.activo, fechaModificacion: new Date().toISOString() }
-        : u
-    );
-    guardarUsuarios(usuariosActualizados);
-
-    toast({
-      title: "Estado actualizado",
-      description: "Estado del usuario actualizado exitosamente"
-    });
   };
 
   if (!hasPermission('*')) {
@@ -231,224 +184,120 @@ const UserProductionManager = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Gestión de Usuarios</h2>
-          <p className="text-slate-600">Administración de usuarios del sistema</p>
+          <p className="text-slate-600">Mesa real de usuarios basada en perfiles, roles y suscripciones persistidas.</p>
         </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <UserPlus className="w-4 h-4 mr-2" />
-              Crear Usuario
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Crear Nuevo Usuario</DialogTitle>
-              <DialogDescription>
-                Complete los datos del nuevo usuario del sistema
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="usuario">Usuario</Label>
-                  <Input
-                    id="usuario"
-                    value={newUser.usuario}
-                    onChange={(e) => setNewUser({...newUser, usuario: e.target.value})}
-                    placeholder="usuario123"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={newUser.email}
-                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                    placeholder="usuario@empresa.com"
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="nombre">Nombre Completo</Label>
-                <Input
-                  id="nombre"
-                  value={newUser.nombre}
-                  onChange={(e) => setNewUser({...newUser, nombre: e.target.value})}
-                  placeholder="Juan Pérez"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={newUser.password}
-                  onChange={(e) => setNewUser({...newUser, password: e.target.value})}
-                  placeholder="••••••••"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Rol del Usuario</Label>
-                <Select value={newUser.rol} onValueChange={(value) => setNewUser({...newUser, rol: value})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {rolesDisponibles.map((rol) => (
-                      <SelectItem key={rol.value} value={rol.value}>
-                        {rol.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="activo"
-                  checked={newUser.activo}
-                  onCheckedChange={(checked) => setNewUser({...newUser, activo: checked})}
-                />
-                <Label htmlFor="activo">Usuario Activo</Label>
-              </div>
-              
-              <Button onClick={crearUsuario} className="w-full">
-                Crear Usuario
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => void cargarUsuarios()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Actualizar
+          </Button>
+          <Button variant="outline" disabled>
+            <UserPlus className="mr-2 h-4 w-4" />
+            Alta por Signup
+          </Button>
+        </div>
+      </div>
+
+      <Alert>
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          El alta de credenciales ya no se simula en navegador. Los nuevos usuarios deben registrarse por flujo real de autenticacion; aqui solo se administra su configuracion operativa.
+        </AlertDescription>
+      </Alert>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Usuarios reales</p><p className="text-2xl font-bold">{resumen.total}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Administradores</p><p className="text-2xl font-bold text-primary">{resumen.admins}</p></CardContent></Card>
+        <Card><CardContent className="pt-6"><p className="text-sm text-muted-foreground">Planes Pro/Enterprise</p><p className="text-2xl font-bold text-emerald-600">{resumen.pro}</p></CardContent></Card>
       </div>
 
       <div className="grid gap-4">
-        {usuarios.map((usuario) => (
-          <Card key={usuario.id} className={!usuario.activo ? 'opacity-60' : ''}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Users className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">{usuario.nombre}</CardTitle>
-                    <CardDescription>@{usuario.usuario} • {usuario.email}</CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Badge variant={usuario.activo ? "default" : "secondary"}>
-                    {usuario.activo ? "Activo" : "Inactivo"}
-                  </Badge>
-                  <Badge variant="outline">
-                    {rolesDisponibles.find(r => r.value === usuario.rol)?.label || usuario.rol}
-                  </Badge>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  <p>Empresa: {usuario.empresa}</p>
-                  <p>Creado: {new Date(usuario.fechaCreacion).toLocaleDateString()}</p>
-                  {usuario.fechaModificacion && (
-                    <p>Modificado: {new Date(usuario.fechaModificacion).toLocaleDateString()}</p>
-                  )}
-                </div>
-                <div className="flex space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleUsuarioActivo(usuario.id)}
-                    disabled={usuario.usuario === 'admin'}
-                  >
-                    {usuario.activo ? 'Desactivar' : 'Activar'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => editarUsuario(usuario)}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => eliminarUsuario(usuario.id)}
-                    disabled={usuario.usuario === 'admin'}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
+        {loading ? (
+          <Card>
+            <CardContent className="p-6 text-sm text-muted-foreground">
+              Cargando usuarios desde la base principal...
             </CardContent>
           </Card>
-        ))}
+        ) : usuarios.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-sm text-muted-foreground">
+              No hay perfiles registrados todavia en la base principal.
+            </CardContent>
+          </Card>
+        ) : (
+          usuarios.map((usuario) => (
+            <Card key={usuario.id}>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-primary/10 p-2">
+                      <Users className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">{usuario.nombre}</CardTitle>
+                      <CardDescription>{usuario.email || usuario.id}</CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={usuario.rol === 'admin' ? 'default' : 'secondary'}>
+                      {usuario.rol === 'admin' ? 'Administrador' : 'Usuario'}
+                    </Badge>
+                    <Badge variant="outline">
+                      {usuario.plan}
+                    </Badge>
+                    {usuario.subscribed && <Badge className="bg-emerald-600">Suscrito</Badge>}
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    <p>Empresa: {usuario.empresa}</p>
+                    <p>Creado: {new Date(usuario.createdAt).toLocaleDateString()}</p>
+                    <p>Actualizado: {new Date(usuario.updatedAt).toLocaleDateString()}</p>
+                    <p>Permisos: {usuario.permisos.length > 0 ? usuario.permisos.join(', ') : 'Sin permisos operativos definidos'}</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={() => abrirEdicion(usuario)}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Editar configuración
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {editingUser && (
-        <Dialog open={!!editingUser} onOpenChange={() => setEditingUser(null)}>
+        <Dialog open={Boolean(editingUser)} onOpenChange={() => setEditingUser(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Editar Usuario</DialogTitle>
               <DialogDescription>
-                Modificar datos del usuario {editingUser.usuario}
+                Ajusta nombre visible, rol y permisos operativos del usuario.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-nombre">Nombre Completo</Label>
+                <Label htmlFor="edit-nombre">Nombre visible</Label>
                 <Input
                   id="edit-nombre"
-                  value={editingUser.nombre}
-                  onChange={(e) => setEditingUser({...editingUser, nombre: e.target.value})}
+                  value={editForm.nombre}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, nombre: event.target.value }))}
                 />
               </div>
-              
+
               <div className="space-y-2">
-                <Label htmlFor="edit-email">Email</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  value={editingUser.email}
-                  onChange={(e) => setEditingUser({...editingUser, email: e.target.value})}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="edit-password">Nueva Contraseña (opcional)</Label>
-                <Input
-                  id="edit-password"
-                  type="password"
-                  value={changePassword}
-                  onChange={(e) => setChangePassword(e.target.value)}
-                  placeholder="Dejar vacío para mantener la actual"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Rol del Usuario</Label>
-                <Select 
-                  value={editingUser.rol} 
-                  onValueChange={(value) => {
-                    const rolData = rolesDisponibles.find(r => r.value === value);
-                    setEditingUser({
-                      ...editingUser, 
-                      rol: value,
-                      permisos: rolData?.permisos || ['dashboard']
-                    });
-                  }}
-                >
+                <Label>Rol</Label>
+                <Select value={editForm.rol} onValueChange={(value: 'admin' | 'user') => setEditForm((prev) => ({ ...prev, rol: value }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {rolesDisponibles.map((rol) => (
+                    {ROLES_DISPONIBLES.map((rol) => (
                       <SelectItem key={rol.value} value={rol.value}>
                         {rol.label}
                       </SelectItem>
@@ -456,9 +305,24 @@ const UserProductionManager = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
-              <Button onClick={actualizarUsuario} className="w-full">
-                Actualizar Usuario
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-permisos">Permisos operativos</Label>
+                <Input
+                  id="edit-permisos"
+                  value={editForm.permisos}
+                  onChange={(event) => setEditForm((prev) => ({ ...prev, permisos: event.target.value }))}
+                  placeholder="dashboard, facturacion, inventario"
+                />
+              </div>
+
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground">
+                El correo, la contraseña y el alta de acceso no se editan aqui porque dependen del flujo real de autenticacion.
+              </div>
+
+              <Button onClick={() => void guardarEdicion()} className="w-full">
+                <Shield className="mr-2 h-4 w-4" />
+                Guardar configuración
               </Button>
             </div>
           </DialogContent>
