@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { tutorialMasterIndex } from "@/components/contable/tutorial/tutorialIndex";
 import { 
   Play, 
   CheckCircle, 
@@ -403,6 +404,7 @@ const TutorialModule = () => {
   const currentRoleInfo = roleInfo[role as keyof typeof roleInfo] || roleInfo.usuario;
   const currentQuickStart = quickStartGuides[role as keyof typeof quickStartGuides] || [];
   const currentModules = detailedModules[role as keyof typeof detailedModules] || [];
+  const totalMasterModules = tutorialMasterIndex.reduce((sum, group) => sum + group.modules.length, 0);
 
   const calculateProgress = () => {
     const totalSteps = currentQuickStart.length;
@@ -464,7 +466,7 @@ const TutorialModule = () => {
 
       {/* Main Content Tabs */}
       <Tabs value={activeModule} onValueChange={setActiveModule} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="inicio-rapido" className="flex items-center space-x-2">
             <Zap className="w-4 h-4" />
             <span>Inicio Rápido</span>
@@ -476,6 +478,10 @@ const TutorialModule = () => {
           <TabsTrigger value="video-tutoriales" className="flex items-center space-x-2">
             <Video className="w-4 h-4" />
             <span>Videos</span>
+          </TabsTrigger>
+          <TabsTrigger value="guia-maestra" className="flex items-center space-x-2">
+            <BookOpen className="w-4 h-4" />
+            <span>GuÃ­a</span>
           </TabsTrigger>
           <TabsTrigger value="faq" className="flex items-center space-x-2">
             <Lightbulb className="w-4 h-4" />
@@ -702,6 +708,81 @@ const TutorialModule = () => {
                   </Card>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="guia-maestra" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <BookOpen className="w-5 h-5 mr-2 text-primary" />
+                GuÃ­a Maestra de MÃ³dulos
+              </CardTitle>
+              <CardDescription>
+                Cobertura completa de la suite. La versiÃ³n detallada para capacitaciÃ³n interna estÃ¡ en <strong>docs/tutorial-completo-modulos-2026-03-23.md</strong>.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card className="bg-slate-50">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">MÃ³dulos</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-950">{totalMasterModules}</p>
+                    <p className="text-sm text-slate-600">MÃ³dulos cubiertos en el sistema</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-slate-50">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Bloques</p>
+                    <p className="mt-2 text-3xl font-bold text-slate-950">{tutorialMasterIndex.length}</p>
+                    <p className="text-sm text-slate-600">Grupos funcionales documentados</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-slate-50">
+                  <CardContent className="p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Uso recomendado</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-950">CapacitaciÃ³n por procesos</p>
+                    <p className="text-sm text-slate-600">Empieza por Principal, Operaciones, Finanzas e Impuestos SIN.</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Accordion type="multiple" className="space-y-4">
+                {tutorialMasterIndex.map((group) => (
+                  <AccordionItem key={group.group} value={group.group} className="rounded-xl border px-4">
+                    <AccordionTrigger className="text-left">
+                      <div>
+                        <div className="font-semibold">{group.group}</div>
+                        <div className="text-sm text-muted-foreground">{group.modules.length} mÃ³dulo(s)</div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {group.modules.map((module) => (
+                          <Card key={module.view} className="border-slate-200">
+                            <CardContent className="space-y-3 p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <h4 className="font-semibold">{module.title}</h4>
+                                  <p className="text-sm text-muted-foreground">{module.summary}</p>
+                                </div>
+                                <Badge variant="outline">{module.plan}</Badge>
+                              </div>
+                              <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                                <span className="font-medium text-slate-900">Ideal para:</span> {module.idealFor}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                Ruta sugerida: <span className="font-mono">/?view={module.view}</span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </CardContent>
           </Card>
         </TabsContent>
