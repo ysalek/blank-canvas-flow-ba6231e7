@@ -32,6 +32,7 @@ import {
   MetricGrid,
   Section,
 } from "../dashboard/EnhancedLayout";
+import { useAsientos } from "@/hooks/useAsientos";
 
 interface RatioFinanciero {
   nombre: string;
@@ -55,6 +56,7 @@ const AnalisisFinanciero = () => {
   const [tendencias, setTendencias] = useState<TendenciaFinanciera[]>([]);
   const [alertas, setAlertas] = useState<string[]>([]);
   const { getBalanceSheetData, getIncomeStatementData } = useReportesContables();
+  const { asientos } = useAsientos();
 
   useEffect(() => {
     const balanceData = getBalanceSheetData();
@@ -157,17 +159,79 @@ const AnalisisFinanciero = () => {
 
     setRatios(ratiosConEstado);
 
-    const meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio"];
-    const tendenciasData: TendenciaFinanciera[] = meses.map((mes, index) => ({
-      periodo: mes,
-      ventas: 50000 + index * 5000 + (Math.random() * 10000 - 5000),
-      utilidad: 8000 + index * 800 + (Math.random() * 2000 - 1000),
-      activos: 200000 + index * 10000,
-      patrimonio: 120000 + index * 6000,
-    }));
+    const meses = Array.from({ length: 6 }, (_, index) => {
+      const monthDate = new Date();
+      monthDate.setDate(1);
+      monthDate.setMonth(monthDate.getMonth() - (5 - index));
+      return monthDate;
+    });
+
+    const normalizarFecha = (value: string) => new Date(`${value}T00:00:00`);
+    const monthLabel = new Intl.DateTimeFormat("es-BO", { month: "long" });
+    const asientosVigentes = asientos.filter((asiento) => asiento.estado !== "anulado");
+
+    const calcularCierre = (fechaCorte: Date) => {
+      let activosCorte = 0;
+      let patrimonioCorte = 0;
+
+      asientosVigentes.forEach((asiento) => {
+        if (normalizarFecha(asiento.fecha) > fechaCorte) {
+          return;
+        }
+
+        asiento.cuentas.forEach((cuenta) => {
+          if (cuenta.codigo.startsWith("1")) {
+            activosCorte += cuenta.debe - cuenta.haber;
+          }
+
+          if (cuenta.codigo.startsWith("3")) {
+            patrimonioCorte += cuenta.haber - cuenta.debe;
+          }
+        });
+      });
+
+      return {
+        activos: Math.max(0, activosCorte),
+        patrimonio: Math.max(0, patrimonioCorte),
+      };
+    };
+
+    const tendenciasData: TendenciaFinanciera[] = meses.map((mes) => {
+      const start = new Date(mes.getFullYear(), mes.getMonth(), 1);
+      const end = new Date(mes.getFullYear(), mes.getMonth() + 1, 0);
+
+      let ventasMes = 0;
+      let utilidadMes = 0;
+
+      asientosVigentes.forEach((asiento) => {
+        const fechaAsiento = normalizarFecha(asiento.fecha);
+        if (fechaAsiento < start || fechaAsiento > end) {
+          return;
+        }
+
+        asiento.cuentas.forEach((cuenta) => {
+          if (cuenta.codigo.startsWith("41")) {
+            ventasMes += cuenta.haber - cuenta.debe;
+            utilidadMes += cuenta.haber - cuenta.debe;
+          } else if (cuenta.codigo.startsWith("5")) {
+            utilidadMes -= cuenta.debe - cuenta.haber;
+          }
+        });
+      });
+
+      const cierre = calcularCierre(end);
+
+      return {
+        periodo: monthLabel.format(mes).replace(/^\w/, (char) => char.toUpperCase()),
+        ventas: Math.max(0, ventasMes),
+        utilidad: utilidadMes,
+        activos: cierre.activos,
+        patrimonio: cierre.patrimonio,
+      };
+    });
 
     setTendencias(tendenciasData);
-  }, [getBalanceSheetData, getIncomeStatementData]);
+  }, [asientos, getBalanceSheetData, getIncomeStatementData]);
 
   useEffect(() => {
     const alertasGeneradas: string[] = [];
