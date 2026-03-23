@@ -17,6 +17,7 @@ import {
   FileText,
   HelpCircle,
   Lightbulb,
+  Monitor,
   Route,
   Search,
   Settings,
@@ -41,6 +42,11 @@ interface VisualMap {
   description: string;
   outcome: string;
   steps: string[];
+}
+
+interface VisualSpotlight {
+  view: string;
+  caption: string;
 }
 
 const quickStartByRole = {
@@ -142,6 +148,17 @@ const visualMaps: VisualMap[] = [
   },
 ];
 
+const visualSpotlights: VisualSpotlight[] = [
+  { view: "dashboard", caption: "Vista de control diario y alertas priorizadas." },
+  { view: "facturacion", caption: "Flujo comercial con datos fiscales y control de documentos." },
+  { view: "productos", caption: "Catalogo con precio, costo, stock e imagen principal." },
+  { view: "bancos", caption: "Mesa de tesoreria con saldos y movimientos recientes." },
+  { view: "conciliacion-bancaria", caption: "Revision de diferencias entre extractos y libros." },
+  { view: "declaraciones-tributarias", caption: "Control de vencimientos y periodo fiscal." },
+  { view: "facturacion-electronica", caption: "Seguimiento de incidencias SIN por factura." },
+  { view: "nomina", caption: "Planillas, RC-IVA y estado de pago del personal." },
+];
+
 const faqItems = [
   {
     question: "Por donde empiezo si la empresa recien entra al sistema?",
@@ -170,6 +187,89 @@ const faqItems = [
   },
 ];
 
+const ModuleVisualReference = ({
+  module,
+  group,
+  caption,
+}: {
+  module: TutorialIndexModule;
+  group: string;
+  caption: string;
+}) => {
+  return (
+    <Card className="overflow-hidden border-slate-200">
+      <div className="border-b border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-sky-900 px-5 py-4 text-white">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-100">{group}</p>
+            <h3 className="mt-1 text-lg font-semibold">{module.title}</h3>
+          </div>
+          <Badge className="border border-white/20 bg-white/10 text-white hover:bg-white/10">
+            {module.plan}
+          </Badge>
+        </div>
+        <p className="mt-2 text-sm text-slate-200">{caption}</p>
+      </div>
+
+      <CardContent className="space-y-4 p-5">
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 shadow-inner">
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
+            <div>
+              <div className="h-3 w-24 rounded-full bg-slate-200" />
+              <div className="mt-2 h-2 w-40 rounded-full bg-slate-100" />
+            </div>
+            <div className="flex gap-2">
+              <div className="h-8 w-20 rounded-xl bg-sky-100" />
+              <div className="h-8 w-10 rounded-xl bg-slate-100" />
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            {module.produces.slice(0, 3).map((item) => (
+              <div key={item} className="rounded-2xl border border-slate-200 bg-white p-3">
+                <div className="h-2 w-14 rounded-full bg-slate-200" />
+                <div className="mt-3 h-6 w-16 rounded-xl bg-emerald-100" />
+                <p className="mt-3 text-xs font-medium text-slate-700">{item}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="h-3 w-28 rounded-full bg-slate-200" />
+                <div className="h-6 w-16 rounded-lg bg-slate-100" />
+              </div>
+              <div className="space-y-2">
+                {module.controls.slice(0, 3).map((control) => (
+                  <div key={control} className="rounded-xl border border-slate-100 px-3 py-2 text-xs text-slate-600">
+                    {control}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="h-3 w-24 rounded-full bg-slate-200" />
+              <div className="mt-3 space-y-2">
+                {module.needs.slice(0, 3).map((need) => (
+                  <div key={need} className="flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="mt-0.5 h-2 w-2 rounded-full bg-sky-500" />
+                    <span>{need}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-sm text-sky-900">
+          <span className="font-semibold">Que debes mirar en pantalla:</span> {module.whenToUse}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 const TutorialModule = () => {
   const { user } = useAuth();
   const role = (user?.rol || "usuario") as keyof typeof quickStartByRole;
@@ -185,6 +285,14 @@ const TutorialModule = () => {
   };
 
   const roleSteps = quickStartByRole[role] || quickStartByRole.usuario;
+  const groupLookup = useMemo(() => {
+    return tutorialMasterIndex.reduce<Record<string, string>>((accumulator, group) => {
+      group.modules.forEach((item) => {
+        accumulator[item.view] = group.group;
+      });
+      return accumulator;
+    }, {});
+  }, []);
 
   const moduleLookup = useMemo(() => {
     return tutorialMasterIndex.reduce<Record<string, TutorialIndexModule>>((accumulator, group) => {
@@ -261,7 +369,24 @@ const TutorialModule = () => {
         }),
       }))
       .filter((group) => group.modules.length > 0);
-  }, [moduleLookup, searchTerm]);
+    }, [moduleLookup, searchTerm]);
+
+  const spotlightModules = useMemo(
+    () =>
+      visualSpotlights
+        .map((spotlight) => {
+          const module = moduleLookup[spotlight.view];
+          if (!module) return null;
+
+          return {
+            ...spotlight,
+            module,
+            group: groupLookup[spotlight.view] || "General",
+          };
+        })
+        .filter((item): item is VisualSpotlight & { module: TutorialIndexModule; group: string } => item !== null),
+    [groupLookup, moduleLookup],
+  );
 
   const togglePath = (pathId: string) => {
     setCompletedPaths((prev) =>
@@ -335,7 +460,7 @@ const TutorialModule = () => {
       </section>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="inicio" className="flex items-center gap-2">
             <Zap className="h-4 w-4" />
             Inicio
@@ -343,6 +468,10 @@ const TutorialModule = () => {
           <TabsTrigger value="mapas" className="flex items-center gap-2">
             <Workflow className="h-4 w-4" />
             Mapas
+          </TabsTrigger>
+          <TabsTrigger value="visuales" className="flex items-center gap-2">
+            <Monitor className="h-4 w-4" />
+            Visuales
           </TabsTrigger>
           <TabsTrigger value="rutas" className="flex items-center gap-2">
             <Route className="h-4 w-4" />
@@ -458,6 +587,31 @@ const TutorialModule = () => {
                   </div>
                 </CardContent>
               </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="visuales" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Monitor className="h-5 w-5 text-primary" />
+                Galeria visual referencial
+              </CardTitle>
+              <CardDescription>
+                Estas vistas muestran que partes debes mirar en cada pantalla clave. No reemplazan la operacion real, pero ayudan mucho a capacitar equipos.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <div className="grid gap-5 xl:grid-cols-2">
+            {spotlightModules.map((spotlight) => (
+              <ModuleVisualReference
+                key={spotlight.view}
+                module={spotlight.module}
+                group={spotlight.group}
+                caption={spotlight.caption}
+              />
             ))}
           </div>
         </TabsContent>

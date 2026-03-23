@@ -39,6 +39,11 @@ flowchart LR
     B --> F[Retenciones]
 ```
 
+## Galeria visual referencial
+- Dentro del modulo `Tutorial`, la pestana `Visuales` muestra paneles referenciales de las pantallas mas importantes.
+- Esa galeria ayuda a explicar que mirar primero en modulos como Dashboard, Facturacion, Bancos, Conciliacion, Declaraciones, Facturacion Electronica y Nomina.
+- Sirve para induccion, capacitacion interna y repasos rapidos antes de operar.
+
 ## Principal
 ### Dashboard
 - Para que sirve: concentrar indicadores, alertas y accesos rapidos.
