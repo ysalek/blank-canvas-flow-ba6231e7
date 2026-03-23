@@ -167,18 +167,37 @@ const FacturacionModule = () => {
 
     toast({
       title: "Procesando factura...",
-      description: "Enviando al SIN para validacion. Esto puede tardar unos segundos.",
+      description: "Ejecutando validacion operativa del circuito SIN y registrando la venta.",
     });
 
     try {
       const facturaValidada = await simularValidacionSIN(nuevaFactura);
 
-      toast({
-        title: "Respuesta del SIN recibida",
-        description: "Procesando integracion contable...",
-      });
-
       if (facturaValidada.estadoSIN === "aceptado") {
+        for (const item of facturaValidada.items) {
+          const producto = productos.find((p) => p.id === item.productoId);
+          if (producto && Number(producto.stock_actual || 0) < item.cantidad) {
+            toast({
+              title: "Error de stock",
+              description: `Stock insuficiente para ${item.descripcion}. Disponible: ${producto.stock_actual}, solicitado: ${item.cantidad}.`,
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+
+        const facturaGuardada = await guardarFacturaDB(facturaValidada);
+        if (!facturaGuardada) {
+          toast({
+            title: "No se pudo registrar la factura",
+            description: "La validacion operativa fue correcta, pero la factura no se guardo en la base principal.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const advertencias: string[] = [];
+
         for (const item of facturaValidada.items) {
           const producto = productos.find((p) => p.id === item.productoId);
 
@@ -201,12 +220,8 @@ const FacturacionModule = () => {
             );
 
             if (!stockActualizado) {
-              toast({
-                title: "Error de stock",
-                description: `No se pudo actualizar el stock para ${item.descripcion}. La factura fue cancelada.`,
-                variant: "destructive",
-              });
-              return;
+              advertencias.push(`No se pudo actualizar el stock de ${item.descripcion}.`);
+              continue;
             }
 
             const movimientoInventario: MovimientoInventario = {
@@ -226,19 +241,40 @@ const FacturacionModule = () => {
               valorMovimiento: item.cantidad * producto.costo_unitario,
             };
 
-            await generarAsientoInventario(movimientoInventario);
+            const asientoInventario = await generarAsientoInventario(movimientoInventario);
+            if (!asientoInventario) {
+              advertencias.push(`No se pudo registrar el asiento de inventario para ${item.descripcion}.`);
+            }
           }
         }
 
-        await generarAsientoVenta(facturaValidada);
-        await guardarFacturaDB(facturaValidada);
+        const asientoVenta = await generarAsientoVenta(facturaValidada);
+        if (!asientoVenta) {
+          advertencias.push("No se pudo registrar el asiento principal de venta.");
+        }
 
-        toast({
-          title: "Factura aceptada",
-          description: `Factura N ${facturaValidada.numero} generada y registrada contablemente.`,
-        });
+        toast(
+          advertencias.length === 0
+            ? {
+                title: "Factura aceptada",
+                description: `Factura N ${facturaValidada.numero} generada y registrada contablemente.`,
+              }
+            : {
+                title: "Factura registrada con observaciones",
+                description: advertencias.join(" "),
+                variant: "destructive",
+              },
+        );
       } else {
-        await guardarFacturaDB(facturaValidada);
+        const facturaGuardada = await guardarFacturaDB(facturaValidada);
+        if (!facturaGuardada) {
+          toast({
+            title: "No se pudo guardar el rechazo",
+            description: `La factura N ${facturaValidada.numero} fue observada, pero el resultado no se persistio en la base principal.`,
+            variant: "destructive",
+          });
+          return;
+        }
 
         toast({
           title: "Factura rechazada",
