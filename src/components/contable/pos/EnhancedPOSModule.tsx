@@ -13,7 +13,7 @@ import { useSupabaseClientes, type ClienteSupabase } from "@/hooks/useSupabaseCl
 import { useFacturas } from "@/hooks/useFacturas";
 import { useContabilidadIntegration } from "@/hooks/useContabilidadIntegration";
 import ProductThumbnail from "../products/ProductThumbnail";
-import type { Factura } from "../billing/BillingData";
+import { prepararFacturaTributaria, type Factura } from "../billing/BillingData";
 import type { MovimientoInventario } from "../inventory/InventoryData";
 import {
   Banknote,
@@ -145,34 +145,6 @@ const EnhancedPOSModule = () => {
   useEffect(() => {
     inputRef.current?.focus();
   }, [activeTab]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "F2") {
-        event.preventDefault();
-        inputRef.current?.focus();
-      }
-      if (event.key === "F4" && carrito.length > 0 && !procesandoVenta) {
-        event.preventDefault();
-        void procesarVenta(false);
-      }
-      if (event.key === "F5") {
-        event.preventDefault();
-        limpiarVenta();
-      }
-      if (event.key === "F7") {
-        event.preventDefault();
-        setActiveTab("barras");
-      }
-      if (event.key === "Escape") {
-        setShowTicket(false);
-        setShowNuevoCliente(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [carrito.length, procesandoVenta]);
 
   const agregarAlCarrito = (producto: Producto) => {
     const itemExistente = carrito.find((item) => item.producto.id === producto.id);
@@ -363,7 +335,19 @@ const EnhancedPOSModule = () => {
         }
       }
 
-      const factura: Factura = {
+      const fechaFactura = new Date().toISOString().slice(0, 10);
+      const itemsFactura = carrito.map((item) => ({
+        id: item.id,
+        productoId: item.producto.id,
+        codigo: item.producto.codigo,
+        descripcion: item.producto.nombre,
+        cantidad: item.cantidad,
+        precioUnitario: item.precioUnitario,
+        descuento: item.descuento,
+        subtotal: item.subtotal,
+        codigoSIN: item.producto.codigo_sin || "00000000",
+      }));
+      const factura: Factura = prepararFacturaTributaria({
         id: "",
         numero: generarNumeroFactura(),
         cliente: {
@@ -374,34 +358,22 @@ const EnhancedPOSModule = () => {
           email: clienteActual.email || "",
           direccion: clienteActual.direccion || "",
           activo: true,
-          fechaCreacion: new Date().toISOString().slice(0, 10),
+          fechaCreacion: fechaFactura,
         },
-        fecha: new Date().toISOString().slice(0, 10),
-        fechaVencimiento: new Date().toISOString().slice(0, 10),
-        items: carrito.map((item) => ({
-          id: item.id,
-          productoId: item.producto.id,
-          codigo: item.producto.codigo,
-          descripcion: item.producto.nombre,
-          cantidad: item.cantidad,
-          precioUnitario: item.precioUnitario,
-          descuento: item.descuento,
-          subtotal: item.subtotal,
-          codigoSIN: item.producto.codigo_sin || "00000000",
-        })),
+        fecha: fechaFactura,
+        fechaVencimiento: fechaFactura,
+        items: itemsFactura,
         subtotal: calcularSubtotal(),
         descuentoTotal: calcularDescuentos(),
         iva: calcularImpuestos(),
         total,
         estado: esCredito ? "enviada" : "pagada",
         estadoSIN: "pendiente",
-        cuf: "",
-        cufd: "",
         puntoVenta: 0,
-        codigoControl: "",
         observaciones: `POS ${esCredito ? "credito" : metodoPago}`,
-        fechaCreacion: new Date().toISOString().slice(0, 10),
-      };
+        fechaCreacion: fechaFactura,
+        tipoDocumentoSector: itemsFactura.find((item) => item.codigoSIN)?.codigoSIN || "1",
+      });
 
       const facturaGuardada = await guardarFactura(factura);
       if (!facturaGuardada) return;
@@ -471,19 +443,50 @@ const EnhancedPOSModule = () => {
     }
   }, [
     actualizarStockProducto,
+    calcularDescuentos,
+    calcularImpuestos,
+    calcularSubtotal,
+    calcularTotal,
     carrito,
     cliente,
-    descuentoGlobal,
-    facturas,
     generarAsientoInventario,
     generarAsientoPagoFactura,
     generarAsientoVenta,
+    generarNumeroFactura,
     guardarFactura,
     metodoPago,
     montoRecibido,
     procesandoVenta,
     toast,
   ]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "F2") {
+        event.preventDefault();
+        inputRef.current?.focus();
+      }
+      if (event.key === "F4" && carrito.length > 0 && !procesandoVenta) {
+        event.preventDefault();
+        void procesarVenta(false);
+      }
+      if (event.key === "F5") {
+        event.preventDefault();
+        limpiarVenta();
+      }
+      if (event.key === "F7") {
+        event.preventDefault();
+        setActiveTab("barras");
+      }
+      if (event.key === "Escape") {
+        setShowTicket(false);
+        setShowNuevoCliente(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [carrito.length, procesandoVenta, procesarVenta]);
 
   const imprimirTicket = () => window.print();
 

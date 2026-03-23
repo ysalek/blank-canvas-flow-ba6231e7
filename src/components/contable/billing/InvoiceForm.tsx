@@ -11,10 +11,8 @@ import {
   Factura,
   calcularIVA,
   generarNumeroFactura,
-  generarCUF,
-  generarCodigoControl,
-  obtenerCUFD,
   puntosVenta,
+  prepararFacturaTributaria,
   PuntoVenta,
   validarNITBoliviano
 } from "./BillingData";
@@ -181,40 +179,24 @@ const InvoiceForm = ({
     const ultimoNumero = numeros.length > 0 ? Math.max(...numeros) : 0;
     const numeroFactura = generarNumeroFactura(ultimoNumero.toString());
     const fechaLocal = obtenerFechaLocal();
-    const cufd = obtenerCUFD(selectedPuntoVenta.codigo);
+    const itemsValidos = items.filter((item) => item.descripcion.trim());
 
-    const cufData = {
-      nitEmisor: "123456789",
-      fechaHora: new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 17),
-      sucursal: "0",
-      modalidad: "1",
-      tipoEmision: "1",
-      tipoFactura: "1",
-      tipoDocumentoSector: "1",
-      numeroFactura,
-      pos: selectedPuntoVenta.codigo.toString(),
-    };
-
-    return {
+    return prepararFacturaTributaria({
       id: Date.now().toString(),
       numero: numeroFactura,
       cliente: selectedCliente!,
       fecha: fechaLocal,
       fechaVencimiento: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-      items: items.filter((item) => item.descripcion.trim()),
+      items: itemsValidos,
       subtotal,
       descuentoTotal,
       iva,
       total,
-      estado: 'enviada',
-      estadoSIN: 'pendiente',
-      cuf: generarCUF(cufData, cufd),
-      cufd,
       puntoVenta: selectedPuntoVenta.codigo,
-      codigoControl: generarCodigoControl(numeroFactura, selectedCliente!.nit, fechaLocal, selectedPuntoVenta.codigo),
       observaciones,
-      fechaCreacion: fechaLocal
-    };
+      tipoDocumentoSector: itemsValidos.find((item) => item.codigoSIN)?.codigoSIN || "1",
+      fechaCreacion: fechaLocal,
+    });
   };
 
   const handlePreview = () => {

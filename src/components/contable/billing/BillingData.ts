@@ -179,6 +179,93 @@ export const generarCodigoControl = (numeroFactura: string, nit: string, fecha: 
   return `${base.slice(0, 2)}-${base.slice(2, 4)}-${base.slice(4, 6)}`;
 };
 
+interface PrepararFacturaTributariaInput {
+  id?: string;
+  numero: string;
+  cliente: Cliente;
+  fecha: string;
+  fechaVencimiento?: string;
+  items: ItemFactura[];
+  subtotal: number;
+  descuentoTotal: number;
+  iva: number;
+  total: number;
+  puntoVenta?: number;
+  estado?: Factura['estado'];
+  estadoSIN?: Factura['estadoSIN'];
+  observaciones?: string;
+  fechaCreacion?: string;
+  cufd?: string;
+  nitEmisor?: string;
+  sucursal?: string;
+  modalidad?: string;
+  tipoEmision?: string;
+  tipoFactura?: string;
+  tipoDocumentoSector?: string;
+}
+
+export const prepararFacturaTributaria = ({
+  id = '',
+  numero,
+  cliente,
+  fecha,
+  fechaVencimiento,
+  items,
+  subtotal,
+  descuentoTotal,
+  iva,
+  total,
+  puntoVenta = 0,
+  estado = 'enviada',
+  estadoSIN = 'pendiente',
+  observaciones = '',
+  fechaCreacion = fecha,
+  cufd,
+  nitEmisor = '123456789',
+  sucursal = '0',
+  modalidad = '1',
+  tipoEmision = '1',
+  tipoFactura = '1',
+  tipoDocumentoSector,
+}: PrepararFacturaTributariaInput): Factura => {
+  const cufdOperativo = cufd || obtenerCUFD(puntoVenta);
+  const tipoDocumento = tipoDocumentoSector || items.find((item) => item.codigoSIN)?.codigoSIN || '1';
+
+  return {
+    id,
+    numero,
+    cliente,
+    fecha,
+    fechaVencimiento: fechaVencimiento || fecha,
+    items,
+    subtotal,
+    descuentoTotal,
+    iva,
+    total,
+    estado,
+    estadoSIN,
+    cuf: generarCUF(
+      {
+        nitEmisor,
+        fechaHora: new Date(`${fecha}T12:00:00`).toISOString(),
+        sucursal,
+        modalidad,
+        tipoEmision,
+        tipoFactura,
+        tipoDocumentoSector: tipoDocumento,
+        numeroFactura: numero,
+        pos: String(puntoVenta),
+      },
+      cufdOperativo
+    ),
+    cufd: cufdOperativo,
+    puntoVenta,
+    codigoControl: generarCodigoControl(numero, cliente.nit || '0', fecha, puntoVenta),
+    observaciones,
+    fechaCreacion,
+  };
+};
+
 export const esFacturaElectronica = (
   factura: Pick<Factura, 'cuf' | 'cufd' | 'codigoControl' | 'observaciones'>
 ): boolean =>

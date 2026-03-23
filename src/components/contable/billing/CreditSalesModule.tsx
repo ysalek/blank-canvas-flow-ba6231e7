@@ -14,7 +14,7 @@ import { useFacturas } from "@/hooks/useFacturas";
 import { useSupabasePagos } from "@/hooks/useSupabasePagos";
 import { useSupabaseClientes } from "@/hooks/useSupabaseClientes";
 import { useProductosValidated } from "@/hooks/useProductosValidated";
-import type { Factura, Cliente } from "@/components/contable/billing/BillingData";
+import { prepararFacturaTributaria, type Factura, type Cliente } from "@/components/contable/billing/BillingData";
 import type { Producto as ProductoLegacy } from "@/components/contable/products/ProductsData";
 import { AlertTriangle, CalendarClock, CheckCircle2, CreditCard, DollarSign, Eye, FileText, Loader2, Plus, Trash2, Wallet } from "lucide-react";
 import ProductSearchCombobox from "@/components/contable/billing/ProductSearchCombobox";
@@ -292,26 +292,25 @@ const CreditSalesModule = () => {
       fechaCreacion: clienteSeleccionado.created_at?.split("T")[0] || new Date().toISOString().slice(0, 10),
     };
 
-    const facturaNueva: Factura = {
+    const fechaFactura = new Date().toISOString().slice(0, 10);
+    const facturaNueva: Factura = prepararFacturaTributaria({
       id: `tmp-${Date.now()}`,
       numero: obtenerNumeroFactura(facturas),
       cliente: clienteFactura,
-      fecha: new Date().toISOString().slice(0, 10),
+      fecha: fechaFactura,
       fechaVencimiento: fechaVenc,
       items: itemsFactura,
       subtotal,
       descuentoTotal: 0,
       iva,
       total,
+      puntoVenta: 0,
       estado: "enviada",
       estadoSIN: "pendiente",
-      cuf: "",
-      cufd: "",
-      puntoVenta: 0,
-      codigoControl: "",
       observaciones,
-      fechaCreacion: new Date().toISOString().slice(0, 10),
-    };
+      fechaCreacion: fechaFactura,
+      tipoDocumentoSector: itemsFactura.find((item) => item.codigoSIN)?.codigoSIN || "1",
+    });
 
     setIsSavingSale(true);
     try {

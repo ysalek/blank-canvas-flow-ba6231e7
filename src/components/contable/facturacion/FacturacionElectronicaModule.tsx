@@ -22,9 +22,8 @@ import {
   calcularSubtotalSinIVA,
   esFacturaElectronica,
   evaluarRecepcionSINDemo,
-  generarCUF,
-  generarCodigoControl,
   obtenerCUFD,
+  prepararFacturaTributaria,
   sectoresEspeciales,
   validarNITBoliviano,
   type Factura,
@@ -424,7 +423,21 @@ const FacturacionElectronicaModule = () => {
     const subtotal = Number(calcularSubtotalSinIVA(formData.montoTotal, formData.codigoSector).toFixed(2));
     const iva = Number(calcularIVA(formData.montoTotal, formData.codigoSector).toFixed(2));
 
-    const factura: Factura = {
+    const fechaFactura = new Date().toISOString().slice(0, 10);
+    const itemsFactura = [
+      {
+        id: `FE-${numeroFactura}`,
+        productoId: "",
+        codigo: formData.actividadEconomica || "SERV-SIN",
+        descripcion: `Factura electronica ${formData.actividadEconomica || "servicio general"}`,
+        cantidad: 1,
+        precioUnitario: formData.montoTotal,
+        descuento: 0,
+        subtotal: formData.montoTotal,
+        codigoSIN: String(formData.codigoSector),
+      },
+    ];
+    const factura: Factura = prepararFacturaTributaria({
       id: "",
       numero: numeroFactura,
       cliente: {
@@ -435,51 +448,18 @@ const FacturacionElectronicaModule = () => {
         telefono: "",
         direccion: "",
         activo: true,
-        fechaCreacion: new Date().toISOString().slice(0, 10),
+        fechaCreacion: fechaFactura,
       },
-      fecha: new Date().toISOString().slice(0, 10),
-      fechaVencimiento: new Date().toISOString().slice(0, 10),
-      items: [
-        {
-          id: `FE-${Date.now()}`,
-          productoId: "",
-          codigo: formData.actividadEconomica || "SERV-SIN",
-          descripcion: `Factura electronica ${formData.actividadEconomica || "servicio general"}`,
-          cantidad: 1,
-          precioUnitario: formData.montoTotal,
-          descuento: 0,
-          subtotal: formData.montoTotal,
-          codigoSIN: String(formData.codigoSector),
-        },
-      ],
+      fecha: fechaFactura,
+      fechaVencimiento: fechaFactura,
+      items: itemsFactura,
       subtotal,
       descuentoTotal: 0,
       iva,
       total: formData.montoTotal,
       estado: "borrador",
       estadoSIN: "pendiente",
-      cuf: generarCUF(
-        {
-          nitEmisor: configSin.nit || empresa.nit,
-          fechaHora: new Date().toISOString(),
-          sucursal: configSin.codigoSucursal || configFiscal.sucursal || "0",
-          modalidad: configSin.codigoModalidad || "1",
-          tipoEmision: configSin.codigoEmision || "1",
-          tipoFactura: configSin.tipoFacturaDocumento || "1",
-          tipoDocumentoSector: String(formData.codigoSector),
-          numeroFactura,
-          pos: String(formData.codigoPuntoVenta),
-        },
-        cufd
-      ),
-      cufd,
       puntoVenta: formData.codigoPuntoVenta,
-      codigoControl: generarCodigoControl(
-        numeroFactura,
-        formData.nit.trim(),
-        new Date().toISOString().slice(0, 10),
-        formData.codigoPuntoVenta,
-      ),
       observaciones: [
         "Registro creado desde Facturacion Electronica.",
         `Actividad economica: ${formData.actividadEconomica || "no especificada"}.`,
@@ -487,8 +467,15 @@ const FacturacionElectronicaModule = () => {
       ]
         .filter(Boolean)
         .join(" "),
-      fechaCreacion: new Date().toISOString().slice(0, 10),
-    };
+      fechaCreacion: fechaFactura,
+      cufd,
+      nitEmisor: configSin.nit || empresa.nit,
+      sucursal: configSin.codigoSucursal || configFiscal.sucursal || "0",
+      modalidad: configSin.codigoModalidad || "1",
+      tipoEmision: configSin.codigoEmision || "1",
+      tipoFactura: configSin.tipoFacturaDocumento || "1",
+      tipoDocumentoSector: String(formData.codigoSector),
+    });
 
     const facturaGuardada = await guardarFactura(factura);
     if (!facturaGuardada) return;
