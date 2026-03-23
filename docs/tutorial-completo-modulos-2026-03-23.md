@@ -1,227 +1,373 @@
-# Tutorial completo de módulos
+# Tutorial completo de modulos
 
 ## Objetivo
-Este documento resume cómo usar todos los módulos visibles del sistema, en qué orden conviene adoptarlos y qué controles revisar en cada uno.
+Este manual explica para que sirve cada modulo del sistema, cuando conviene usarlo, que datos necesita y que impacto genera en la operacion. Tambien incluye mapas visuales de proceso para capacitacion interna.
 
-## Ruta sugerida de capacitación
-1. Principal y Configuración.
-2. Operaciones.
-3. Inventario y Activos.
-4. Finanzas.
-5. Impuestos SIN.
-6. Contabilidad y Reportes.
-7. Recursos Humanos.
-8. Administración avanzada.
+## Como usar este manual
+1. Mira primero los mapas de proceso para entender el flujo general.
+2. Revisa la seccion del area que vas a operar.
+3. Usa la Guia Maestra del modulo `Tutorial` para abrir cada modulo directamente desde el sistema.
+
+## Mapa comercial
+```mermaid
+flowchart LR
+    A[Clientes] --> B[Productos]
+    B --> C[Facturacion o POS]
+    C --> D[Ventas Credito]
+    D --> E[CxC / CxP]
+    C --> F[Facturacion Electronica]
+```
+
+## Mapa contable y cierre
+```mermaid
+flowchart LR
+    A[Comprobantes] --> B[Diario]
+    B --> C[Mayor]
+    C --> D[Balance de Comprobacion]
+    D --> E[Balance General]
+    D --> F[Estado de Resultados]
+    C --> G[Bancos y Conciliacion]
+```
+
+## Mapa tributario
+```mermaid
+flowchart LR
+    A[Facturacion Electronica] --> B[Libro Compras / Ventas]
+    B --> C[Declaraciones]
+    C --> D[Cumplimiento]
+    D --> E[Alertas y seguimiento]
+    B --> F[Retenciones]
+```
 
 ## Principal
 ### Dashboard
-- Qué hace: consolida ventas, alertas críticas, salud contable y accesos rápidos.
-- Flujo recomendado: revisar KPIs, abrir la alerta prioritaria y distribuir tareas del día.
-- Controles: balance, alertas fiscales, conciliaciones abiertas, planillas pendientes.
+- Para que sirve: concentrar indicadores, alertas y accesos rapidos.
+- Cuando abrirlo: al inicio del dia, antes del cierre y para priorizar trabajo.
+- Necesita: que los demas modulos ya tengan informacion registrada.
+- Genera: visibilidad ejecutiva y saltos rapidos a incidencias reales.
+- Revisar: alertas tributarias, conciliaciones pendientes, planillas y vencimientos.
 
 ## Contabilidad
 ### Plan de Cuentas
-- Qué hace: define la estructura contable del sistema.
-- Cuándo usarlo: implementación, ajustes de catálogo y control de cuentas auxiliares.
-- Revisar: código, naturaleza, jerarquía y uso por módulo.
+- Para que sirve: definir la estructura contable del sistema.
+- Cuando abrirlo: implementacion, ajustes del catalogo y nuevas operaciones.
+- Necesita: criterio contable claro sobre activos, pasivos, patrimonio, ingresos y gastos.
+- Genera: base para comprobantes, bancos, ventas, compras, nomina y reportes.
+- Revisar: codigo, naturaleza, jerarquia y cuentas duplicadas.
 
 ### Comprobantes
-- Qué hace: registra comprobantes de ingreso, egreso y traspaso.
-- Cuándo usarlo: hechos económicos no nacidos desde ventas, compras o bancos.
-- Revisar: equilibrio Debe/Haber, referencia documental, estado y autorización.
+- Para que sirve: registrar asientos y comprobantes manuales con trazabilidad.
+- Cuando abrirlo: ajustes, reclasificaciones, ingresos, egresos y traspasos que no nacen de otro modulo.
+- Necesita: fecha, glosa, detalle debe/haber y cuentas correctas.
+- Genera: comprobante formal y asiento auditable.
+- Revisar: equilibrio debe/haber, soporte documental y estado del comprobante.
 
 ### Diario
-- Qué hace: muestra asientos cronológicos del sistema.
-- Cuándo usarlo: revisión diaria y seguimiento de ajustes.
-- Revisar: glosa, origen, referencia, borradores y reversiones.
+- Para que sirve: ver todos los asientos en orden cronologico.
+- Cuando abrirlo: revision diaria, seguimiento de ajustes y rastreo de origen.
+- Necesita: asientos ya generados por procesos del sistema.
+- Genera: lectura cronologica de la contabilidad.
+- Revisar: duplicidades, borradores, glosas incompletas y reversiones.
 
 ### Mayor
-- Qué hace: analiza movimientos y saldos por cuenta.
-- Cuándo usarlo: conciliación y revisión de cuentas sensibles.
-- Revisar: saldo inicial, movimientos, saldo final y referencia origen.
+- Para que sirve: analizar saldos y movimientos por cuenta.
+- Cuando abrirlo: conciliacion, analisis de una cuenta o explicacion de variaciones.
+- Necesita: cuenta contable y periodo.
+- Genera: extracto por cuenta con saldo inicial, movimientos y saldo final.
+- Revisar: saldos anormales y movimientos sin soporte.
 
-### Balance de Comprobación
-- Qué hace: verifica consistencia y cuadre de la contabilidad.
-- Cuándo usarlo: antes de cierres y estados financieros.
-- Revisar: sumas deudoras/acreedores y cuentas con saldos anómalos.
+### Balance de Comprobacion
+- Para que sirve: validar el cuadre del sistema antes de estados financieros.
+- Cuando abrirlo: pre-cierre mensual, auditoria o revision interna.
+- Necesita: asientos del periodo.
+- Genera: saldos deudores y acreedores por cuenta.
+- Revisar: cuentas invertidas, sin movimiento o con comportamiento anormal.
 
 ### Balance General
-- Qué hace: presenta activos, pasivos y patrimonio.
-- Cuándo usarlo: cierre mensual, informes gerenciales y soporte bancario.
-- Revisar: conciliaciones, inventario contable y diferencias patrimoniales.
+- Para que sirve: mostrar la situacion financiera al cierre.
+- Cuando abrirlo: reportes gerenciales, presentaciones o soporte bancario.
+- Necesita: contabilidad revisada y conciliaciones razonables.
+- Genera: foto financiera de activos, pasivos y patrimonio.
+- Revisar: inventario contable, bancos conciliados y coherencia patrimonial.
 
 ### Estado de Resultados
-- Qué hace: muestra ingresos, costos y utilidad del período.
-- Cuándo usarlo: análisis gerencial y rentabilidad.
-- Revisar: ventas anuladas, costos, gastos extraordinarios y márgenes.
+- Para que sirve: medir utilidad o perdida del periodo.
+- Cuando abrirlo: cierre mensual, control de rentabilidad y comite gerencial.
+- Necesita: ingresos, costos y gastos correctamente registrados.
+- Genera: lectura de margenes y desempeno del negocio.
+- Revisar: ventas anuladas, costos faltantes y gastos extraordinarios.
 
 ## Operaciones
-### Facturación
-- Qué hace: emite facturas y controla el ciclo comercial.
-- Flujo: cliente, productos, impuestos, validación y emisión.
-- Revisar: stock, datos fiscales del cliente y estado de la factura.
+### Facturacion
+- Para que sirve: emitir facturas y registrar ventas con impacto contable y tributario.
+- Cuando abrirlo: cada vez que la empresa realiza una venta formal.
+- Necesita: cliente, productos o servicios, precios, forma de pago y datos fiscales.
+- Genera: factura, asiento de venta y base para cobranza.
+- Revisar: stock, datos fiscales del cliente y estado del documento.
 
 ### Punto de Venta
-- Qué hace: registra ventas rápidas con ticket y cobro.
-- Flujo: carrito, cliente, medio de pago, confirmación y ticket.
-- Revisar: caja, stock y forma de pago.
+- Para que sirve: vender rapido con ticket y cobro inmediato.
+- Cuando abrirlo: ventas de mostrador o caja.
+- Necesita: productos, medios de pago y cliente opcional.
+- Genera: ticket, venta al contado y salida de stock.
+- Revisar: caja diaria, stock y cliente fiscal cuando corresponda factura.
 
-### Ventas a Crédito
-- Qué hace: controla cartera, vencimientos y cobranzas.
-- Flujo: venta con plazo, seguimiento de saldo, cobros parciales y cierre.
-- Revisar: vencimientos, mora, anticipos y saldo pendiente.
+### Ventas Credito
+- Para que sirve: controlar cartera, vencimientos y cobranzas.
+- Cuando abrirlo: ventas con plazo o cobros parciales.
+- Necesita: factura, cliente, condiciones de pago y vencimiento.
+- Genera: saldo por cobrar e historial de cobranza.
+- Revisar: mora, anticipos y saldo pendiente.
 
-### Notas de Crédito y Débito
-- Qué hace: ajusta operaciones ya emitidas.
-- Cuándo usarlo: devoluciones, descuentos posteriores o cargos adicionales.
-- Revisar: documento origen, motivo y efecto tributario.
+### Notas de Credito y Debito
+- Para que sirve: corregir o complementar operaciones ya emitidas.
+- Cuando abrirlo: devoluciones, descuentos posteriores o cargos adicionales.
+- Necesita: documento origen, motivo e importes.
+- Genera: ajuste comercial y tributario con rastro.
+- Revisar: efecto en IVA, stock y cartera.
 
 ### Compras
-- Qué hace: registra adquisiciones con impacto en inventario, gasto o crédito fiscal.
-- Flujo: proveedor, documento, ítems, impuestos y guardado.
-- Revisar: NIT proveedor, fecha, monto y clasificación contable.
+- Para que sirve: registrar compras con impacto fiscal, contable y de inventario.
+- Cuando abrirlo: al recibir facturas o adquisiciones del negocio.
+- Necesita: proveedor, documento, items y clasificacion contable.
+- Genera: compra, credito fiscal, cuenta por pagar y stock si aplica.
+- Revisar: NIT del proveedor, impuestos y soporte.
 
 ### Proveedores
-- Qué hace: administra terceros de compra y abastecimiento.
-- Revisar: datos fiscales, historial de compras y saldos.
+- Para que sirve: administrar terceros de compra y abastecimiento.
+- Cuando abrirlo: altas, actualizaciones o revision de historial.
+- Necesita: datos fiscales y comerciales del proveedor.
+- Genera: maestro de proveedores usable por compras y pagos.
+- Revisar: NIT, contactos, historial y saldos pendientes.
 
 ### Clientes
-- Qué hace: organiza la base comercial para facturación y cobranza.
-- Revisar: identificación fiscal, contacto, historial y cartera.
+- Para que sirve: mantener limpia la base comercial para facturacion y cobranza.
+- Cuando abrirlo: altas de clientes y revision de cartera.
+- Necesita: razon social, identificacion fiscal y contacto.
+- Genera: maestro de clientes.
+- Revisar: datos fiscales correctos, duplicados y condiciones comerciales.
 
 ## Inventario y Activos
 ### Productos
-- Qué hace: mantiene catálogo de productos y servicios.
-- Flujo: crear producto, cargar costo/precio, definir stock e imagen principal.
-- Revisar: código, categoría, stock mínimo e imagen correcta.
+- Para que sirve: centralizar la ficha maestra de productos y servicios.
+- Cuando abrirlo: creacion, edicion de precios, costos o carga de imagen.
+- Necesita: codigo, nombre, categoria, costo, precio e imagen opcional.
+- Genera: item listo para ventas, POS e inventario.
+- Revisar: codigo unico, stock minimo, costo, precio e imagen principal.
 
 ### Inventario
-- Qué hace: controla stock, valorización y alertas.
-- Revisar: stock bajo, diferencias físico/contable y valorización.
+- Para que sirve: controlar existencias y valorizacion.
+- Cuando abrirlo: revision de stock, entradas, salidas y alertas.
+- Necesita: productos y movimientos operativos.
+- Genera: visibilidad de stock y valuacion.
+- Revisar: diferencias fisico/contable, stock bajo y costos desactualizados.
 
 ### Kardex
-- Qué hace: muestra historial detallado de movimientos por producto.
-- Revisar: entradas, salidas, saldo y referencia documental.
+- Para que sirve: rastrear cada entrada y salida por producto.
+- Cuando abrirlo: diferencias de stock o auditoria de inventario.
+- Necesita: producto y periodo.
+- Genera: secuencia detallada de movimientos.
+- Revisar: referencias faltantes, saltos de stock y costos mal aplicados.
 
 ### Activos Fijos
-- Qué hace: gestiona bienes, depreciación y valor en libros.
-- Revisar: fecha de alta, costo, vida útil y valor residual.
+- Para que sirve: controlar bienes, depreciacion y valor en libros.
+- Cuando abrirlo: altas, bajas, depreciaciones y cierre patrimonial.
+- Necesita: fecha de alta, costo, vida util y valor residual.
+- Genera: ficha del activo y lectura patrimonial.
+- Revisar: depreciacion acumulada, bajas no registradas y cuentas asociadas.
 
 ## Finanzas
 ### Bancos
-- Qué hace: centraliza cuentas bancarias y movimientos de tesorería.
-- Flujo: alta de cuenta, carga/importación de movimientos, revisión de saldos.
-- Revisar: origen del movimiento, tipo, saldo y relación contable.
+- Para que sirve: centralizar cuentas y movimientos de tesoreria.
+- Cuando abrirlo: alta de cuentas, registro o importacion de movimientos.
+- Necesita: cuentas bancarias y relacion contable.
+- Genera: saldos por cuenta y base para conciliacion y flujo.
+- Revisar: origen del movimiento, tipo, duplicados y saldo.
 
-### Conciliación Bancaria
-- Qué hace: compara banco contra libros por cuenta y fecha de corte.
-- Flujo: elegir cuenta, importar/revisar extractos, analizar excepciones y cerrar.
-- Revisar: diferencia final, partidas conciliadas y ajustes pendientes.
+### Conciliacion Bancaria
+- Para que sirve: comparar banco contra libros y explicar diferencias.
+- Cuando abrirlo: cierre mensual o al detectar diferencias de saldo.
+- Necesita: cuenta, fecha de corte, extractos y asientos.
+- Genera: partidas conciliadas, excepciones y ajustes propuestos.
+- Revisar: diferencia final, partidas en transito y cargos bancarios no registrados.
 
-### Flujo de Caja
-- Qué hace: proyecta liquidez usando bancos, cartera y obligaciones.
-- Revisar: ingresos proyectados, egresos próximos y saldo disponible.
+### Flujo Caja
+- Para que sirve: proyectar liquidez a partir de bancos, cartera y obligaciones.
+- Cuando abrirlo: seguimiento semanal o prevision de faltantes.
+- Necesita: bancos, cuentas por cobrar, cuentas por pagar y vencimientos.
+- Genera: lectura de liquidez y escenarios de caja.
+- Revisar: baches de liquidez y concentracion de vencimientos.
 
 ### CxC / CxP
-- Qué hace: consolida cuentas por cobrar y por pagar.
-- Revisar: vencimientos, saldos, historial de pagos y cobranzas.
+- Para que sirve: consolidar cartera por cobrar y obligaciones por pagar.
+- Cuando abrirlo: comites de cobranza o programacion de pagos.
+- Necesita: facturas, pagos, compras, anticipos y terceros.
+- Genera: ranking de vencidos e historial de cobros/pagos.
+- Revisar: saldos vencidos, documentos sin aplicar y anticipos no compensados.
 
 ## Impuestos SIN
 ### Libro Compras / Ventas
-- Qué hace: arma el libro fiscal del período y separa ventas exportables de observadas.
-- Revisar: estado SIN de ventas electrónicas antes de exportar.
+- Para que sirve: preparar el libro fiscal del periodo.
+- Cuando abrirlo: antes de exportar o presentar IVA.
+- Necesita: ventas, compras y estados SIN del periodo.
+- Genera: base exportable y alertas de incidencias fiscales.
+- Revisar: ventas observadas, compras sin soporte y pendientes del periodo.
 
-### Declaraciones Tributarias
-- Qué hace: registra IVA, IT, IUE y otras obligaciones por período.
-- Flujo: filtrar, registrar declaración, revisar alertas y marcar como presentada.
-- Revisar: período, tipo, vencimiento, montos y facturas electrónicas observadas del mismo período.
+### Declaraciones
+- Para que sirve: controlar vencimientos y registrar declaraciones por periodo.
+- Cuando abrirlo: preparacion y presentacion de IVA, IT, IUE u otras obligaciones.
+- Necesita: tipo de obligacion, periodo, monto y configuracion fiscal.
+- Genera: registro de declaracion y estado presentada o pendiente.
+- Revisar: duplicados, montos negativos y facturas electronicas rechazadas del mismo periodo.
 
 ### Cumplimiento Normativo
-- Qué hace: da seguimiento a requisitos regulatorios y plazos.
-- Revisar: estado, vigencia, prioridad y evidencia pendiente.
+- Para que sirve: concentrar riesgos y vencimientos regulatorios.
+- Cuando abrirlo: seguimiento tributario y control ejecutivo.
+- Necesita: declaraciones, retenciones, nomina y configuracion tributaria.
+- Genera: cola de cumplimiento y alertas priorizadas.
+- Revisar: obligaciones vencidas y incidencias SIN abiertas.
 
 ### Retenciones
-- Qué hace: controla emisión y presentación de retenciones fiscales.
-- Revisar: tipo, monto, estado y soporte contable.
+- Para que sirve: registrar y controlar retenciones fiscales.
+- Cuando abrirlo: emision, seguimiento o presentacion de retenciones.
+- Necesita: tercero, tipo, base imponible, monto y fecha.
+- Genera: retencion con estado y soporte contable.
+- Revisar: calculo, tipo correcto y estado de presentacion.
 
-### Facturación Electrónica
-- Qué hace: controla CUF, CUFD, puntos de venta y flujo SIN asistido.
-- Flujo: revisar facturas del período, reenviar, descargar soporte o preparar corrección.
-- Revisar: configuración SIN, estado SIN, observaciones y datos fiscales de la factura.
+### Facturacion Electronica
+- Para que sirve: revisar el estado SIN de las facturas y resolver incidencias.
+- Cuando abrirlo: cuando hay observaciones, rechazos o revision de periodo fiscal.
+- Necesita: factura emitida, datos fiscales, configuracion SIN y actividad economica.
+- Genera: estado SIN, soportes y cola de incidencias.
+- Revisar: NIT invalido, CUF/CUFD faltante y configuracion incompleta.
 
-## Planificación
+## Planificacion
 ### Presupuestos
-- Qué hace: compara presupuesto contra ejecución.
-- Revisar: estado, desvíos y período.
+- Para que sirve: comparar plan contra ejecucion.
+- Cuando abrirlo: planeacion y seguimiento gerencial.
+- Necesita: periodo, lineas y montos objetivo.
+- Genera: lectura de desvio y control presupuestario.
+- Revisar: sobreejecucion y presupuestos desactualizados.
 
 ### Centros de Costo
-- Qué hace: mide ejecución por centro, área o unidad.
-- Revisar: presupuesto, cuentas asociadas, responsable y desviación.
+- Para que sirve: medir consumo y desempeno por area o unidad.
+- Cuando abrirlo: control gerencial y analisis de costos.
+- Necesita: centro definido, presupuesto, cuentas y responsable.
+- Genera: ejecucion por area y lectura de desvio.
+- Revisar: cuentas mal asociadas y responsables no definidos.
 
 ## Recursos Humanos
-### Nómina
-- Qué hace: genera planillas, netos y RC-IVA.
-- Flujo: revisar empleados, generar período, validar detalle y marcar pago.
-- Revisar: estado de planilla, RC-IVA, neto y soporte de pago.
+### Nomina
+- Para que sirve: generar planillas, RC-IVA y pago de personal.
+- Cuando abrirlo: cada cierre laboral mensual.
+- Necesita: empleados, conceptos, periodo y facturas RC-IVA si aplica.
+- Genera: planilla, detalle por empleado y asiento de pago.
+- Revisar: netos, RC-IVA, duplicidad de periodos y estado de pago.
 
 ### Empleados
-- Qué hace: administra el padrón de personal.
-- Revisar: estado laboral, identificación y consistencia con nómina.
+- Para que sirve: mantener el padron laboral del negocio.
+- Cuando abrirlo: altas, bajas y actualizaciones.
+- Necesita: datos personales, cargo y estado laboral.
+- Genera: base para nomina y control organizacional.
+- Revisar: datos incompletos o empleados inactivos aun usados en procesos.
 
 ## Reportes
 ### Reportes
-- Qué hace: centraliza salidas ejecutivas y operativas.
-- Revisar: filtros, período y consistencia de datos antes de exportar.
+- Para que sirve: centralizar salidas ejecutivas y operativas.
+- Cuando abrirlo: cortes gerenciales o exportacion de informacion.
+- Necesita: datos del periodo y filtros correctos.
+- Genera: reportes descargables y resumenes.
+- Revisar: coherencia del periodo y calidad de la base.
 
-### Análisis Financiero
-- Qué hace: muestra ratios y tendencias.
-- Revisar: liquidez, rentabilidad y evolución comparativa.
+### Analisis Financiero
+- Para que sirve: traducir la contabilidad a indicadores.
+- Cuando abrirlo: comites gerenciales y revision de estrategia.
+- Necesita: balances y resultados consistentes.
+- Genera: ratios, tendencias e insumos para decision.
+- Revisar: comparabilidad entre periodos y calidad del dato base.
 
-### Análisis Inteligente
-- Qué hace: sugiere hallazgos automáticos sobre datos persistidos.
-- Revisar: consistencia del dato base antes de actuar.
+### Analisis Inteligente
+- Para que sirve: detectar hallazgos y patrones sobre datos persistidos.
+- Cuando abrirlo: revision ejecutiva rapida o apoyo analitico.
+- Necesita: datos suficientemente completos.
+- Genera: sugerencias de revision y alertas interpretativas.
+- Revisar: validar siempre el dato base antes de actuar.
 
 ### Rentabilidad
-- Qué hace: analiza margen por línea, producto o unidad.
-- Revisar: costos reales y efectos extraordinarios del período.
+- Para que sirve: entender margen por producto, linea o unidad.
+- Cuando abrirlo: revision comercial, pricing o eficiencia de costos.
+- Necesita: ventas, costos y centros de costo.
+- Genera: lectura de margenes y hallazgos de rentabilidad.
+- Revisar: productos sin costo real o costos incompletos.
 
-### Auditoría Avanzada
-- Qué hace: identifica riesgos y anomalías de control.
-- Revisar: criticidad, módulo origen y acción correctiva.
+### Auditoria Avanzada
+- Para que sirve: detectar excepciones, riesgos y anomalias.
+- Cuando abrirlo: pre-cierre o auditoria interna.
+- Necesita: datos transaccionales y contables ya persistidos.
+- Genera: hallazgos priorizados y accion correctiva sugerida.
+- Revisar: criticidad, modulo origen y reincidencias.
 
-## Configuración
-### Configuración
-- Qué hace: define empresa, fiscalidad, SIN y parámetros del sistema.
-- Revisar: NIT, razón social, actividad, puntos de venta y modalidad de facturación.
+## Configuracion
+### Configuracion
+- Para que sirve: definir datos maestros de empresa, fiscalidad y SIN.
+- Cuando abrirlo: al comenzar y cuando cambien parametros clave.
+- Necesita: datos legales, fiscales y tecnicos de la empresa.
+- Genera: base para facturacion, declaraciones y demas modulos.
+- Revisar: NIT, actividad economica, codigo de sistema, sucursal y punto de venta.
 
 ### Backup
-- Qué hace: gestiona respaldos operativos.
-- Revisar: última ejecución, política de resguardo y continuidad.
+- Para que sirve: dar visibilidad al respaldo y continuidad operativa.
+- Cuando abrirlo: revision periodica de seguridad y continuidad.
+- Necesita: politica de respaldo y control interno.
+- Genera: estado de respaldo y continuidad.
+- Revisar: ultima ejecucion, frecuencia y evidencia.
 
 ### Tutorial
-- Qué hace: concentra onboarding, ayuda por rol y guía maestra.
-- Uso sugerido: capacitación inicial y reciclaje operativo.
+- Para que sirve: ayudar a usuarios nuevos o en reciclaje.
+- Cuando abrirlo: implementacion, capacitacion o dudas de proceso.
+- Necesita: necesidad de capacitacion y contexto del proceso.
+- Genera: rutas, mapas, guia maestra y manual ampliado.
+- Revisar: que el contenido siga alineado al sistema real.
 
-## Administración
+## Administracion
 ### Panel Admin
-- Qué hace: concentra indicadores administrativos de plataforma.
+- Para que sirve: revisar la salud global del producto.
+- Cuando abrirlo: soporte, supervision y monitoreo interno.
+- Necesita: rol administrador.
+- Genera: KPIs administrativos.
+- Revisar: actividad anomala, usuarios bloqueados y cuentas con problemas.
 
-### Gestión Usuarios
-- Qué hace: administra usuarios a nivel global.
+### Gestion Usuarios
+- Para que sirve: administrar acceso, estado y consistencia de usuarios.
+- Cuando abrirlo: altas, bajas, soporte o revision de permisos.
+- Necesita: datos del usuario y rol requerido.
+- Genera: usuario habilitado, corregido o bloqueado.
+- Revisar: roles, duplicados y estado de acceso.
 
 ### Suscripciones
-- Qué hace: controla planes, vigencias y estados comerciales.
+- Para que sirve: controlar planes y vigencias del SaaS.
+- Cuando abrirlo: renovaciones o soporte comercial.
+- Necesita: cuenta, plan y estado comercial.
+- Genera: visibilidad de suscripcion.
+- Revisar: vigencias, bloqueos por plan y desajustes comerciales.
 
 ### Pagos Bolivia
-- Qué hace: da seguimiento a pagos locales y soporte comercial.
+- Para que sirve: seguir pagos locales de clientes a nivel administrativo.
+- Cuando abrirlo: soporte comercial y confirmacion de pagos.
+- Necesita: referencia de pago y cuenta cliente.
+- Genera: estado administrativo del pago.
+- Revisar: pagos sin aplicar o referencias incompletas.
 
 ### Logs Actividad
-- Qué hace: conserva trazabilidad de acciones y eventos.
+- Para que sirve: rastrear acciones y eventos para soporte y auditoria.
+- Cuando abrirlo: incidentes, revisiones o actividad sospechosa.
+- Necesita: eventos registrados por la plataforma.
+- Genera: historial trazable por usuario y accion.
+- Revisar: eventos criticos y patrones fuera de lo normal.
 
-## Buenas prácticas globales
-- Empezar cada día en Dashboard.
-- Mantener Configuración completa antes de operar módulos fiscales.
-- Resolver incidencias desde el módulo origen y no solo desde reportes.
-- No presentar declaraciones sin revisar facturación electrónica del mismo período.
-- No cerrar conciliaciones con diferencias sin explicación.
-- Usar el Tutorial como material base de inducción del equipo.
+## Recomendacion de capacitacion interna
+1. Induccion general: Dashboard, Configuracion y Tutorial.
+2. Equipo comercial: Clientes, Productos, Facturacion, POS y Ventas Credito.
+3. Equipo contable: Comprobantes, Diario, Mayor, Balance de Comprobacion y estados financieros.
+4. Equipo tributario: Facturacion Electronica, Libro C/V, Declaraciones y Cumplimiento.
+5. Equipo financiero: Bancos, Conciliacion, Flujo Caja y CxC / CxP.
