@@ -179,6 +179,12 @@ export const generarCodigoControl = (numeroFactura: string, nit: string, fecha: 
   return `${base.slice(0, 2)}-${base.slice(2, 4)}-${base.slice(4, 6)}`;
 };
 
+export const esFacturaElectronica = (
+  factura: Pick<Factura, 'cuf' | 'cufd' | 'codigoControl' | 'observaciones'>
+): boolean =>
+  Boolean(factura.cuf || factura.cufd || factura.codigoControl) ||
+  String(factura.observaciones || '').includes('Registro creado desde Facturacion Electronica.');
+
 export const validarFacturaParaSINDemo = (factura: Factura): { aceptada: boolean; motivo?: string } => {
   if (!factura.cliente?.nombre) {
     return { aceptada: false, motivo: "La factura no tiene cliente asociado." };
@@ -213,27 +219,90 @@ export const validarFacturaParaSINDemo = (factura: Factura): { aceptada: boolean
   return { aceptada: true };
 };
 
-export const simularValidacionSIN = (factura: Factura): Promise<Factura> => {
+export interface ResultadoRecepcionSINDemo {
+  aceptada: boolean;
+  motivo?: string;
+  estado: Factura['estado'];
+  estadoSIN: Factura['estadoSIN'];
+  observaciones: string;
+}
+
+const unirObservaciones = (...partes: Array<string | undefined>) =>
+  partes
+    .map((parte) => parte?.trim())
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+export const evaluarRecepcionSINDemo = (
+  factura: Factura,
+  options?: {
+    conectadoSIN?: boolean;
+    origen?: string;
+  }
+): ResultadoRecepcionSINDemo => {
+  const conectadoSIN = options?.conectadoSIN ?? true;
+  const origen = options?.origen || 'circuito general';
+
+  if (!conectadoSIN) {
+    return {
+      aceptada: false,
+      motivo: 'La configuracion operativa del SIN no esta lista.',
+      estado: 'borrador',
+      estadoSIN: 'rechazado',
+      observaciones: unirObservaciones(
+        factura.observaciones,
+        `Recepcion SIN simulada (${origen}): rechazada por configuracion incompleta.`
+      ),
+    };
+  }
+
+  const resultado = validarFacturaParaSINDemo(factura);
+  if (!resultado.aceptada) {
+    return {
+      aceptada: false,
+      motivo: resultado.motivo,
+      estado: 'borrador',
+      estadoSIN: 'rechazado',
+      observaciones: unirObservaciones(
+        factura.observaciones,
+        `Recepcion SIN simulada (${origen}): rechazada por validacion funcional. Motivo: ${resultado.motivo}.`
+      ),
+    };
+  }
+
+  return {
+    aceptada: true,
+    estado: 'enviada',
+    estadoSIN: 'aceptado',
+    observaciones: unirObservaciones(
+      factura.observaciones,
+      `Recepcion SIN simulada (${origen}): aceptada y auditada sobre la factura real.`
+    ),
+  };
+};
+
+export const aplicarResultadoRecepcionSINDemo = (
+  factura: Factura,
+  resultado: ResultadoRecepcionSINDemo
+): Factura => ({
+  ...factura,
+  estado: resultado.estado,
+  estadoSIN: resultado.estadoSIN,
+  observaciones: resultado.observaciones,
+});
+
+export const simularValidacionSIN = (
+  factura: Factura,
+  options?: {
+    conectadoSIN?: boolean;
+    origen?: string;
+  }
+): Promise<Factura> => {
   return new Promise((resolve) => {
     setTimeout(() => {
-      const resultado = validarFacturaParaSINDemo(factura);
-
-      const facturaActualizada: Factura = {
-        ...factura,
-        estadoSIN: resultado.aceptada ? 'aceptado' : 'rechazado',
-      };
-
-      if (!resultado.aceptada) {
-        facturaActualizada.estado = 'borrador';
-        facturaActualizada.observaciones = [
-          `RECHAZADA POR EL SIN DEMO. MOTIVO: ${resultado.motivo}.`,
-          factura.observaciones || '',
-        ].filter(Boolean).join(' ').trim();
-      } else {
-        facturaActualizada.estado = 'enviada';
-      }
-
-      resolve(facturaActualizada);
+      const resultado = evaluarRecepcionSINDemo(factura, options);
+      resolve(aplicarResultadoRecepcionSINDemo(factura, resultado));
     }, 1200);
   });
 };

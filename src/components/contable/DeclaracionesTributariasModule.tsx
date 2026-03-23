@@ -44,6 +44,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useConfiguracionSistema } from "@/hooks/useConfiguracionSistema";
 import { useFacturas } from "@/hooks/useFacturas";
+import { esFacturaElectronica } from "@/components/contable/billing/BillingData";
 import {
   calcularFechaVencimiento,
   DECLARACION_DEFINITIONS,
@@ -160,10 +161,6 @@ const getEstadoLabel = (estado: EstadoCalendario) => {
       return "No registrada";
   }
 };
-
-const esFacturaElectronica = (observaciones: string, cuf: string, cufd: string, codigoControl: string) =>
-  Boolean(cuf || cufd || codigoControl) ||
-  observaciones.includes("Registro creado desde Facturacion Electronica.");
 
 const resolverAccionFacturaElectronica = (estadoSIN?: string | null) => {
   if (estadoSIN === "rechazado") {
@@ -356,12 +353,7 @@ const DeclaracionesTributariasModule = () => {
 
     facturas.forEach((factura) => {
       if (
-        !esFacturaElectronica(
-          factura.observaciones || "",
-          factura.cuf || "",
-          factura.cufd || "",
-          factura.codigoControl || "",
-        )
+        !esFacturaElectronica(factura)
       ) {
         return;
       }
@@ -387,12 +379,7 @@ const DeclaracionesTributariasModule = () => {
 
     facturas.forEach((factura) => {
       if (
-        !esFacturaElectronica(
-          factura.observaciones || "",
-          factura.cuf || "",
-          factura.cufd || "",
-          factura.codigoControl || "",
-        )
+        !esFacturaElectronica(factura)
       ) {
         return;
       }

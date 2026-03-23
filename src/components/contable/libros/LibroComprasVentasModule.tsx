@@ -10,16 +10,12 @@ import { Download, FileSpreadsheet, BookOpen, ShoppingCart } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast';
 import { useFacturas } from '@/hooks/useFacturas';
 import { useSupabaseProveedores } from '@/hooks/useSupabaseProveedores';
-import type { Factura } from '@/components/contable/billing/BillingData';
+import { esFacturaElectronica, type Factura } from '@/components/contable/billing/BillingData';
 
 const MESES = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
 ];
-
-const esFacturaElectronica = (factura: Factura) =>
-  Boolean(factura.cuf || factura.cufd || factura.codigoControl) ||
-  String(factura.observaciones || '').includes('Registro creado desde Facturacion Electronica.');
 
 const getSinBadgeVariant = (estado: string) => {
   if (estado === 'aceptado') return 'default';

@@ -17,9 +17,13 @@ import { useConfiguracionSistema } from "@/hooks/useConfiguracionSistema";
 import { useFacturas } from "@/hooks/useFacturas";
 import {
   actividadesEconomicas,
+  aplicarResultadoRecepcionSINDemo,
   calcularIVA,
   calcularSubtotalSinIVA,
+  esFacturaElectronica,
+  evaluarRecepcionSINDemo,
   generarCUF,
+  generarCodigoControl,
   obtenerCUFD,
   sectoresEspeciales,
   validarNITBoliviano,
@@ -55,11 +59,6 @@ interface NuevaFacturaElectronicaForm {
   codigoSector: number;
   actividadEconomica: string;
   observaciones: string;
-}
-
-interface ResultadoRecepcionSimulada {
-  aceptada: boolean;
-  motivo?: string;
 }
 
 const FORM_INITIAL_STATE: NuevaFacturaElectronicaForm = {
@@ -131,37 +130,6 @@ const obtenerPendientesSin = (
   if (!hasText(configSin.nit || nitEmpresa)) pendientes.push("NIT emisor");
 
   return pendientes;
-};
-
-const esFacturaElectronica = (factura: Factura) =>
-  Boolean(factura.cuf || factura.cufd || factura.codigoControl) ||
-  factura.observaciones.includes("Registro creado desde Facturacion Electronica.");
-
-const simularRecepcionElectronica = (
-  factura: Factura,
-  conectadoSIN: boolean,
-): ResultadoRecepcionSimulada => {
-  if (!conectadoSIN) {
-    return { aceptada: false, motivo: "La configuracion operativa del SIN no esta lista." };
-  }
-
-  if (!validarNITBoliviano(factura.cliente.nit).valido) {
-    return { aceptada: false, motivo: "El NIT del cliente no supera la validacion boliviana." };
-  }
-
-  if (!hasText(factura.cufd)) {
-    return { aceptada: false, motivo: "La factura no tiene CUFD operativo asociado." };
-  }
-
-  if (!hasText(factura.cuf)) {
-    return { aceptada: false, motivo: "La factura no tiene CUF generado." };
-  }
-
-  if (!factura.items.length || !hasText(factura.items[0]?.codigoSIN)) {
-    return { aceptada: false, motivo: "La factura no tiene sector/documento tributario enlazado." };
-  }
-
-  return { aceptada: true };
 };
 
 const EstadoSinBadge = ({ estado }: { estado: Factura["estadoSIN"] }) => {
@@ -506,7 +474,12 @@ const FacturacionElectronicaModule = () => {
       ),
       cufd,
       puntoVenta: formData.codigoPuntoVenta,
-      codigoControl: `${Math.floor(Math.random() * 90) + 10}-${Math.floor(Math.random() * 90) + 10}-${Math.floor(Math.random() * 90) + 10}`,
+      codigoControl: generarCodigoControl(
+        numeroFactura,
+        formData.nit.trim(),
+        new Date().toISOString().slice(0, 10),
+        formData.codigoPuntoVenta,
+      ),
       observaciones: [
         "Registro creado desde Facturacion Electronica.",
         `Actividad economica: ${formData.actividadEconomica || "no especificada"}.`,
@@ -545,26 +518,20 @@ const FacturacionElectronicaModule = () => {
     setFacturaEnProcesoId(factura.id);
     await new Promise((resolve) => setTimeout(resolve, 1600));
 
-    const resultado = simularRecepcionElectronica(factura, conectadoSIN);
-    const observaciones = resultado.aceptada
-      ? [factura.observaciones, "Recepcion SIN simulada: aceptada y auditada sobre la factura real."]
-          .filter(Boolean)
-          .join(" ")
-      : [
-          factura.observaciones,
-          `Recepcion SIN simulada: rechazada por validacion funcional. Motivo: ${resultado.motivo}.`,
-        ]
-          .filter(Boolean)
-          .join(" ");
+    const resultado = evaluarRecepcionSINDemo(factura, {
+      conectadoSIN,
+      origen: "facturacion electronica",
+    });
+    const facturaProcesada = aplicarResultadoRecepcionSINDemo(factura, resultado);
 
     const actualizado = await actualizarFacturaElectronica(factura.id, {
-      estado: resultado.aceptada ? "enviada" : "borrador",
-      estadoSIN: resultado.aceptada ? "aceptado" : "rechazado",
-      cuf: factura.cuf,
-      cufd: factura.cufd || cufdActual,
-      puntoVenta: factura.puntoVenta,
-      codigoControl: factura.codigoControl,
-      observaciones,
+      estado: facturaProcesada.estado,
+      estadoSIN: facturaProcesada.estadoSIN,
+      cuf: facturaProcesada.cuf,
+      cufd: facturaProcesada.cufd || cufdActual,
+      puntoVenta: facturaProcesada.puntoVenta,
+      codigoControl: facturaProcesada.codigoControl,
+      observaciones: facturaProcesada.observaciones,
     });
 
     setFacturaEnProcesoId(null);

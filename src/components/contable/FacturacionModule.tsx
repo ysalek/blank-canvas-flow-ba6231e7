@@ -171,7 +171,9 @@ const FacturacionModule = () => {
     });
 
     try {
-      const facturaValidada = await simularValidacionSIN(nuevaFactura);
+      const facturaValidada = await simularValidacionSIN(nuevaFactura, {
+        origen: "facturacion comercial",
+      });
 
       if (facturaValidada.estadoSIN === "aceptado") {
         for (const item of facturaValidada.items) {
