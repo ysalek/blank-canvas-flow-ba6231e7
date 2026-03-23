@@ -378,6 +378,8 @@ flowchart LR
 5. Equipo financiero: Bancos, Conciliacion, Flujo Caja y CxC / CxP.
 
 ## Playbooks por rol
+Dentro del modulo `Tutorial`, la pestana `Playbooks` ahora incluye un checklist persistente por usuario/rol para marcar avance real de capacitacion.
+
 ### Administrador
 - Objetivo: dejar la empresa operativa, segura y bien parametrizada.
 - Modulos clave: Configuracion, Plan de Cuentas, Dashboard, Backup y Tutorial.

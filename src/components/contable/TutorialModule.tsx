@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
@@ -369,6 +369,7 @@ const TutorialModule = () => {
   const [activeTab, setActiveTab] = useState("inicio");
   const [completedPaths, setCompletedPaths] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [completedPlaybookModules, setCompletedPlaybookModules] = useState<string[]>([]);
 
   const navigateTo = (view: string) => {
     const url = new URL(window.location.href);
@@ -484,11 +485,55 @@ const TutorialModule = () => {
     () => rolePlaybooks.find((playbook) => playbook.role === role) || rolePlaybooks.find((playbook) => playbook.role === "usuario"),
     [role],
   );
+  const playbookStorageKey = useMemo(
+    () => `tutorial-playbook-progress:${user?.id || user?.email || role}`,
+    [role, user?.email, user?.id],
+  );
+  const activePlaybookProgress = activePlaybook
+    ? (completedPlaybookModules.filter((view) => activePlaybook.modules.includes(view)).length / activePlaybook.modules.length) * 100
+    : 0;
+  const nextPlaybookView = activePlaybook?.modules.find((view) => !completedPlaybookModules.includes(view)) || null;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const raw = window.localStorage.getItem(playbookStorageKey);
+    if (!raw) {
+      setCompletedPlaybookModules([]);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setCompletedPlaybookModules(parsed.filter((item): item is string => typeof item === "string"));
+      } else {
+        setCompletedPlaybookModules([]);
+      }
+    } catch {
+      setCompletedPlaybookModules([]);
+    }
+  }, [playbookStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(playbookStorageKey, JSON.stringify(completedPlaybookModules));
+  }, [completedPlaybookModules, playbookStorageKey]);
 
   const togglePath = (pathId: string) => {
     setCompletedPaths((prev) =>
       prev.includes(pathId) ? prev.filter((item) => item !== pathId) : [...prev, pathId],
     );
+  };
+
+  const togglePlaybookModule = (view: string) => {
+    setCompletedPlaybookModules((prev) =>
+      prev.includes(view) ? prev.filter((item) => item !== view) : [...prev, view],
+    );
+  };
+
+  const resetPlaybookProgress = () => {
+    setCompletedPlaybookModules([]);
   };
 
   const renderRelatedModule = (view: string) => {
@@ -732,6 +777,81 @@ const TutorialModule = () => {
                 <div className="rounded-2xl border border-sky-200 bg-white/70 p-4 text-sm text-sky-950">
                   <span className="font-semibold">Objetivo:</span> {activePlaybook.goal}
                 </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {activePlaybook ? (
+            <Card className="border-emerald-200 bg-emerald-50">
+              <CardHeader className="space-y-3">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-emerald-950">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-700" />
+                      Onboarding guiado del rol
+                    </CardTitle>
+                    <CardDescription className="text-emerald-900/80">
+                      Marca cada paso cuando ya domines el modulo o cuando ya lo hayas revisado con tu equipo.
+                    </CardDescription>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {nextPlaybookView ? (
+                      <Button size="sm" variant="outline" onClick={() => navigateTo(nextPlaybookView)}>
+                        Abrir siguiente paso
+                      </Button>
+                    ) : null}
+                    <Button size="sm" variant="ghost" onClick={resetPlaybookProgress}>
+                      Reiniciar checklist
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm text-emerald-950">
+                    <span>Avance del playbook</span>
+                    <span>
+                      {completedPlaybookModules.filter((view) => activePlaybook.modules.includes(view)).length}/{activePlaybook.modules.length}
+                    </span>
+                  </div>
+                  <Progress value={activePlaybookProgress} className="bg-emerald-100" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {activePlaybook.modules.map((view, index) => {
+                  const isCompleted = completedPlaybookModules.includes(view);
+                  const module = moduleLookup[view];
+
+                  return (
+                    <div
+                      key={view}
+                      className="flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-white p-4 lg:flex-row lg:items-center lg:justify-between"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className={`mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${isCompleted ? "bg-emerald-600 text-white" : "bg-emerald-100 text-emerald-900"}`}>
+                          {index + 1}
+                        </div>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold text-slate-950">{module?.title || view}</p>
+                            <Badge variant={isCompleted ? "default" : "outline"}>
+                              {isCompleted ? "Completado" : "Pendiente"}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-sm text-slate-600">
+                            {module?.summary || "Paso del playbook operativo."}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="outline" onClick={() => navigateTo(view)}>
+                          Abrir modulo
+                        </Button>
+                        <Button size="sm" variant={isCompleted ? "secondary" : "default"} onClick={() => togglePlaybookModule(view)}>
+                          {isCompleted ? "Marcar pendiente" : "Marcar completado"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
           ) : null}
