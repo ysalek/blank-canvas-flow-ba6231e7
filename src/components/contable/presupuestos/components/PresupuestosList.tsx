@@ -11,42 +11,62 @@ import { useToast } from '@/hooks/use-toast';
 
 interface PresupuestosListProps {
   presupuestos: Presupuesto[];
-  onActualizarPresupuesto: (id: string, data: Partial<Presupuesto>) => void;
-  onEliminarPresupuesto: (id: string) => void;
+  onActualizarPresupuesto: (id: string, data: Partial<Presupuesto>) => Promise<unknown>;
+  onEliminarPresupuesto: (id: string) => Promise<unknown>;
 }
 
-export const PresupuestosList: React.FC<PresupuestosListProps> = ({ 
-  presupuestos, 
+export const PresupuestosList: React.FC<PresupuestosListProps> = ({
+  presupuestos,
   onActualizarPresupuesto,
-  onEliminarPresupuesto 
+  onEliminarPresupuesto
 }) => {
   const { toast } = useToast();
 
-  const handleEliminar = (presupuesto: Presupuesto) => {
-    if (confirm(`¿Está seguro de eliminar el presupuesto "${presupuesto.nombre}"?`)) {
-      onEliminarPresupuesto(presupuesto.id);
+  const handleEliminar = async (presupuesto: Presupuesto) => {
+    if (!confirm(`Esta seguro de eliminar el presupuesto "${presupuesto.nombre}"?`)) {
+      return;
+    }
+
+    try {
+      await onEliminarPresupuesto(presupuesto.id);
       toast({
         title: "Presupuesto eliminado",
         description: `El presupuesto "${presupuesto.nombre}" ha sido eliminado`,
       });
+    } catch (error) {
+      console.error('Error eliminando presupuesto:', error);
+      toast({
+        title: "No se pudo eliminar el presupuesto",
+        description: "Intente nuevamente en unos segundos.",
+        variant: "destructive"
+      });
     }
   };
 
-  const handleCambiarEstado = (presupuesto: Presupuesto) => {
+  const handleCambiarEstado = async (presupuesto: Presupuesto) => {
     const nuevosEstados = {
-      'borrador': 'aprobado',
-      'aprobado': 'en_ejecucion',
-      'en_ejecucion': 'cerrado',
-      'cerrado': 'borrador'
+      borrador: 'aprobado',
+      aprobado: 'en_ejecucion',
+      en_ejecucion: 'cerrado',
+      cerrado: 'borrador'
     } as const;
 
     const nuevoEstado = nuevosEstados[presupuesto.estado];
-    onActualizarPresupuesto(presupuesto.id, { estado: nuevoEstado });
-    
-    toast({
-      title: "Estado actualizado",
-      description: `El presupuesto cambió a estado: ${nuevoEstado.replace('_', ' ')}`,
-    });
+
+    try {
+      await onActualizarPresupuesto(presupuesto.id, { estado: nuevoEstado });
+      toast({
+        title: "Estado actualizado",
+        description: `El presupuesto cambio a estado: ${nuevoEstado.replace('_', ' ')}`,
+      });
+    } catch (error) {
+      console.error('Error actualizando presupuesto:', error);
+      toast({
+        title: "No se pudo actualizar el estado",
+        description: "Verifique la conexion e intente nuevamente.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -62,11 +82,11 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
           <TableHeader>
             <TableRow>
               <TableHead>Nombre</TableHead>
-              <TableHead>Período</TableHead>
+              <TableHead>Periodo</TableHead>
               <TableHead>Responsable</TableHead>
               <TableHead className="text-right">Presupuestado</TableHead>
               <TableHead className="text-right">Ejecutado</TableHead>
-              <TableHead>% Ejecución</TableHead>
+              <TableHead>% Ejecucion</TableHead>
               <TableHead>Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -95,22 +115,22 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                   <TableCell>
                     <div className="space-y-1">
                       <div className="text-sm">
-                        {presupuesto.totalPresupuestado > 0 
+                        {presupuesto.totalPresupuestado > 0
                           ? ((presupuesto.totalEjecutado / presupuesto.totalPresupuestado) * 100).toFixed(1)
                           : 0}%
                       </div>
-                      <Progress 
-                        value={presupuesto.totalPresupuestado > 0 
+                      <Progress
+                        value={presupuesto.totalPresupuestado > 0
                           ? (presupuesto.totalEjecutado / presupuesto.totalPresupuestado) * 100
-                          : 0} 
+                          : 0}
                         className="h-2"
                       />
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge 
+                    <Badge
                       className={getEstadoColor(presupuesto.estado)}
-                      onClick={() => handleCambiarEstado(presupuesto)}
+                      onClick={() => void handleCambiarEstado(presupuesto)}
                       style={{ cursor: 'pointer' }}
                     >
                       {presupuesto.estado.replace('_', ' ')}
@@ -124,10 +144,10 @@ export const PresupuestosList: React.FC<PresupuestosListProps> = ({
                       <Button variant="ghost" size="sm">
                         <Edit className="w-4 h-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
-                        onClick={() => handleEliminar(presupuesto)}
+                        onClick={() => void handleEliminar(presupuesto)}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { PresupuestoDialog } from './components/PresupuestoDialog';
@@ -10,32 +10,29 @@ import { ReportesPresupuesto } from './components/ReportesPresupuesto';
 import { usePresupuestos } from './hooks/usePresupuestos';
 import { useContabilidadIntegration } from '@/hooks/useContabilidadIntegration';
 import { useToast } from '@/hooks/use-toast';
-import { Target, AlertTriangle, TrendingUp, Calendar } from 'lucide-react';
+import { Target, TrendingUp } from 'lucide-react';
+import { PresupuestoFormData } from './components/PresupuestoDialog';
 
 const PresupuestosEmpresariales = () => {
   const [showDialog, setShowDialog] = useState(false);
-  const { 
-    presupuestos, 
-    itemsPresupuesto, 
+  const {
+    presupuestos,
+    itemsPresupuesto,
+    loading,
     crearPresupuesto,
     actualizarPresupuesto,
     eliminarPresupuesto,
-    obtenerMetricas 
+    obtenerMetricas
   } = usePresupuestos();
 
   const metricas = obtenerMetricas();
-
+  const presupuestoPrincipal = presupuestos[0];
   const { toast } = useToast();
   const { guardarAsiento } = useContabilidadIntegration();
 
-  // Integración automática con contabilidad
   useEffect(() => {
-    verificarEjecucionPresupuestal();
-  }, [itemsPresupuesto]);
-
-  const verificarEjecucionPresupuestal = () => {
-    const presupuestosExcedidos = itemsPresupuesto.filter(item => 
-      item.ejecutado > item.presupuestado * 1.1 // 10% de tolerancia
+    const presupuestosExcedidos = itemsPresupuesto.filter((item) =>
+      item.ejecutado > item.presupuestado * 1.1
     );
 
     if (presupuestosExcedidos.length > 0) {
@@ -45,13 +42,12 @@ const PresupuestosEmpresariales = () => {
         variant: "destructive"
       });
     }
-  };
+  }, [itemsPresupuesto, toast]);
 
   const integrarConContabilidad = async (presupuestoId: string) => {
-    const presupuesto = presupuestos.find(p => p.id === presupuestoId);
+    const presupuesto = presupuestos.find((item) => item.id === presupuestoId);
     if (!presupuesto) return;
 
-    // Generar asiento de compromiso presupuestal
     const asiento = {
       id: Date.now().toString(),
       numero: `PRES-${presupuesto.periodo}`,
@@ -79,43 +75,67 @@ const PresupuestosEmpresariales = () => {
 
     const asientoGuardado = await guardarAsiento(asiento);
     if (!asientoGuardado) {
+      toast({
+        title: "No se pudo integrar el presupuesto",
+        description: "El asiento contable no se guardo correctamente.",
+        variant: "destructive"
+      });
       return;
     }
-    
+
     toast({
-      title: "Integración contable completada",
+      title: "Integracion contable completada",
       description: `Presupuesto ${presupuesto.nombre} integrado con la contabilidad`,
     });
   };
 
-  const handleCrearPresupuesto = async (data: any) => {
-    const nuevoPresupuesto = crearPresupuesto(data);
-    
-    // Auto-integrar con contabilidad si está aprobado
+  const handleCrearPresupuesto = async (data: PresupuestoFormData) => {
+    const nuevoPresupuesto = await crearPresupuesto({
+      ...data,
+      totalEjecutado: 0,
+    });
+
     if (data.estado === 'aprobado') {
       await integrarConContabilidad(nuevoPresupuesto.id);
     }
   };
 
+  const handleIntegrarPrincipal = async () => {
+    if (!presupuestoPrincipal) {
+      toast({
+        title: "No hay presupuestos para integrar",
+        description: "Cree o cargue un presupuesto antes de enviarlo a contabilidad.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    await integrarConContabilidad(presupuestoPrincipal.id);
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           <Target className="w-6 h-6 text-primary" />
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Presupuestos Empresariales</h2>
             <p className="text-muted-foreground">
-              Gestión integrada con contabilidad y control automático de ejecución
+              Gestion integrada con contabilidad y control automatico de ejecucion
             </p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => integrarConContabilidad(presupuestos[0]?.id)}>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => void handleIntegrarPrincipal()}
+            disabled={!presupuestoPrincipal || loading}
+          >
             <TrendingUp className="w-4 h-4 mr-2" />
             Integrar con Contabilidad
           </Button>
-          <PresupuestoDialog 
-            open={showDialog} 
+          <PresupuestoDialog
+            open={showDialog}
             onOpenChange={setShowDialog}
             onCrearPresupuesto={handleCrearPresupuesto}
           />
@@ -124,16 +144,22 @@ const PresupuestosEmpresariales = () => {
 
       <PresupuestoMetrics metricas={metricas} />
 
+      {loading && (
+        <div className="rounded-xl border border-border/60 bg-card/70 px-4 py-3 text-sm text-muted-foreground">
+          Cargando presupuestos y ejecucion desde la base principal...
+        </div>
+      )}
+
       <Tabs defaultValue="lista-presupuestos" className="space-y-4">
         <TabsList>
           <TabsTrigger value="lista-presupuestos">Lista de Presupuestos</TabsTrigger>
-          <TabsTrigger value="ejecucion-presupuestal">Ejecución Presupuestal</TabsTrigger>
-          <TabsTrigger value="variaciones">Análisis de Variaciones</TabsTrigger>
+          <TabsTrigger value="ejecucion-presupuestal">Ejecucion Presupuestal</TabsTrigger>
+          <TabsTrigger value="variaciones">Analisis de Variaciones</TabsTrigger>
           <TabsTrigger value="reportes">Reportes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="lista-presupuestos">
-          <PresupuestosList 
+          <PresupuestosList
             presupuestos={presupuestos}
             onActualizarPresupuesto={actualizarPresupuesto}
             onEliminarPresupuesto={eliminarPresupuesto}

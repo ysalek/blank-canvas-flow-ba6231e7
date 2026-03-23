@@ -7,11 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Presupuesto } from '../types';
+
+export type PresupuestoFormData = Omit<Presupuesto, 'id' | 'totalEjecutado'>;
 
 interface PresupuestoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCrearPresupuesto: (data: any) => void;
+  onCrearPresupuesto: (data: PresupuestoFormData) => Promise<void>;
 }
 
 export const PresupuestoDialog: React.FC<PresupuestoDialogProps> = ({
@@ -20,6 +23,7 @@ export const PresupuestoDialog: React.FC<PresupuestoDialogProps> = ({
   onCrearPresupuesto
 }) => {
   const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     nombre: '',
     descripcion: '',
@@ -38,7 +42,7 @@ export const PresupuestoDialog: React.FC<PresupuestoDialogProps> = ({
     }));
   };
 
-  const crearPresupuesto = () => {
+  const crearPresupuesto = async () => {
     if (!formData.nombre || !formData.periodo || !formData.fechaInicio || !formData.fechaFin) {
       toast({
         title: "Error",
@@ -48,25 +52,37 @@ export const PresupuestoDialog: React.FC<PresupuestoDialogProps> = ({
       return;
     }
 
-    onCrearPresupuesto(formData);
-    
-    toast({
-      title: "Presupuesto creado",
-      description: "El nuevo presupuesto ha sido creado exitosamente",
-    });
-    
-    setFormData({
-      nombre: '',
-      descripcion: '',
-      periodo: '',
-      fechaInicio: '',
-      fechaFin: '',
-      responsable: '',
-      totalPresupuestado: 0,
-      estado: 'borrador'
-    });
-    
-    onOpenChange(false);
+    try {
+      setSaving(true);
+      await onCrearPresupuesto(formData);
+
+      toast({
+        title: "Presupuesto creado",
+        description: "El nuevo presupuesto ha sido creado exitosamente",
+      });
+
+      setFormData({
+        nombre: '',
+        descripcion: '',
+        periodo: '',
+        fechaInicio: '',
+        fechaFin: '',
+        responsable: '',
+        totalPresupuestado: 0,
+        estado: 'borrador'
+      });
+
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error creando presupuesto:', error);
+      toast({
+        title: "No se pudo crear el presupuesto",
+        description: "Revise los datos e intente nuevamente.",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -165,8 +181,8 @@ export const PresupuestoDialog: React.FC<PresupuestoDialogProps> = ({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button onClick={crearPresupuesto}>
-            Crear Presupuesto
+          <Button onClick={crearPresupuesto} disabled={saving}>
+            {saving ? 'Guardando...' : 'Crear Presupuesto'}
           </Button>
         </div>
       </DialogContent>
