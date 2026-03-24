@@ -197,9 +197,10 @@ const ActivityLogs = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
+            disabled={loading || refreshing}
           />
         </div>
-        <Select value={filterType} onValueChange={setFilterType}>
+        <Select value={filterType} onValueChange={setFilterType} disabled={loading || refreshing}>
           <SelectTrigger className="w-44">
             <Filter className="w-3 h-3 mr-2" />
             <SelectValue placeholder="Categoría" />

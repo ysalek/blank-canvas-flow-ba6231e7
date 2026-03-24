@@ -25,7 +25,7 @@ interface Normativa2025 {
   fecha_emision: string;
   titulo: string;
   descripcion: string;
-  contenido: any;
+  contenido: Record<string, unknown> | null;
   estado: string;
   fecha_vigencia: string;
   fecha_vencimiento?: string;
@@ -33,9 +33,13 @@ interface Normativa2025 {
   created_at: string;
 }
 
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : "No se pudo completar la operacion";
+
 const CumplimientoNormativo2025 = () => {
   const [normativas, setNormativas] = useState<Normativa2025[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [filtroCategoria, setFiltroCategoria] = useState("all");
   const { toast } = useToast();
 
@@ -52,11 +56,11 @@ const CumplimientoNormativo2025 = () => {
 
       if (error) throw error;
       setNormativas(data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching normativas:', error);
       toast({
         title: "Error al cargar normativas",
-        description: "No se pudieron cargar las normativas actuales",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {
@@ -65,7 +69,7 @@ const CumplimientoNormativo2025 = () => {
   };
 
   const actualizarNormativas = async () => {
-    setLoading(true);
+    setSyncing(true);
     
     try {
       // Simular llamada a API externa del SIN para obtener nuevas normativas
@@ -118,15 +122,15 @@ const CumplimientoNormativo2025 = () => {
         description: `Se agregaron ${nuevasNormativas.length} nuevas normativas del SIN`,
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating normativas:', error);
       toast({
         title: "Error al actualizar normativas",
-        description: "No se pudo conectar con el sistema del SIN para obtener actualizaciones",
+        description: getErrorMessage(error),
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setSyncing(false);
     }
   };
 
@@ -190,10 +194,10 @@ const CumplimientoNormativo2025 = () => {
             <Button 
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
               onClick={actualizarNormativas}
-              disabled={loading}
+              disabled={loading || syncing}
             >
               <Download className="w-4 h-4 mr-2" />
-              {loading ? 'Sincronizando...' : 'Actualizar Normativas'}
+              {syncing ? 'Sincronizando...' : 'Actualizar Normativas'}
             </Button>
           </div>
         }
