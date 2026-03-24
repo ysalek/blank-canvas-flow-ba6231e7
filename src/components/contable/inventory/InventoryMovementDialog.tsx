@@ -14,7 +14,7 @@ interface InventoryMovementDialogProps {
   onOpenChange: (open: boolean) => void;
   tipo: 'entrada' | 'salida';
   productos: ProductoInventario[];
-  onMovimiento: (movimiento: MovimientoInventario, productoActualizado: ProductoInventario) => void;
+  onMovimiento: (movimiento: MovimientoInventario, productoActualizado: ProductoInventario) => Promise<void> | void;
 }
 
 const InventoryMovementDialog = ({ open, onOpenChange, tipo, productos, onMovimiento }: InventoryMovementDialogProps) => {
@@ -32,6 +32,7 @@ const InventoryMovementDialog = ({ open, onOpenChange, tipo, productos, onMovimi
     nuevoCostoPromedio: 0,
     nuevoStock: 0
   });
+  const [saving, setSaving] = useState(false);
 
   const selectedProduct = productos.find(p => p.id === formData.productoId);
 
@@ -78,7 +79,7 @@ const InventoryMovementDialog = ({ open, onOpenChange, tipo, productos, onMovimi
     setCalculatedValues({ valorTotal: 0, nuevoCostoPromedio: 0, nuevoStock: 0 });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validaciones básicas
     if (!formData.productoId) {
       toast({
@@ -160,9 +161,14 @@ const InventoryMovementDialog = ({ open, onOpenChange, tipo, productos, onMovimi
     console.log("Procesando movimiento:", nuevoMovimiento);
     console.log("Producto actualizado:", productoActualizado);
 
-    onMovimiento(nuevoMovimiento, productoActualizado);
-    resetForm();
-    onOpenChange(false);
+    try {
+      setSaving(true);
+      await Promise.resolve(onMovimiento(nuevoMovimiento, productoActualizado));
+      resetForm();
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -187,6 +193,7 @@ const InventoryMovementDialog = ({ open, onOpenChange, tipo, productos, onMovimi
               value={formData.productoId}
               onValueChange={(value) => setFormData(prev => ({ ...prev, productoId: value }))}
               placeholder="Buscar y seleccionar producto..."
+              disabled={saving}
             />
           </div>
 
@@ -238,6 +245,7 @@ const InventoryMovementDialog = ({ open, onOpenChange, tipo, productos, onMovimi
                   cantidad: parseInt(e.target.value) || 0 
                 }))}
                 placeholder="Ingrese cantidad"
+                disabled={saving}
               />
             </div>
 
@@ -254,6 +262,7 @@ const InventoryMovementDialog = ({ open, onOpenChange, tipo, productos, onMovimi
                     costoUnitario: parseFloat(e.target.value) || 0 
                   }))}
                   placeholder="Costo del producto"
+                  disabled={saving}
                 />
               </div>
             )}
@@ -265,6 +274,7 @@ const InventoryMovementDialog = ({ open, onOpenChange, tipo, productos, onMovimi
               <Input
                 value={formData.motivo}
                 onChange={(e) => setFormData(prev => ({ ...prev, motivo: e.target.value }))}
+                disabled={saving}
                 placeholder={tipo === 'entrada' ? 'Ej: Compra, Ajuste' : 'Ej: Venta, Devolución'}
               />
             </div>
@@ -274,6 +284,7 @@ const InventoryMovementDialog = ({ open, onOpenChange, tipo, productos, onMovimi
               <Input
                 value={formData.documento}
                 onChange={(e) => setFormData(prev => ({ ...prev, documento: e.target.value }))}
+                disabled={saving}
                 placeholder="Ej: FAC-001, REC-002"
               />
             </div>
@@ -319,14 +330,15 @@ const InventoryMovementDialog = ({ open, onOpenChange, tipo, productos, onMovimi
                 resetForm();
                 onOpenChange(false);
               }}
+              disabled={saving}
             >
               Cancelar
             </Button>
             <Button 
               onClick={handleSubmit}
-              disabled={!formData.productoId || formData.cantidad <= 0 || (tipo === 'entrada' && formData.costoUnitario <= 0)}
+              disabled={saving || !formData.productoId || formData.cantidad <= 0 || (tipo === 'entrada' && formData.costoUnitario <= 0)}
             >
-              Registrar {tipo === 'entrada' ? 'Entrada' : 'Salida'}
+              {saving ? "Guardando..." : `Registrar ${tipo === 'entrada' ? 'Entrada' : 'Salida'}`}
             </Button>
           </div>
         </div>

@@ -13,7 +13,7 @@ interface InventoryAdjustmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   productos: Producto[];
-  onSaveMovement: (movement: MovimientoInventario) => void;
+  onSaveMovement: (movement: MovimientoInventario) => Promise<void> | void;
 }
 
 const InventoryAdjustmentDialog = ({ 
@@ -27,9 +27,10 @@ const InventoryAdjustmentDialog = ({
   const [cantidad, setCantidad] = useState<number>(0);
   const [motivo, setMotivo] = useState("");
   const [documento, setDocumento] = useState("");
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const producto = productos.find(p => p.id === selectedProducto);
     if (!producto) {
       toast({
@@ -89,7 +90,9 @@ const InventoryAdjustmentDialog = ({
       valorMovimiento: cantidad * producto.costoUnitario
     };
 
-    onSaveMovement(movimiento);
+    try {
+      setSaving(true);
+      await Promise.resolve(onSaveMovement(movimiento));
     
     // Reset form
     setSelectedProducto("");
@@ -103,7 +106,10 @@ const InventoryAdjustmentDialog = ({
       description: `Se registró el ajuste de inventario para ${producto.nombre}`,
     });
 
-    onOpenChange(false);
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -116,7 +122,7 @@ const InventoryAdjustmentDialog = ({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Producto</Label>
-            <Select value={selectedProducto} onValueChange={setSelectedProducto}>
+            <Select value={selectedProducto} onValueChange={setSelectedProducto} disabled={saving}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar producto" />
               </SelectTrigger>
@@ -132,7 +138,7 @@ const InventoryAdjustmentDialog = ({
 
           <div className="space-y-2">
             <Label>Tipo de Ajuste</Label>
-            <Select value={tipoAjuste} onValueChange={(value: "entrada" | "salida") => setTipoAjuste(value)}>
+            <Select value={tipoAjuste} onValueChange={(value: "entrada" | "salida") => setTipoAjuste(value)} disabled={saving}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -151,6 +157,7 @@ const InventoryAdjustmentDialog = ({
               step="1"
               value={cantidad}
               onChange={(e) => setCantidad(parseInt(e.target.value) || 0)}
+              disabled={saving}
             />
           </div>
 
@@ -159,6 +166,7 @@ const InventoryAdjustmentDialog = ({
             <Textarea
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
+              disabled={saving}
               placeholder="Ej: Inventario físico, productos dañados, etc."
             />
           </div>
@@ -168,16 +176,17 @@ const InventoryAdjustmentDialog = ({
             <Input
               value={documento}
               onChange={(e) => setDocumento(e.target.value)}
+              disabled={saving}
               placeholder="Número de documento"
             />
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1" disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={handleSubmit} className="flex-1">
-              Registrar Ajuste
+            <Button onClick={handleSubmit} className="flex-1" disabled={saving}>
+              {saving ? "Guardando..." : "Registrar Ajuste"}
             </Button>
           </div>
         </div>
