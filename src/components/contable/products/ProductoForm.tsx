@@ -651,7 +651,7 @@ const ProductoForm = ({ producto, productos, onSave, onCancel }: ProductoFormPro
       <ProveedorForm
         open={showProveedorForm}
         onOpenChange={setShowProveedorForm}
-        onSave={(proveedor: Proveedor) => {
+        onSave={async (proveedor: Proveedor) => {
           setSelectedProveedorId(proveedor.id);
         }}
       />
