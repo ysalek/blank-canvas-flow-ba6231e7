@@ -42,6 +42,7 @@ const CumplimientoNormativo2025 = () => {
   const [syncing, setSyncing] = useState(false);
   const [filtroCategoria, setFiltroCategoria] = useState("all");
   const { toast } = useToast();
+  const bloqueado = loading || syncing;
 
   const fetchNormativas = useCallback(async () => {
     try {
@@ -187,14 +188,18 @@ const CumplimientoNormativo2025 = () => {
         }}
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => window.open('https://siatinfo.impuestos.gob.bo', '_blank')}>
+            <Button
+              variant="outline"
+              onClick={() => window.open('https://siatinfo.impuestos.gob.bo', '_blank')}
+              disabled={bloqueado}
+            >
               <ExternalLink className="w-4 h-4 mr-2" />
               Portal SIN
             </Button>
             <Button 
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
               onClick={actualizarNormativas}
-              disabled={loading || syncing}
+              disabled={bloqueado}
             >
               <Download className="w-4 h-4 mr-2" />
               {syncing ? 'Sincronizando...' : 'Actualizar Normativas'}
@@ -251,6 +256,16 @@ const CumplimientoNormativo2025 = () => {
       {/* Alertas Importantes */}
       <Section title="Alertas Normativas CrÃ­ticas">
         <div className="grid gap-4">
+          {syncing && (
+            <Alert className="border-blue-200 bg-blue-50">
+              <Clock className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                Se esta sincronizando el compendio normativo. Mientras termina la actualizacion, las acciones del
+                modulo quedan protegidas para evitar lecturas cruzadas.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Alert className="border-red-200 bg-red-50">
             <AlertCircle className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-red-800">
