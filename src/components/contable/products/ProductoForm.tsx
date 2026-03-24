@@ -367,7 +367,7 @@ const ProductoForm = ({ producto, productos, onSave, onCancel }: ProductoFormPro
                 <Label>Categoria *</Label>
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <Select value={formData.categoria_id} onValueChange={(value) => handleInputChange("categoria_id", value)}>
+                    <Select value={formData.categoria_id} onValueChange={(value) => handleInputChange("categoria_id", value)} disabled={saving || creatingCat}>
                       <SelectTrigger className={`executive-input ${errors.categoria_id ? "border-destructive" : ""}`}>
                         <SelectValue placeholder="Seleccionar categoria" />
                       </SelectTrigger>
@@ -380,7 +380,7 @@ const ProductoForm = ({ producto, productos, onSave, onCancel }: ProductoFormPro
                       </SelectContent>
                     </Select>
                   </div>
-                  <Button type="button" variant="outline" size="icon" onClick={() => setShowNewCatDialog(true)} title="Crear categoria" className="rounded-2xl">
+                  <Button type="button" variant="outline" size="icon" onClick={() => setShowNewCatDialog(true)} title="Crear categoria" className="rounded-2xl" disabled={saving || creatingCat}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -485,7 +485,7 @@ const ProductoForm = ({ producto, productos, onSave, onCancel }: ProductoFormPro
                       placeholder="Buscar proveedor..."
                     />
                   </div>
-                  <Button type="button" variant="outline" size="icon" onClick={() => setShowProveedorForm(true)} title="Crear proveedor" className="rounded-2xl">
+                  <Button type="button" variant="outline" size="icon" onClick={() => setShowProveedorForm(true)} title="Crear proveedor" className="rounded-2xl" disabled={saving}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -601,7 +601,13 @@ const ProductoForm = ({ producto, productos, onSave, onCancel }: ProductoFormPro
         </div>
       </CardContent>
 
-      <Dialog open={showNewCatDialog} onOpenChange={setShowNewCatDialog}>
+      <Dialog
+        open={showNewCatDialog}
+        onOpenChange={(value) => {
+          if (creatingCat && !value) return;
+          setShowNewCatDialog(value);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Nueva categoria</DialogTitle>
@@ -609,15 +615,15 @@ const ProductoForm = ({ producto, productos, onSave, onCancel }: ProductoFormPro
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="new-cat-name">Nombre *</Label>
-              <Input id="new-cat-name" value={newCatName} onChange={(e) => setNewCatName(e.target.value)} placeholder="Nombre de la categoria" className="executive-input" />
+              <Input id="new-cat-name" value={newCatName} onChange={(e) => setNewCatName(e.target.value)} placeholder="Nombre de la categoria" className="executive-input" disabled={creatingCat} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="new-cat-desc">Descripcion</Label>
-              <Input id="new-cat-desc" value={newCatDesc} onChange={(e) => setNewCatDesc(e.target.value)} placeholder="Descripcion opcional" className="executive-input" />
+              <Input id="new-cat-desc" value={newCatDesc} onChange={(e) => setNewCatDesc(e.target.value)} placeholder="Descripcion opcional" className="executive-input" disabled={creatingCat} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowNewCatDialog(false); setNewCatName(""); setNewCatDesc(""); }}>
+            <Button variant="outline" onClick={() => { setShowNewCatDialog(false); setNewCatName(""); setNewCatDesc(""); }} disabled={creatingCat}>
               Cancelar
             </Button>
             <Button

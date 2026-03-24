@@ -15,15 +15,15 @@ const ProductosModule = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingProducto, setEditingProducto] = useState<ProductoSupabase | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [savingProducto, setSavingProducto] = useState(false);
   const { toast } = useToast();
 
   const handleSaveProducto = async () => {
+    setSavingProducto(true);
     try {
       await refetch();
-      setTimeout(() => {
-        setShowForm(false);
-        setEditingProducto(null);
-      }, 100);
+      setShowForm(false);
+      setEditingProducto(null);
 
       toast({
         title: "Catalogo actualizado",
@@ -31,6 +31,8 @@ const ProductosModule = () => {
       });
     } catch (error) {
       console.error('Error en handleSaveProducto:', error);
+    } finally {
+      setSavingProducto(false);
     }
   };
 
@@ -115,6 +117,7 @@ const ProductosModule = () => {
         categorias={categorias}
         onSave={handleSaveProducto}
         onCancel={() => {
+          if (savingProducto) return;
           setShowForm(false);
           setEditingProducto(null);
         }}

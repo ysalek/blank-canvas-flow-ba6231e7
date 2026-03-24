@@ -11,7 +11,7 @@ import { Producto } from "./ProductsData";
 interface QuickProductFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onProductCreated: (producto: Producto) => void;
+  onProductCreated: (producto: Producto) => Promise<void> | void;
 }
 
 const QuickProductForm = ({ open, onOpenChange, onProductCreated }: QuickProductFormProps) => {
@@ -83,7 +83,7 @@ const QuickProductForm = ({ open, onOpenChange, onProductCreated }: QuickProduct
           fechaCreacion: created.created_at || new Date().toISOString(),
           fechaActualizacion: created.updated_at || new Date().toISOString(),
         };
-        onProductCreated(productoConverted);
+        await Promise.resolve(onProductCreated(productoConverted));
         resetForm();
         onOpenChange(false);
       }
@@ -110,13 +110,20 @@ const QuickProductForm = ({ open, onOpenChange, onProductCreated }: QuickProduct
     }
   };
 
-  const update = (field: string, value: any) => {
+  const update = (field: string, value: string | number) => {
     setForm(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: "" }));
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if ((saving || creatingCat) && !v) return;
+        if (!v) resetForm();
+        onOpenChange(v);
+      }}
+    >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Producto Rápido</DialogTitle>
@@ -124,14 +131,14 @@ const QuickProductForm = ({ open, onOpenChange, onProductCreated }: QuickProduct
         <div className="space-y-4">
           <div className="space-y-1">
             <Label>Nombre *</Label>
-            <Input value={form.nombre} onChange={e => update("nombre", e.target.value)} placeholder="Nombre del producto" className={errors.nombre ? "border-destructive" : ""} />
+            <Input value={form.nombre} onChange={e => update("nombre", e.target.value)} placeholder="Nombre del producto" className={errors.nombre ? "border-destructive" : ""} disabled={saving} />
             {errors.nombre && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.nombre}</p>}
           </div>
 
           <div className="space-y-1">
             <Label>Categoría *</Label>
             <div className="flex gap-2">
-              <Select value={form.categoria_id} onValueChange={v => update("categoria_id", v)}>
+              <Select value={form.categoria_id} onValueChange={v => update("categoria_id", v)} disabled={saving || creatingCat}>
                 <SelectTrigger className={`flex-1 ${errors.categoria_id ? "border-destructive" : ""}`}>
                   <SelectValue placeholder="Seleccionar" />
                 </SelectTrigger>
@@ -139,7 +146,7 @@ const QuickProductForm = ({ open, onOpenChange, onProductCreated }: QuickProduct
                   {categorias.map(c => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <Button type="button" variant="outline" size="icon" onClick={() => setShowNewCatDialog(true)}><Plus className="h-4 w-4" /></Button>
+              <Button type="button" variant="outline" size="icon" onClick={() => setShowNewCatDialog(true)} disabled={saving || creatingCat}><Plus className="h-4 w-4" /></Button>
             </div>
             {errors.categoria_id && <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.categoria_id}</p>}
           </div>
@@ -147,19 +154,19 @@ const QuickProductForm = ({ open, onOpenChange, onProductCreated }: QuickProduct
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>Precio Venta (Bs.) *</Label>
-              <Input type="number" value={form.precio_venta || ""} onChange={e => update("precio_venta", parseFloat(e.target.value) || 0)} min="0" step="0.01" className={errors.precio_venta ? "border-destructive" : ""} />
+              <Input type="number" value={form.precio_venta || ""} onChange={e => update("precio_venta", parseFloat(e.target.value) || 0)} min="0" step="0.01" className={errors.precio_venta ? "border-destructive" : ""} disabled={saving} />
               {errors.precio_venta && <p className="text-xs text-destructive">{errors.precio_venta}</p>}
             </div>
             <div className="space-y-1">
               <Label>Costo Unitario (Bs.)</Label>
-              <Input type="number" value={form.costo_unitario || ""} onChange={e => update("costo_unitario", parseFloat(e.target.value) || 0)} min="0" step="0.01" />
+              <Input type="number" value={form.costo_unitario || ""} onChange={e => update("costo_unitario", parseFloat(e.target.value) || 0)} min="0" step="0.01" disabled={saving} />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>Unidad</Label>
-              <Select value={form.unidad_medida} onValueChange={v => update("unidad_medida", v)}>
+              <Select value={form.unidad_medida} onValueChange={v => update("unidad_medida", v)} disabled={saving}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="PZA">Pieza</SelectItem>
@@ -173,27 +180,33 @@ const QuickProductForm = ({ open, onOpenChange, onProductCreated }: QuickProduct
             </div>
             <div className="space-y-1">
               <Label>Stock Inicial</Label>
-              <Input type="number" value={form.stock_actual || ""} onChange={e => update("stock_actual", parseInt(e.target.value) || 0)} min="0" />
+              <Input type="number" value={form.stock_actual || ""} onChange={e => update("stock_actual", parseInt(e.target.value) || 0)} min="0" disabled={saving} />
             </div>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => { resetForm(); onOpenChange(false); }}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={saving}>{saving ? "Creando..." : "Crear Producto"}</Button>
+          <Button variant="outline" onClick={() => { resetForm(); onOpenChange(false); }} disabled={saving || creatingCat}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={saving || creatingCat}>{saving ? "Creando..." : "Crear Producto"}</Button>
         </DialogFooter>
       </DialogContent>
 
       {/* Inline category creation */}
-      <Dialog open={showNewCatDialog} onOpenChange={setShowNewCatDialog}>
+      <Dialog
+        open={showNewCatDialog}
+        onOpenChange={(value) => {
+          if (creatingCat && !value) return;
+          setShowNewCatDialog(value);
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle>Nueva Categoría</DialogTitle></DialogHeader>
           <div className="space-y-2">
             <Label>Nombre *</Label>
-            <Input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Nombre" />
+            <Input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Nombre" disabled={creatingCat} />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowNewCatDialog(false); setNewCatName(""); }}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { setShowNewCatDialog(false); setNewCatName(""); }} disabled={creatingCat}>Cancelar</Button>
             <Button onClick={handleCreateCategory} disabled={!newCatName.trim() || creatingCat}>{creatingCat ? "Creando..." : "Crear"}</Button>
           </DialogFooter>
         </DialogContent>
