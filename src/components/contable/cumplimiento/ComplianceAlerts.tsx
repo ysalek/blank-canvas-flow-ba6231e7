@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ const priorityClasses: Record<string, string> = {
 
 const ComplianceAlerts = () => {
   const { alerts, loading, metrics, refetch } = useCumplimientoEjecutivo();
+  const [refreshing, setRefreshing] = useState(false);
+  const [openingAlertId, setOpeningAlertId] = useState<string | null>(null);
 
   const navigateTo = (view: string, params?: Record<string, string>) => {
     const url = new URL(window.location.href);
@@ -31,12 +34,26 @@ const ComplianceAlerts = () => {
     window.dispatchEvent(new PopStateEvent("popstate"));
   };
 
-  const handleAlertAction = (alert: (typeof alerts)[number]) => {
-    if (alert.navigation) {
-      navigateTo(alert.navigation.view, alert.navigation.params);
-      return;
+  const handleAlertAction = async (alert: (typeof alerts)[number]) => {
+    setOpeningAlertId(alert.id);
+    try {
+      if (alert.navigation) {
+        navigateTo(alert.navigation.view, alert.navigation.params);
+        return;
+      }
+      navigateTo("cumplimiento-normativo", { tab: "requisitos" });
+    } finally {
+      setOpeningAlertId(null);
     }
-    navigateTo("cumplimiento-normativo", { tab: "requisitos" });
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   if (loading) {
@@ -63,9 +80,9 @@ const ComplianceAlerts = () => {
               </p>
             </div>
           </div>
-          <Button variant="outline" className="bg-white/80" onClick={() => void refetch()}>
+          <Button variant="outline" className="bg-white/80" onClick={() => void handleRefresh()} disabled={refreshing}>
             <AlertTriangle className="mr-2 h-4 w-4" />
-            Actualizar tablero
+            {refreshing ? "Actualizando..." : "Actualizar tablero"}
           </Button>
         </div>
       </section>
@@ -124,8 +141,14 @@ const ComplianceAlerts = () => {
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-2">
-                    <Button size="sm" variant="outline" className="bg-white/80" onClick={() => handleAlertAction(alert)}>
-                      Abrir modulo
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="bg-white/80"
+                      onClick={() => void handleAlertAction(alert)}
+                      disabled={refreshing || openingAlertId !== null}
+                    >
+                      {openingAlertId === alert.id ? "Abriendo..." : "Abrir modulo"}
                       <ExternalLink className="ml-2 h-3.5 w-3.5" />
                     </Button>
                   </div>

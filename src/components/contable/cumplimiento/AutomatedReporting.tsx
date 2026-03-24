@@ -70,6 +70,8 @@ const AutomatedReporting = () => {
   const { reports, metrics, loading, markReportGenerated, refetch } = useCumplimientoEjecutivo();
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [generationProgress, setGenerationProgress] = useState<Record<string, number>>({});
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeReportId, setActiveReportId] = useState<string | null>(null);
 
   const overdueReports = reports.filter((report) => report.status === "overdue");
   const generatedReports = reports.filter((report) => report.status === "generated" || report.status === "submitted");
@@ -86,6 +88,8 @@ const AutomatedReporting = () => {
     () => templates.find((template) => template.id === selectedTemplate) || null,
     [selectedTemplate],
   );
+
+  const bloqueado = loading || refreshing || activeReportId !== null;
 
   const runProgress = async (reportId: string) => {
     for (let step = 0; step <= 100; step += 25) {
@@ -112,15 +116,20 @@ const AutomatedReporting = () => {
   };
 
   const generateReport = async (report: AutomatedReportItem) => {
-    await runProgress(report.id);
-    markReportGenerated(report.id, report.autoSubmit);
+    setActiveReportId(report.id);
+    try {
+      await runProgress(report.id);
+      markReportGenerated(report.id, report.autoSubmit);
 
-    toast({
-      title: report.autoSubmit ? "Reporte generado y enviado" : "Reporte generado",
-      description: report.autoSubmit
-        ? `${report.name} quedo preparado y marcado como enviado al circuito definido.`
-        : `${report.name} quedo generado con datos reales del sistema.`,
-    });
+      toast({
+        title: report.autoSubmit ? "Reporte generado y enviado" : "Reporte generado",
+        description: report.autoSubmit
+          ? `${report.name} quedo preparado y marcado como enviado al circuito definido.`
+          : `${report.name} quedo generado con datos reales del sistema.`,
+      });
+    } finally {
+      setActiveReportId(null);
+    }
   };
 
   const generateSelectedTemplate = async () => {
@@ -128,6 +137,15 @@ const AutomatedReporting = () => {
     const linkedReport = reports.find((report) => report.type === selectedTemplateData.type);
     if (!linkedReport) return;
     await generateReport(linkedReport);
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const getStatusColor = (status: AutomatedReportItem["status"]) => {
@@ -160,9 +178,9 @@ const AutomatedReporting = () => {
               </p>
             </div>
           </div>
-          <Button variant="outline" className="bg-white/80" onClick={() => void refetch()}>
+          <Button variant="outline" className="bg-white/80" onClick={() => void handleRefresh()} disabled={bloqueado}>
             <RefreshCw className="mr-2 h-4 w-4" />
-            Sincronizar datos
+            {refreshing ? "Sincronizando..." : "Sincronizar datos"}
           </Button>
         </div>
       </section>
@@ -194,7 +212,7 @@ const AutomatedReporting = () => {
         <CardContent className="space-y-4 p-6">
           <div className="flex flex-col gap-3 lg:flex-row">
             <div className="flex-1">
-              <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+              <Select value={selectedTemplate} onValueChange={setSelectedTemplate} disabled={bloqueado}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar plantilla de reporte" />
                 </SelectTrigger>
@@ -207,9 +225,9 @@ const AutomatedReporting = () => {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={() => void generateSelectedTemplate()} disabled={!selectedTemplate || loading}>
+            <Button onClick={() => void generateSelectedTemplate()} disabled={!selectedTemplate || bloqueado}>
               <FileText className="mr-2 h-4 w-4" />
-              Generar reporte
+              {activeReportId ? "Generando..." : "Generar reporte"}
             </Button>
           </div>
 
@@ -294,17 +312,27 @@ const AutomatedReporting = () => {
                     ) : (
                       <div className="flex justify-end gap-2">
                         {report.navigation && (
-                          <Button size="sm" variant="outline" onClick={() => navigateTo(report.navigation!.view, report.navigation!.params)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigateTo(report.navigation!.view, report.navigation!.params)}
+                            disabled={bloqueado}
+                          >
                             <ExternalLink className="mr-1 h-3.5 w-3.5" />
                             Abrir origen
                           </Button>
                         )}
-                        <Button size="sm" variant="outline" onClick={() => void generateReport(report)} disabled={loading}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void generateReport(report)}
+                          disabled={bloqueado}
+                        >
                           <FileText className="mr-1 h-3.5 w-3.5" />
-                          Generar
+                          {activeReportId === report.id ? "Generando..." : "Generar"}
                         </Button>
                         {(report.status === "generated" || report.status === "submitted") && (
-                          <Button size="sm" variant="outline" onClick={() => exportReport(report)}>
+                          <Button size="sm" variant="outline" onClick={() => exportReport(report)} disabled={bloqueado}>
                             <Download className="mr-1 h-3.5 w-3.5" />
                             Descargar
                           </Button>
