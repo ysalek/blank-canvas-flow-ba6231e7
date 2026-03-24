@@ -17,8 +17,10 @@ import {
   Calendar,
   RefreshCw
 } from "lucide-react";
-import { useCumplimientoNormativo } from "@/hooks/useCumplimientoNormativo";
+import { CumplimientoRecord, useCumplimientoNormativo } from "@/hooks/useCumplimientoNormativo";
 import { EnhancedHeader, MetricGrid, EnhancedMetricCard, Section } from "../dashboard/EnhancedLayout";
+
+type ComplianceStatus = CumplimientoRecord["estado"];
 
 const ComplianceTracker = () => {
   const {
@@ -33,25 +35,44 @@ const ComplianceTracker = () => {
 
   const [selectedRecord, setSelectedRecord] = useState<string | null>(null);
   const [observaciones, setObservaciones] = useState('');
-  const [newStatus, setNewStatus] = useState<string>('');
+  const [newStatus, setNewStatus] = useState<ComplianceStatus | ''>('');
+  const [syncingRecords, setSyncingRecords] = useState(false);
+  const [updatingRecordId, setUpdatingRecordId] = useState<string | null>(null);
 
   const overdueRecords = getOverdueRecords();
+  const bloqueado = loading || syncingRecords || updatingRecordId !== null;
 
-  const handleUpdateStatus = async () => {
-    if (!selectedRecord || !newStatus) return;
+  const resetForm = () => {
+    setSelectedRecord(null);
+    setObservaciones('');
+    setNewStatus('');
+  };
+
+  const handleUpdateStatus = async (recordId: string) => {
+    if (!newStatus) return;
 
     try {
-      await updateCumplimientoRecord(selectedRecord, {
-        estado: newStatus as any,
+      setUpdatingRecordId(recordId);
+      await updateCumplimientoRecord(recordId, {
+        estado: newStatus,
         observaciones: observaciones || undefined,
         fecha_implementacion: newStatus === 'cumplido' ? new Date().toISOString().split('T')[0] : undefined
       });
-      
-      setSelectedRecord(null);
-      setObservaciones('');
-      setNewStatus('');
+
+      resetForm();
     } catch (error) {
       // Error already handled in hook
+    } finally {
+      setUpdatingRecordId(null);
+    }
+  };
+
+  const handleSyncRecords = async () => {
+    setSyncingRecords(true);
+    try {
+      await generateComplianceFromNormativas();
+    } finally {
+      setSyncingRecords(false);
     }
   };
 
@@ -107,11 +128,11 @@ const ComplianceTracker = () => {
           <div className="flex gap-2">
             <Button 
               variant="outline" 
-              onClick={generateComplianceFromNormativas}
-              disabled={loading}
+              onClick={() => void handleSyncRecords()}
+              disabled={bloqueado}
             >
               <RefreshCw className="w-4 h-4 mr-2" />
-              Sincronizar Normativas
+              {syncingRecords ? "Sincronizando..." : "Sincronizar Normativas"}
             </Button>
           </div>
         }
@@ -148,7 +169,7 @@ const ComplianceTracker = () => {
             icon={CheckCircle}
             variant="success"
             trend="up"
-            trendValue={`${Math.round((metrics.cumplidos / metrics.total) * 100)}%`}
+            trendValue={metrics.total > 0 ? `${Math.round((metrics.cumplidos / metrics.total) * 100)}%` : "0%"}
           />
           <EnhancedMetricCard
             title="Pendientes"
@@ -220,16 +241,35 @@ const ComplianceTracker = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => setSelectedRecord(record.id)}
-                          >
-                            Actualizar
-                          </Button>
-                        </DialogTrigger>
+                      <Dialog
+                        open={selectedRecord === record.id}
+                        onOpenChange={(open) => {
+                          if (!open && updatingRecordId === record.id) {
+                            return;
+                          }
+
+                          if (open) {
+                            setSelectedRecord(record.id);
+                            setObservaciones(record.observaciones || '');
+                            setNewStatus(record.estado);
+                            return;
+                          }
+
+                          resetForm();
+                        }}
+                      >
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedRecord(record.id);
+                            setObservaciones(record.observaciones || '');
+                            setNewStatus(record.estado);
+                          }}
+                          disabled={bloqueado}
+                        >
+                          {updatingRecordId === record.id ? "Actualizando..." : "Actualizar"}
+                        </Button>
                         <DialogContent className="max-w-md">
                           <DialogHeader>
                             <DialogTitle>Actualizar Estado de Cumplimiento</DialogTitle>
@@ -241,7 +281,11 @@ const ComplianceTracker = () => {
                           <div className="space-y-4">
                             <div>
                               <Label htmlFor="estado">Nuevo Estado</Label>
-                              <Select onValueChange={setNewStatus}>
+                              <Select
+                                value={newStatus}
+                                onValueChange={(value) => setNewStatus(value as ComplianceStatus)}
+                                disabled={updatingRecordId === record.id}
+                              >
                                 <SelectTrigger>
                                   <SelectValue placeholder="Seleccionar estado" />
                                 </SelectTrigger>
@@ -262,22 +306,23 @@ const ComplianceTracker = () => {
                                 value={observaciones}
                                 onChange={(e) => setObservaciones(e.target.value)}
                                 rows={3}
+                                disabled={updatingRecordId === record.id}
                               />
                             </div>
                             
                             <div className="flex justify-end gap-2">
                               <Button 
                                 variant="outline" 
-                                onClick={() => {
-                                  setSelectedRecord(null);
-                                  setObservaciones('');
-                                  setNewStatus('');
-                                }}
+                                onClick={resetForm}
+                                disabled={updatingRecordId === record.id}
                               >
                                 Cancelar
                               </Button>
-                              <Button onClick={handleUpdateStatus}>
-                                Actualizar
+                              <Button
+                                onClick={() => void handleUpdateStatus(record.id)}
+                                disabled={!newStatus || updatingRecordId === record.id}
+                              >
+                                {updatingRecordId === record.id ? "Guardando..." : "Actualizar"}
                               </Button>
                             </div>
                           </div>
@@ -296,9 +341,9 @@ const ComplianceTracker = () => {
                 <p className="text-sm mb-4">
                   No hay registros de cumplimiento. Sincroniza las normativas para generar registros automáticamente.
                 </p>
-                <Button onClick={generateComplianceFromNormativas} disabled={loading}>
+                <Button onClick={() => void handleSyncRecords()} disabled={bloqueado}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Generar Registros
+                  {syncingRecords ? "Generando..." : "Generar Registros"}
                 </Button>
               </div>
             )}

@@ -159,6 +159,7 @@ const ConciliacionBancaria = () => {
   const [closingCut, setClosingCut] = useState(false);
   const [creatingAdjustment, setCreatingAdjustment] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [confirmingMatchId, setConfirmingMatchId] = useState<string | null>(null);
 
   const cuentasActivas = useMemo(
     () => cuentasBancarias.filter((cuenta) => cuenta.activa),
@@ -266,6 +267,8 @@ const ConciliacionBancaria = () => {
   );
 
   const estadoCorte = getEstadoCorte(resumen, conciliacionActual?.estado);
+  const bloqueado =
+    loading || refreshing || savingDraft || closingCut || creatingAdjustment || confirmingMatchId !== null;
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -276,12 +279,17 @@ const ConciliacionBancaria = () => {
     }
   };
 
-  const handleConfirmMatch = (partida: PartidaConciliacion) => {
-    confirmarCoincidencia(partida);
-    toast({
-      title: "Coincidencia confirmada",
-      description: "La sugerencia quedo marcada para el cierre auditable del corte.",
-    });
+  const handleConfirmMatch = async (partida: PartidaConciliacion) => {
+    setConfirmingMatchId(partida.id);
+    try {
+      await Promise.resolve(confirmarCoincidencia(partida));
+      toast({
+        title: "Coincidencia confirmada",
+        description: "La sugerencia quedo marcada para el cierre auditable del corte.",
+      });
+    } finally {
+      setConfirmingMatchId(null);
+    }
   };
 
   const handleOpenAdjustment = (partida: PartidaConciliacion) => {
@@ -401,7 +409,7 @@ const ConciliacionBancaria = () => {
               variant="outline"
               className="mt-4 w-full justify-center rounded-2xl bg-white"
               onClick={() => void handleRefresh()}
-              disabled={refreshing || loading}
+              disabled={bloqueado}
             >
               <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
               {refreshing ? "Actualizando..." : "Recargar conciliacion"}
@@ -428,7 +436,7 @@ const ConciliacionBancaria = () => {
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
                 <Field label="Cuenta bancaria">
-                  <Select value={selectedCuenta.id} onValueChange={setSelectedCuentaId}>
+                  <Select value={selectedCuenta.id} onValueChange={setSelectedCuentaId} disabled={bloqueado}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -447,6 +455,7 @@ const ConciliacionBancaria = () => {
                     type="date"
                     value={fechaCorte}
                     onChange={(event) => setFechaCorte(event.target.value)}
+                    disabled={bloqueado}
                   />
                 </Field>
 
@@ -484,6 +493,7 @@ const ConciliacionBancaria = () => {
                     onChange={(event) => setObservaciones(event.target.value)}
                     placeholder="Documenta diferencias, pendientes o criterios usados en el cierre."
                     className="min-h-[126px]"
+                    disabled={bloqueado}
                   />
                 </Field>
               </div>
@@ -493,14 +503,14 @@ const ConciliacionBancaria = () => {
                   variant="outline"
                   className="rounded-2xl"
                   onClick={() => void handleSaveDraft()}
-                  disabled={savingDraft || closingCut || loading}
+                  disabled={bloqueado}
                 >
                   {savingDraft ? "Guardando..." : "Guardar borrador"}
                 </Button>
                 <Button
                   className="rounded-2xl"
                   onClick={() => void handleCloseCut()}
-                  disabled={savingDraft || closingCut || loading}
+                  disabled={bloqueado}
                 >
                   {closingCut ? "Cerrando..." : "Cerrar corte"}
                 </Button>
@@ -550,9 +560,10 @@ const ConciliacionBancaria = () => {
                     <Button
                       size="sm"
                       className="rounded-xl"
-                      onClick={() => handleConfirmMatch(partida)}
+                      onClick={() => void handleConfirmMatch(partida)}
+                      disabled={bloqueado}
                     >
-                      Confirmar match
+                      {confirmingMatchId === partida.id ? "Confirmando..." : "Confirmar match"}
                     </Button>
                   ) : null
                 }
@@ -594,6 +605,7 @@ const ConciliacionBancaria = () => {
                       variant="outline"
                       className="rounded-xl"
                       onClick={() => handleOpenAdjustment(partida)}
+                      disabled={bloqueado}
                     >
                       Crear ajuste
                     </Button>
@@ -637,6 +649,9 @@ const ConciliacionBancaria = () => {
       <Dialog
         open={showAdjustmentDialog}
         onOpenChange={(open) => {
+          if (!open && creatingAdjustment) {
+            return;
+          }
           setShowAdjustmentDialog(open);
           if (!open) {
             setSelectedPartida(null);
@@ -684,7 +699,11 @@ const ConciliacionBancaria = () => {
               </div>
 
               <Field label="Contracuenta a usar en el ajuste">
-                <Select value={contracuentaCodigo} onValueChange={setContracuentaCodigo}>
+                <Select
+                  value={contracuentaCodigo}
+                  onValueChange={setContracuentaCodigo}
+                  disabled={creatingAdjustment}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecciona una contracuenta" />
                   </SelectTrigger>

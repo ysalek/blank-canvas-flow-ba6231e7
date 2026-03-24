@@ -138,6 +138,7 @@ const AuditoriaContableAvanzada = () => {
   const [filtroCategoria, setFiltroCategoria] = useState<string>("");
   const [filtroEstado, setFiltroEstado] = useState<string>("");
   const [auditandoEnProgreso, setAuditandoEnProgreso] = useState(false);
+  const [exportando, setExportando] = useState(false);
   const [resumenAuditoria, setResumenAuditoria] = useState({
     total: 0,
     cumple: 0,
@@ -406,24 +407,29 @@ const AuditoriaContableAvanzada = () => {
   });
 
   const exportarAuditoria = () => {
-    const dataExport = {
-      fecha: new Date().toISOString(),
-      resumen: resumenAuditoria,
-      resultados,
-    };
+    setExportando(true);
+    try {
+      const dataExport = {
+        fecha: new Date().toISOString(),
+        resumen: resumenAuditoria,
+        resultados,
+      };
 
-    const blob = new Blob([JSON.stringify(dataExport, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `auditoria_contable_${new Date().toISOString().slice(0, 10)}.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+      const blob = new Blob([JSON.stringify(dataExport, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `auditoria_contable_${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
 
-    toast({
-      title: "Auditoria exportada",
-      description: "El reporte se genero correctamente.",
-    });
+      toast({
+        title: "Auditoria exportada",
+        description: "El reporte se genero correctamente.",
+      });
+    } finally {
+      setExportando(false);
+    }
   };
 
   return (
@@ -437,13 +443,18 @@ const AuditoriaContableAvanzada = () => {
         }}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button onClick={ejecutarAuditoriaCompleta} disabled={auditandoEnProgreso} variant="outline" size="sm">
+            <Button onClick={ejecutarAuditoriaCompleta} disabled={auditandoEnProgreso || exportando} variant="outline" size="sm">
               <ShieldCheck className="mr-2 h-4 w-4" />
               {auditandoEnProgreso ? "Auditando..." : "Ejecutar auditoria"}
             </Button>
-            <Button onClick={exportarAuditoria} variant="outline" size="sm">
+            <Button
+              onClick={exportarAuditoria}
+              variant="outline"
+              size="sm"
+              disabled={auditandoEnProgreso || exportando || resultados.length === 0}
+            >
               <Download className="mr-2 h-4 w-4" />
-              Exportar
+              {exportando ? "Exportando..." : "Exportar"}
             </Button>
           </div>
         }
@@ -470,6 +481,7 @@ const AuditoriaContableAvanzada = () => {
               <select
                 value={filtroCategoria}
                 onChange={(event) => setFiltroCategoria(event.target.value)}
+                disabled={auditandoEnProgreso}
                 className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">Todas las categorias</option>
@@ -486,6 +498,7 @@ const AuditoriaContableAvanzada = () => {
               <select
                 value={filtroEstado}
                 onChange={(event) => setFiltroEstado(event.target.value)}
+                disabled={auditandoEnProgreso}
                 className="h-11 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
                 <option value="">Todos los estados</option>
@@ -538,7 +551,7 @@ const AuditoriaContableAvanzada = () => {
                       {resultado.acciones ? (
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" disabled={auditandoEnProgreso || exportando}>
                               Ver detalles
                             </Button>
                           </DialogTrigger>
