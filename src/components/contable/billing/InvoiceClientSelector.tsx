@@ -14,18 +14,24 @@ interface InvoiceClientSelectorProps {
   clientes: Cliente[];
   selectedCliente: Cliente | null;
   onSelectCliente: (cliente: Cliente) => void;
-  onAddNewClient: (cliente: Cliente) => void;
+  onAddNewClient: (cliente: Cliente) => Promise<void> | void;
   error?: string;
 }
 
 const InvoiceClientSelector = ({ clientes, selectedCliente, onSelectCliente, onAddNewClient, error }: InvoiceClientSelectorProps) => {
   const [openCombobox, setOpenCombobox] = useState(false);
   const [showNewClientDialog, setShowNewClientDialog] = useState(false);
+  const [savingClient, setSavingClient] = useState(false);
 
-  const handleSaveNewClient = (cliente: Cliente) => {
-    onAddNewClient(cliente);
-    onSelectCliente(cliente);
-    setShowNewClientDialog(false);
+  const handleSaveNewClient = async (cliente: Cliente) => {
+    try {
+      setSavingClient(true);
+      await Promise.resolve(onAddNewClient(cliente));
+      onSelectCliente(cliente);
+      setShowNewClientDialog(false);
+    } finally {
+      setSavingClient(false);
+    }
   };
 
   return (
@@ -76,7 +82,7 @@ const InvoiceClientSelector = ({ clientes, selectedCliente, onSelectCliente, onA
               </Command>
             </PopoverContent>
           </Popover>
-          <Button variant="outline" size="sm" onClick={() => setShowNewClientDialog(true)}>
+          <Button variant="outline" size="sm" onClick={() => setShowNewClientDialog(true)} disabled={savingClient}>
             <Plus className="w-4 h-4" />
           </Button>
         </div>

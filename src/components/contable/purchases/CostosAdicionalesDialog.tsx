@@ -15,7 +15,7 @@ interface CostoAdicional {
 interface CostosAdicionalesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (costos: CostoAdicional[]) => void;
+  onSave: (costos: CostoAdicional[]) => Promise<void> | void;
   costosIniciales?: CostoAdicional[];
 }
 
@@ -30,6 +30,7 @@ export const CostosAdicionalesDialog = ({
       { id: '1', concepto: '', monto: 0 }
     ]
   );
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   const agregarCosto = () => {
@@ -52,7 +53,7 @@ export const CostosAdicionalesDialog = ({
     ));
   };
 
-  const handleGuardar = () => {
+  const handleGuardar = async () => {
     const costosValidos = costos.filter(c => c.concepto && c.monto > 0);
     
     if (costosValidos.length === 0) {
@@ -62,8 +63,13 @@ export const CostosAdicionalesDialog = ({
       });
     }
 
-    onSave(costosValidos);
-    onOpenChange(false);
+    try {
+      setSaving(true);
+      await Promise.resolve(onSave(costosValidos));
+      onOpenChange(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const totalCostosAdicionales = costos.reduce((sum, c) => sum + (c.monto || 0), 0);
@@ -87,6 +93,7 @@ export const CostosAdicionalesDialog = ({
                 size="sm" 
                 onClick={agregarCosto}
                 variant="outline"
+                disabled={saving}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Agregar
@@ -101,6 +108,7 @@ export const CostosAdicionalesDialog = ({
                     placeholder="Ej: Flete, Almacenaje, Desconsolidación"
                     value={costo.concepto}
                     onChange={(e) => actualizarCosto(costo.id, 'concepto', e.target.value)}
+                    disabled={saving}
                   />
                 </div>
                 <div className="w-40">
@@ -112,6 +120,7 @@ export const CostosAdicionalesDialog = ({
                     placeholder="0.00"
                     value={costo.monto || ''}
                     onChange={(e) => actualizarCosto(costo.id, 'monto', parseFloat(e.target.value) || 0)}
+                    disabled={saving}
                   />
                 </div>
                 <Button
@@ -119,7 +128,7 @@ export const CostosAdicionalesDialog = ({
                   size="icon"
                   variant="ghost"
                   onClick={() => eliminarCosto(costo.id)}
-                  disabled={costos.length === 1}
+                  disabled={saving || costos.length === 1}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
@@ -140,11 +149,11 @@ export const CostosAdicionalesDialog = ({
           </div>
 
           <div className="flex gap-2 justify-end pt-4 border-t">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={handleGuardar}>
-              Guardar y Aplicar Costos
+            <Button onClick={handleGuardar} disabled={saving}>
+              {saving ? "Guardando..." : "Guardar y Aplicar Costos"}
             </Button>
           </div>
         </div>

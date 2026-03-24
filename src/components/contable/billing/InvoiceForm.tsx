@@ -32,7 +32,7 @@ interface InvoiceFormProps {
   facturas: Factura[];
   onSave: (factura: Factura) => Promise<void>;
   onCancel: () => void;
-  onAddNewClient: (cliente: Cliente) => void;
+  onAddNewClient: (cliente: Cliente) => Promise<void> | void;
   onProductCreated?: (producto: Producto) => void;
 }
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,9 +34,9 @@ type NuevoActivoFormData = {
 const categoriasActivos = [
   { value: 'edificios', label: 'Edificios y Construcciones', vidaUtil: 40, coeficiente: 2.5 },
   { value: 'maquinaria', label: 'Maquinaria y Equipo Industrial', vidaUtil: 8, coeficiente: 12.5 },
-  { value: 'vehiculos', label: 'Vehículos de Transporte', vidaUtil: 5, coeficiente: 20 },
+  { value: 'vehiculos', label: 'VehÃ­culos de Transporte', vidaUtil: 5, coeficiente: 20 },
   { value: 'muebles', label: 'Muebles y Enseres', vidaUtil: 10, coeficiente: 10 },
-  { value: 'equipos_computo', label: 'Equipos de Computación', vidaUtil: 4, coeficiente: 25 },
+  { value: 'equipos_computo', label: 'Equipos de ComputaciÃ³n', vidaUtil: 4, coeficiente: 25 },
   { value: 'herramientas', label: 'Herramientas y Equipos', vidaUtil: 8, coeficiente: 12.5 },
   { value: 'otros', label: 'Otros Activos Fijos', vidaUtil: 10, coeficiente: 10 }
 ];
@@ -81,8 +81,8 @@ const ActivosFijosModule = () => {
         id: Date.now().toString(),
         numero: `AF-${Date.now().toString().slice(-6)}`,
         fecha: nuevoActivo.fechaAdquisicion,
-        concepto: `Adquisición de activo fijo - ${nuevoActivo.descripcion}`,
-        referencia: `Código: ${nuevoActivo.codigo}`,
+        concepto: `AdquisiciÃ³n de activo fijo - ${nuevoActivo.descripcion}`,
+        referencia: `CÃ³digo: ${nuevoActivo.codigo}`,
         debe: nuevoActivo.costoAdquisicion,
         haber: nuevoActivo.costoAdquisicion,
         estado: 'registrado' as const,
@@ -137,7 +137,7 @@ const ActivosFijosModule = () => {
           const depreciacionAnual = (activo.costo_inicial - activo.valor_residual) * (categoria.coeficiente / 100);
           const depreciacionMensual = depreciacionAnual / 12;
           
-          // Verificar si ya existe depreciación para este período
+          // Verificar si ya existe depreciaciÃ³n para este perÃ­odo
           const yaExiste = depreciaciones.some(d => 
             d.activo_id === activo.id && d.periodo === periodoActual
           );
@@ -162,8 +162,8 @@ const ActivosFijosModule = () => {
     }
     
     toast({
-      title: "Depreciación calculada",
-      description: "Se calculó la depreciación mensual de activos fijos",
+      title: "DepreciaciÃ³n calculada",
+      description: "Se calculÃ³ la depreciaciÃ³n mensual de activos fijos",
     });
   };
 
@@ -198,7 +198,7 @@ const ActivosFijosModule = () => {
                 <DialogHeader>
                   <DialogTitle>Registrar Activo Fijo</DialogTitle>
                   <DialogDescription>
-                    Ingrese la informaciÃ³n del nuevo activo fijo
+                    Ingrese la informaciÃƒÂ³n del nuevo activo fijo
                   </DialogDescription>
                 </DialogHeader>
                 <NewActivoForm onSave={guardarActivo} onCancel={() => setShowNewActivo(false)} />
@@ -207,7 +207,7 @@ const ActivosFijosModule = () => {
             
             <Button onClick={calcularDepreciacionMensual}>
               <Calculator className="w-4 h-4 mr-2" />
-              Calcular DepreciaciÃ³n
+              Calcular DepreciaciÃƒÂ³n
             </Button>
           </div>
         }
@@ -219,99 +219,6 @@ const ActivosFijosModule = () => {
         <EnhancedMetricCard title="Depreciacion acumulada" value={`Bs ${depreciacionTotalAcumulada.toFixed(2)}`} subtitle="Total depreciado" icon={TrendingDown} variant="warning" />
         <EnhancedMetricCard title="% depreciacion" value={`${valorTotalActivos > 0 ? ((depreciacionTotalAcumulada / valorTotalActivos) * 100).toFixed(1) : 0}%`} subtitle="Promedio general" icon={Wrench} />
       </MetricGrid>
-
-      <>
-      <div className="flex items-center gap-3">
-          <Building className="w-6 h-6 text-primary" />
-          <div>
-            <h2 className="text-2xl font-bold">Activos Fijos</h2>
-            <p className="text-slate-600">
-              Gestión y depreciación de activos fijos
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Dialog open={showNewActivo} onOpenChange={setShowNewActivo}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Plus className="w-4 h-4 mr-2" />
-                Nuevo Activo
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl">
-              <DialogHeader>
-                <DialogTitle>Registrar Activo Fijo</DialogTitle>
-                <DialogDescription>
-                  Ingrese la información del nuevo activo fijo
-                </DialogDescription>
-              </DialogHeader>
-              <NewActivoForm onSave={guardarActivo} onCancel={() => setShowNewActivo(false)} />
-            </DialogContent>
-          </Dialog>
-          
-          <Button onClick={calcularDepreciacionMensual}>
-            <Calculator className="w-4 h-4 mr-2" />
-            Calcular Depreciación
-          </Button>
-        </div>
-      </>
-
-      {/* Métricas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Building className="w-5 h-5" />
-              Total Activos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">Bs. {valorTotalActivos.toFixed(2)}</div>
-            <p className="text-sm text-muted-foreground">{activosActivos.length} activos registrados</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Valor en Libros
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">Bs. {valorTotalLibros.toFixed(2)}</div>
-            <p className="text-sm text-muted-foreground">Valor actual neto</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingDown className="w-5 h-5" />
-              Depreciación Acumulada
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">Bs. {depreciacionTotalAcumulada.toFixed(2)}</div>
-            <p className="text-sm text-muted-foreground">Total depreciado</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Wrench className="w-5 h-5" />
-              % Depreciación
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {valorTotalActivos > 0 ? ((depreciacionTotalAcumulada / valorTotalActivos) * 100).toFixed(1) : 0}%
-            </div>
-            <p className="text-sm text-muted-foreground">Promedio general</p>
-          </CardContent>
-        </Card>
-      </div>
 
       <Tabs defaultValue="activos" className="w-full">
         <TabsList>
@@ -331,10 +238,10 @@ const ActivosFijosModule = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Código</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead>Categoría</TableHead>
-                    <TableHead>Fecha Adquisición</TableHead>
+                    <TableHead>CÃ³digo</TableHead>
+                    <TableHead>DescripciÃ³n</TableHead>
+                    <TableHead>CategorÃ­a</TableHead>
+                    <TableHead>Fecha AdquisiciÃ³n</TableHead>
                     <TableHead className="text-right">Costo Inicial</TableHead>
                     <TableHead>Estado</TableHead>
                   </TableRow>
@@ -376,10 +283,10 @@ const ActivosFijosModule = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Período</TableHead>
+                    <TableHead>PerÃ­odo</TableHead>
                     <TableHead>Activo</TableHead>
-                    <TableHead className="text-right">Depreciación Mensual</TableHead>
-                    <TableHead className="text-right">Depreciación Acumulada</TableHead>
+                    <TableHead className="text-right">DepreciaciÃ³n Mensual</TableHead>
+                    <TableHead className="text-right">DepreciaciÃ³n Acumulada</TableHead>
                     <TableHead className="text-right">Valor Neto</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -448,7 +355,7 @@ const NewActivoForm = ({ onSave, onCancel }: {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="codigo">Código del Activo</Label>
+          <Label htmlFor="codigo">CÃ³digo del Activo</Label>
           <Input
             id="codigo"
             value={formData.codigo}
@@ -459,10 +366,10 @@ const NewActivoForm = ({ onSave, onCancel }: {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="categoria">Categoría</Label>
+          <Label htmlFor="categoria">CategorÃ­a</Label>
           <Select onValueChange={handleCategoriaChange}>
             <SelectTrigger>
-              <SelectValue placeholder="Seleccione categoría" />
+              <SelectValue placeholder="Seleccione categorÃ­a" />
             </SelectTrigger>
             <SelectContent>
               {categoriasActivos.map(categoria => (
@@ -476,19 +383,19 @@ const NewActivoForm = ({ onSave, onCancel }: {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="descripcion">Descripción</Label>
+        <Label htmlFor="descripcion">DescripciÃ³n</Label>
         <Input
           id="descripcion"
           value={formData.descripcion}
           onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
-          placeholder="Descripción detallada del activo"
+          placeholder="DescripciÃ³n detallada del activo"
           required
         />
       </div>
 
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="fechaAdquisicion">Fecha de Adquisición</Label>
+          <Label htmlFor="fechaAdquisicion">Fecha de AdquisiciÃ³n</Label>
           <Input
             id="fechaAdquisicion"
             type="date"
@@ -499,7 +406,7 @@ const NewActivoForm = ({ onSave, onCancel }: {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="costoAdquisicion">Costo de Adquisición (Bs.)</Label>
+          <Label htmlFor="costoAdquisicion">Costo de AdquisiciÃ³n (Bs.)</Label>
           <Input
             id="costoAdquisicion"
             type="number"
@@ -524,7 +431,7 @@ const NewActivoForm = ({ onSave, onCancel }: {
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="vidaUtilAnios">Vida Útil (Años)</Label>
+          <Label htmlFor="vidaUtilAnios">Vida Ãštil (AÃ±os)</Label>
           <Input
             id="vidaUtilAnios"
             type="number"
@@ -535,12 +442,12 @@ const NewActivoForm = ({ onSave, onCancel }: {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="ubicacion">Ubicación</Label>
+          <Label htmlFor="ubicacion">UbicaciÃ³n</Label>
           <Input
             id="ubicacion"
             value={formData.ubicacion}
             onChange={(e) => setFormData(prev => ({ ...prev, ubicacion: e.target.value }))}
-            placeholder="Oficina, Planta, Almacén, etc."
+            placeholder="Oficina, Planta, AlmacÃ©n, etc."
           />
         </div>
       </div>
@@ -558,3 +465,4 @@ const NewActivoForm = ({ onSave, onCancel }: {
 };
 
 export default ActivosFijosModule;
+
