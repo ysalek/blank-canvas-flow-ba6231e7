@@ -28,6 +28,8 @@ const PlanCuentasModule = () => {
   const [editingCuenta, setEditingCuenta] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterTipo, setFilterTipo] = useState("todos");
+  const [savingNewCuenta, setSavingNewCuenta] = useState(false);
+  const [savingEditCuenta, setSavingEditCuenta] = useState(false);
   const [newCuenta, setNewCuenta] = useState({
     codigo: "",
     nombre: "",
@@ -72,6 +74,7 @@ const PlanCuentasModule = () => {
     }
 
     try {
+      setSavingNewCuenta(true);
       const cuentaData: any = {
         codigo: newCuenta.codigo,
         nombre: newCuenta.nombre,
@@ -106,6 +109,8 @@ const PlanCuentasModule = () => {
         description: "No se pudo crear la cuenta",
         variant: "destructive"
       });
+    } finally {
+      setSavingNewCuenta(false);
     }
   };
 
@@ -113,6 +118,7 @@ const PlanCuentasModule = () => {
     if (!editingCuenta) return;
     
     try {
+      setSavingEditCuenta(true);
       const cuentaData: any = {
         codigo: editingCuenta.codigo,
         nombre: editingCuenta.nombre,
@@ -139,6 +145,8 @@ const PlanCuentasModule = () => {
         description: "No se pudo actualizar la cuenta",
         variant: "destructive"
       });
+    } finally {
+      setSavingEditCuenta(false);
     }
   };
 
@@ -222,6 +230,7 @@ const PlanCuentasModule = () => {
                     value={newCuenta.codigo}
                     onChange={(e) => setNewCuenta(prev => ({ ...prev, codigo: e.target.value }))}
                     placeholder="1111"
+                    disabled={savingNewCuenta}
                   />
                 </div>
                 <div className="space-y-2">
@@ -231,6 +240,7 @@ const PlanCuentasModule = () => {
                     type="number"
                     value={newCuenta.nivel}
                     onChange={(e) => setNewCuenta(prev => ({ ...prev, nivel: parseInt(e.target.value) || 1 }))}
+                    disabled={savingNewCuenta}
                   />
                 </div>
               </div>
@@ -242,6 +252,7 @@ const PlanCuentasModule = () => {
                   value={newCuenta.nombre}
                   onChange={(e) => setNewCuenta(prev => ({ ...prev, nombre: e.target.value }))}
                   placeholder="Caja General"
+                  disabled={savingNewCuenta}
                 />
               </div>
 
@@ -251,6 +262,7 @@ const PlanCuentasModule = () => {
                   <Select 
                     value={newCuenta.tipo} 
                     onValueChange={(value: any) => setNewCuenta(prev => ({ ...prev, tipo: value }))}
+                    disabled={savingNewCuenta}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -270,6 +282,7 @@ const PlanCuentasModule = () => {
                   <Select 
                     value={newCuenta.naturaleza} 
                     onValueChange={(value: any) => setNewCuenta(prev => ({ ...prev, naturaleza: value }))}
+                    disabled={savingNewCuenta}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -289,15 +302,16 @@ const PlanCuentasModule = () => {
                   value={newCuenta.padre}
                   onChange={(e) => setNewCuenta(prev => ({ ...prev, padre: e.target.value }))}
                   placeholder="1100"
+                  disabled={savingNewCuenta}
                 />
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowNewCuenta(false)}>
+                <Button variant="outline" onClick={() => setShowNewCuenta(false)} disabled={savingNewCuenta}>
                   Cancelar
                 </Button>
-                <Button onClick={guardarCuenta}>
-                  Crear Cuenta
+                <Button onClick={() => void guardarCuenta()} disabled={savingNewCuenta}>
+                  {savingNewCuenta ? "Guardando..." : "Crear Cuenta"}
                 </Button>
               </div>
             </div>
@@ -453,6 +467,7 @@ const PlanCuentasModule = () => {
                     id="edit-codigo"
                     value={editingCuenta.codigo}
                     onChange={(e) => setEditingCuenta((prev: any) => ({ ...prev, codigo: e.target.value }))}
+                    disabled={savingEditCuenta}
                   />
                 </div>
                 <div className="space-y-2">
@@ -462,6 +477,7 @@ const PlanCuentasModule = () => {
                     type="number"
                     value={editingCuenta.nivel}
                     onChange={(e) => setEditingCuenta((prev: any) => ({ ...prev, nivel: parseInt(e.target.value) || 1 }))}
+                    disabled={savingEditCuenta}
                   />
                 </div>
               </div>
@@ -472,6 +488,7 @@ const PlanCuentasModule = () => {
                   id="edit-nombre"
                   value={editingCuenta.nombre}
                   onChange={(e) => setEditingCuenta((prev: any) => ({ ...prev, nombre: e.target.value }))}
+                  disabled={savingEditCuenta}
                 />
               </div>
 
@@ -481,6 +498,7 @@ const PlanCuentasModule = () => {
                   <Select 
                     value={editingCuenta.tipo} 
                     onValueChange={(value) => setEditingCuenta((prev: any) => ({ ...prev, tipo: value }))}
+                    disabled={savingEditCuenta}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -500,6 +518,7 @@ const PlanCuentasModule = () => {
                   <Select 
                     value={editingCuenta.naturaleza} 
                     onValueChange={(value) => setEditingCuenta((prev: any) => ({ ...prev, naturaleza: value }))}
+                    disabled={savingEditCuenta}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -513,11 +532,11 @@ const PlanCuentasModule = () => {
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowEditCuenta(false)}>
+                <Button variant="outline" onClick={() => setShowEditCuenta(false)} disabled={savingEditCuenta}>
                   Cancelar
                 </Button>
-                <Button onClick={editarCuenta}>
-                  Actualizar
+                <Button onClick={() => void editarCuenta()} disabled={savingEditCuenta}>
+                  {savingEditCuenta ? "Guardando..." : "Actualizar"}
                 </Button>
               </div>
             </div>

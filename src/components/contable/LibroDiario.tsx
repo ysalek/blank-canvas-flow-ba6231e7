@@ -35,6 +35,7 @@ const LibroDiario = () => {
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [asientoEditando, setAsientoEditando] = useState<AsientoContable | null>(null);
   const [asientoDetalle, setAsientoDetalle] = useState<AsientoContable | null>(null);
+  const [savingEditAsiento, setSavingEditAsiento] = useState(false);
 
   const { asientos, updateAsiento, actualizarEstadoAsiento, refetch } = useAsientos();
   const { getBalanceSheetData } = useContabilidadIntegration();
@@ -128,13 +129,18 @@ const LibroDiario = () => {
   const guardarEdicion = async () => {
     if (!asientoEditando) return;
 
-    const resultado = await updateAsiento(asientoEditando);
-    if (resultado) {
-      refetch();
-    }
+    try {
+      setSavingEditAsiento(true);
+      const resultado = await updateAsiento(asientoEditando);
+      if (resultado) {
+        refetch();
+      }
 
-    setShowEditDialog(false);
-    setAsientoEditando(null);
+      setShowEditDialog(false);
+      setAsientoEditando(null);
+    } finally {
+      setSavingEditAsiento(false);
+    }
   };
 
   const asientosFiltrados = filtrarAsientos();
@@ -524,6 +530,7 @@ const LibroDiario = () => {
                         fecha: event.target.value,
                       })
                     }
+                    disabled={savingEditAsiento}
                   />
                 </div>
                 <div>
@@ -536,6 +543,7 @@ const LibroDiario = () => {
                         numero: event.target.value,
                       })
                     }
+                    disabled={savingEditAsiento}
                   />
                 </div>
               </div>
@@ -550,6 +558,7 @@ const LibroDiario = () => {
                       concepto: event.target.value,
                     })
                   }
+                  disabled={savingEditAsiento}
                 />
               </div>
 
@@ -563,6 +572,7 @@ const LibroDiario = () => {
                       referencia: event.target.value,
                     })
                   }
+                  disabled={savingEditAsiento}
                 />
               </div>
 
@@ -579,6 +589,7 @@ const LibroDiario = () => {
                         debe: parseFloat(event.target.value) || 0,
                       })
                     }
+                    disabled={savingEditAsiento}
                   />
                 </div>
                 <div>
@@ -593,15 +604,18 @@ const LibroDiario = () => {
                         haber: parseFloat(event.target.value) || 0,
                       })
                     }
+                    disabled={savingEditAsiento}
                   />
                 </div>
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+                <Button variant="outline" onClick={() => setShowEditDialog(false)} disabled={savingEditAsiento}>
                   Cancelar
                 </Button>
-                <Button onClick={guardarEdicion}>Guardar cambios</Button>
+                <Button onClick={() => void guardarEdicion()} disabled={savingEditAsiento}>
+                  {savingEditAsiento ? "Guardando..." : "Guardar cambios"}
+                </Button>
               </div>
             </div>
           )}
