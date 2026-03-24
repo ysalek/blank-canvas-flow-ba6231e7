@@ -9,7 +9,7 @@ import { Proveedor } from "./PurchasesData";
 interface ProveedorFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (proveedor: Proveedor) => void;
+  onSave: (proveedor: Proveedor) => Promise<void>;
 }
 
 const ProveedorForm = ({ open, onOpenChange, onSave }: ProveedorFormProps) => {
@@ -21,6 +21,7 @@ const ProveedorForm = ({ open, onOpenChange, onSave }: ProveedorFormProps) => {
     direccion: ""
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   const validateForm = () => {
@@ -40,7 +41,7 @@ const ProveedorForm = ({ open, onOpenChange, onSave }: ProveedorFormProps) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) {
       toast({
         title: "Error en el formulario",
@@ -61,23 +62,26 @@ const ProveedorForm = ({ open, onOpenChange, onSave }: ProveedorFormProps) => {
       fechaCreacion: new Date().toISOString().slice(0, 10)
     };
 
-    onSave(nuevoProveedor);
-    
-    // Limpiar formulario
-    setFormData({
-      nombre: "",
-      nit: "",
-      email: "",
-      telefono: "",
-      direccion: ""
-    });
-    setErrors({});
-    onOpenChange(false);
+    setSaving(true);
+    try {
+      await onSave(nuevoProveedor);
+      setFormData({
+        nombre: "",
+        nit: "",
+        email: "",
+        telefono: "",
+        direccion: ""
+      });
+      setErrors({});
+      onOpenChange(false);
 
-    toast({
-      title: "Proveedor agregado",
-      description: "El proveedor ha sido registrado exitosamente.",
-    });
+      toast({
+        title: "Proveedor agregado",
+        description: "El proveedor ha sido registrado exitosamente.",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -163,11 +167,11 @@ const ProveedorForm = ({ open, onOpenChange, onSave }: ProveedorFormProps) => {
         </div>
 
         <div className="flex justify-end gap-3 mt-6">
-          <Button variant="outline" onClick={handleCancel}>
+          <Button variant="outline" onClick={handleCancel} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit}>
-            Guardar Proveedor
+          <Button onClick={() => void handleSubmit()} disabled={saving}>
+            {saving ? "Guardando..." : "Guardar Proveedor"}
           </Button>
         </div>
       </DialogContent>

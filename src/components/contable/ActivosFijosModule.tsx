@@ -408,7 +408,7 @@ const ActivosFijosModule = () => {
 
 // Componente para formulario de nuevo activo
 const NewActivoForm = ({ onSave, onCancel }: { 
-  onSave: (activo: NuevoActivoFormData) => void, 
+  onSave: (activo: NuevoActivoFormData) => Promise<void>, 
   onCancel: () => void 
 }) => {
   const [formData, setFormData] = useState({
@@ -423,6 +423,7 @@ const NewActivoForm = ({ onSave, onCancel }: {
     estado: 'activo',
     ubicacion: ''
   });
+  const [saving, setSaving] = useState(false);
 
   const handleCategoriaChange = (categoria: string) => {
     const categoriaInfo = categoriasActivos.find(c => c.value === categoria);
@@ -433,9 +434,14 @@ const NewActivoForm = ({ onSave, onCancel }: {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    setSaving(true);
+    try {
+      await onSave(formData);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -540,11 +546,11 @@ const NewActivoForm = ({ onSave, onCancel }: {
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Cancelar
         </Button>
-        <Button type="submit">
-          Registrar Activo
+        <Button type="submit" disabled={saving}>
+          {saving ? "Guardando..." : "Registrar Activo"}
         </Button>
       </div>
     </form>

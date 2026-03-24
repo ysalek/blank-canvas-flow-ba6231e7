@@ -1007,6 +1007,7 @@ const EmpleadoForm = ({
   empleado: EmpleadoNomina | null;
   onSave: (empleado: EmpleadoNomina) => Promise<boolean>;
 }) => {
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<EmpleadoNomina>({
     id: "",
     nombre: "",
@@ -1048,8 +1049,13 @@ const EmpleadoForm = ({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const success = await onSave(formData);
-    if (success) onOpenChange(false);
+    setSaving(true);
+    try {
+      const success = await onSave(formData);
+      if (success) onOpenChange(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1092,8 +1098,8 @@ const EmpleadoForm = ({
             </Field>
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit">{empleado ? "Actualizar" : "Guardar"} empleado</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
+            <Button type="submit" disabled={saving}>{saving ? "Guardando..." : `${empleado ? "Actualizar" : "Guardar"} empleado`}</Button>
           </div>
         </form>
       </DialogContent>
@@ -1110,12 +1116,18 @@ const PlanillaForm = ({
   onOpenChange: (open: boolean) => void;
   onGenerar: (periodo: string) => Promise<boolean>;
 }) => {
+  const [saving, setSaving] = useState(false);
   const [periodo, setPeriodo] = useState(new Date().toISOString().slice(0, 7));
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const success = await onGenerar(periodo);
-    if (success) onOpenChange(false);
+    setSaving(true);
+    try {
+      const success = await onGenerar(periodo);
+      if (success) onOpenChange(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1130,8 +1142,8 @@ const PlanillaForm = ({
             <Input type="month" value={periodo} onChange={(event) => setPeriodo(event.target.value)} required />
           </Field>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit">Generar</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
+            <Button type="submit" disabled={saving}>{saving ? "Generando..." : "Generar"}</Button>
           </div>
         </form>
       </DialogContent>
@@ -1148,6 +1160,7 @@ const FacturaRCIVAForm = ({
   periodo: string;
   onSave: (factura: Omit<FacturaRCIVANomina, "id" | "createdAt">) => Promise<boolean>;
 }) => {
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Omit<FacturaRCIVANomina, "id" | "createdAt">>({
     empleadoId: "",
     periodo,
@@ -1165,7 +1178,12 @@ const FacturaRCIVAForm = ({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await onSave(formData);
+    setSaving(true);
+    try {
+      await onSave(formData);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1195,7 +1213,7 @@ const FacturaRCIVAForm = ({
         <p className="text-sm text-slate-600">La factura se utilizara para compensar credito fiscal RC-IVA del dependiente en el periodo seleccionado.</p>
       </div>
       <div className="flex justify-end gap-2">
-        <Button type="submit">Registrar factura</Button>
+        <Button type="submit" disabled={saving}>{saving ? "Guardando..." : "Registrar factura"}</Button>
       </div>
     </form>
   );

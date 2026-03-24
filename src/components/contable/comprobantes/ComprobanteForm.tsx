@@ -34,7 +34,7 @@ interface ComprobanteFormData {
 
 interface ComprobanteFormProps {
   tipo: 'ingreso' | 'egreso' | 'traspaso';
-  onSave: (comprobante: ComprobanteFormData) => void;
+  onSave: (comprobante: ComprobanteFormData) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -73,6 +73,7 @@ const ComprobanteForm = ({ tipo, onSave, onCancel }: ComprobanteFormProps) => {
 
   const [conFactura, setConFactura] = useState(false);
   const [conFacturaIngreso, setConFacturaIngreso] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const agregarCuenta = () => {
     setFormData(prev => ({
@@ -114,7 +115,7 @@ const ComprobanteForm = ({ tipo, onSave, onCancel }: ComprobanteFormProps) => {
     return Math.abs(totalDebe - totalHaber) < 0.01;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (tipo === 'traspaso' && !validarBalance()) {
@@ -303,7 +304,12 @@ const ComprobanteForm = ({ tipo, onSave, onCancel }: ComprobanteFormProps) => {
       formData.cuentas = cuentasGeneradas;
     }
 
-    onSave(formData);
+    setSaving(true);
+    try {
+      await onSave(formData);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const totalDebe = formData.cuentas.reduce((sum, cuenta) => sum + cuenta.debe, 0);
@@ -611,11 +617,11 @@ const ComprobanteForm = ({ tipo, onSave, onCancel }: ComprobanteFormProps) => {
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Cancelar
         </Button>
-        <Button type="submit">
-          Guardar Comprobante
+        <Button type="submit" disabled={saving}>
+          {saving ? "Guardando..." : "Guardar Comprobante"}
         </Button>
       </div>
     </form>

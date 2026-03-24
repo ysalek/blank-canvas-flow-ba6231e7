@@ -11,7 +11,7 @@ import { Cliente } from "../billing/BillingData";
 
 interface ClienteFormProps {
   cliente?: Cliente | null;
-  onSave: (cliente: Cliente) => void;
+  onSave: (cliente: Cliente) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -24,6 +24,7 @@ const ClienteForm = ({ cliente, onSave, onCancel }: ClienteFormProps) => {
     direccion: ""
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -54,7 +55,7 @@ const ClienteForm = ({ cliente, onSave, onCancel }: ClienteFormProps) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) {
       toast({
         title: "Error en la validación",
@@ -75,7 +76,12 @@ const ClienteForm = ({ cliente, onSave, onCancel }: ClienteFormProps) => {
       fechaCreacion: cliente?.fechaCreacion || new Date().toISOString().slice(0, 10)
     };
 
-    onSave(nuevoCliente);
+    setSaving(true);
+    try {
+      await onSave(nuevoCliente);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -99,7 +105,7 @@ const ClienteForm = ({ cliente, onSave, onCancel }: ClienteFormProps) => {
               {cliente ? "Modifica la información del cliente" : "Registra un nuevo cliente en el sistema"}
             </CardDescription>
           </div>
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={onCancel} disabled={saving}>
             <X className="w-4 h-4 mr-2" />
             Cancelar
           </Button>
@@ -201,12 +207,12 @@ const ClienteForm = ({ cliente, onSave, onCancel }: ClienteFormProps) => {
 
         {/* Botones de acción */}
         <div className="flex justify-end gap-4">
-          <Button variant="outline" onClick={onCancel}>
+          <Button variant="outline" onClick={onCancel} disabled={saving}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit}>
+          <Button onClick={() => void handleSubmit()} disabled={saving}>
             <Save className="w-4 h-4 mr-2" />
-            {cliente ? "Actualizar" : "Guardar"} Cliente
+            {saving ? "Guardando..." : `${cliente ? "Actualizar" : "Guardar"} Cliente`}
           </Button>
         </div>
       </CardContent>

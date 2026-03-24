@@ -16,13 +16,19 @@ import ProveedorForm from "./ProveedorForm";
 import { CostosAdicionalesDialog } from './CostosAdicionalesDialog';
 import QuickProductForm from "../products/QuickProductForm";
 
+type CostoAdicionalCompra = {
+  id: string;
+  concepto: string;
+  monto: number;
+};
+
 interface CompraFormProps {
   proveedores: Proveedor[];
   productos: Producto[];
   compras: Compra[];
-  onSave: (compra: Compra) => void;
+  onSave: (compra: Compra) => Promise<void>;
   onCancel: () => void;
-  onAddProveedor: (proveedor: Proveedor) => void;
+  onAddProveedor: (proveedor: Proveedor) => Promise<void>;
 }
 
 const CompraForm = ({ proveedores, productos, compras, onSave, onCancel, onAddProveedor }: CompraFormProps) => {
@@ -40,10 +46,11 @@ const CompraForm = ({ proveedores, productos, compras, onSave, onCancel, onAddPr
   const [observaciones, setObservaciones] = useState("");
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showProveedorForm, setShowProveedorForm] = useState(false);
-  const [costosAdicionales, setCostosAdicionales] = useState<any[]>([]);
+  const [costosAdicionales, setCostosAdicionales] = useState<CostoAdicionalCompra[]>([]);
   const [showCostosDialog, setShowCostosDialog] = useState(false);
   const [showQuickProductForm, setShowQuickProductForm] = useState(false);
   const [quickProductTargetIndex, setQuickProductTargetIndex] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   const validateForm = () => {
@@ -70,7 +77,11 @@ const CompraForm = ({ proveedores, productos, compras, onSave, onCancel, onAddPr
     ]);
   };
 
-  const updateItem = (index: number, field: string, value: any) => {
+  const updateItem = (
+    index: number,
+    field: "productoId" | "cantidad" | "costoUnitario" | "descripcion",
+    value: string | number,
+  ) => {
     setItems(prev => {
       const newItems = [...prev];
       const currentItem = { ...newItems[index] };
@@ -82,8 +93,10 @@ const CompraForm = ({ proveedores, productos, compras, onSave, onCancel, onAddPr
           currentItem.descripcion = producto.nombre;
           currentItem.costoUnitario = producto.costoUnitario;
         }
+      } else if (field === "cantidad" || field === "costoUnitario") {
+        currentItem[field] = Number(value);
       } else {
-        (currentItem as any)[field] = value;
+        currentItem[field] = String(value);
       }
       
       currentItem.subtotal = currentItem.cantidad * currentItem.costoUnitario;
@@ -104,7 +117,7 @@ const CompraForm = ({ proveedores, productos, compras, onSave, onCancel, onAddPr
   const iva = subtotal * 0.13; // IVA crédito fiscal - se registra en contabilidad
   const total = subtotal + totalCostosAdicionales; // El total incluye costos adicionales
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!validateForm()) {
       toast({ title: "Error en el formulario", description: "Por favor, corrija los errores.", variant: "destructive" });
       return;
@@ -130,7 +143,12 @@ const CompraForm = ({ proveedores, productos, compras, onSave, onCancel, onAddPr
       fechaCreacion: new Date().toISOString().slice(0, 10),
     };
 
-    onSave(nuevaCompra);
+    setSaving(true);
+    try {
+      await onSave(nuevaCompra);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -264,8 +282,8 @@ const CompraForm = ({ proveedores, productos, compras, onSave, onCancel, onAddPr
         </div>
 
         <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-            <Button onClick={handleSubmit}>Guardar Compra</Button>
+            <Button variant="outline" onClick={onCancel} disabled={saving}>Cancelar</Button>
+            <Button onClick={() => void handleSubmit()} disabled={saving}>{saving ? "Guardando..." : "Guardar Compra"}</Button>
         </div>
       </CardContent>
       

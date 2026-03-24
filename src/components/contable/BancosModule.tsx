@@ -738,7 +738,7 @@ const NewAccountForm = ({
   onCancel,
 }: {
   bankLedgerAccounts: CuentaContable[];
-  onSave: (payload: NewAccountPayload) => void;
+  onSave: (payload: NewAccountPayload) => Promise<void>;
   onCancel: () => void;
 }) => {
   const [formData, setFormData] = useState<NewAccountPayload>({
@@ -750,10 +750,16 @@ const NewAccountForm = ({
     saldo: 0,
     codigoCuentaContable: bankLedgerAccounts[0]?.codigo || "1113",
   });
+  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onSave(formData);
+    setSaving(true);
+    try {
+      await onSave(formData);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -849,10 +855,10 @@ const NewAccountForm = ({
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Cancelar
         </Button>
-        <Button type="submit">Crear cuenta</Button>
+        <Button type="submit" disabled={saving}>{saving ? "Guardando..." : "Crear cuenta"}</Button>
       </div>
     </form>
   );
@@ -877,7 +883,7 @@ const NewMovementForm = ({
 }: {
   cuenta: CuentaBancaria;
   counterAccounts: CuentaContable[];
-  onSave: (payload: NewMovementPayload) => void;
+  onSave: (payload: NewMovementPayload) => Promise<void>;
   onCancel: () => void;
 }) => {
   const defaultTipo = MOVIMIENTO_TIPO_OPTIONS[0];
@@ -891,10 +897,16 @@ const NewMovementForm = ({
     numeroComprobante: "",
     contracuentaCodigo: counterAccounts[0]?.codigo || "",
   });
+  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onSave(formData);
+    setSaving(true);
+    try {
+      await onSave(formData);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -1025,10 +1037,10 @@ const NewMovementForm = ({
       </Field>
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Cancelar
         </Button>
-        <Button type="submit">Registrar movimiento</Button>
+        <Button type="submit" disabled={saving}>{saving ? "Guardando..." : "Registrar movimiento"}</Button>
       </div>
     </form>
   );
