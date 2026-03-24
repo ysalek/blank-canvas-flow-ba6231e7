@@ -376,7 +376,7 @@ const ProveedoresInventarioTab = ({ productos, onCompraCreada }: Props) => {
 interface FormularioProveedorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onGuardar: (proveedor: ProveedorSupabase) => void;
+  onGuardar: (proveedor: ProveedorSupabase) => Promise<void>;
   ultimoCodigo: number;
 }
 
@@ -388,9 +388,10 @@ const FormularioProveedor = ({ open, onOpenChange, onGuardar, ultimoCodigo }: Fo
     direccion: "",
     email: ""
   });
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.nombre || !formData.nit || !formData.telefono || !formData.direccion) {
       toast({
         title: "Campos requeridos",
@@ -412,14 +413,19 @@ const FormularioProveedor = ({ open, onOpenChange, onGuardar, ultimoCodigo }: Fo
       saldo_deuda: 0
     };
 
-    onGuardar(nuevoProveedor);
-    setFormData({ nombre: "", nit: "", telefono: "", direccion: "", email: "" });
-    onOpenChange(false);
+    try {
+      setSaving(true);
+      await onGuardar(nuevoProveedor);
+      setFormData({ nombre: "", nit: "", telefono: "", direccion: "", email: "" });
+      onOpenChange(false);
 
-    toast({
-      title: "Proveedor creado",
-      description: `${nuevoProveedor.nombre} registrado exitosamente.`,
-    });
+      toast({
+        title: "Proveedor creado",
+        description: `${nuevoProveedor.nombre} registrado exitosamente.`,
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -480,8 +486,10 @@ const FormularioProveedor = ({ open, onOpenChange, onGuardar, ultimoCodigo }: Fo
           </div>
         </div>
         <div className="flex justify-end gap-3 mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSubmit}>Guardar Proveedor</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
+          <Button onClick={handleSubmit} disabled={saving}>
+            {saving ? "Guardando..." : "Guardar Proveedor"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -494,11 +502,11 @@ interface FormularioCompraProps {
   onOpenChange: (open: boolean) => void;
   proveedores: ProveedorSupabase[];
   productos: ProductoInventario[];
-  onGuardar: (compra: CompraProveedor) => void;
+  onGuardar: (compra: CompraProveedor) => Promise<void>;
   onCompraCreada: () => void;
   ultimoNumero: number;
-  generarAsientoCompra: any;
-  actualizarStockProducto: any;
+  generarAsientoCompra: (compra: { numero: string; total: number; subtotal: number; iva: number }) => Promise<unknown>;
+  actualizarStockProducto: (productoId: string, cantidad: number, tipo: 'entrada' | 'salida') => Promise<boolean>;
 }
 
 const FormularioCompra = ({
@@ -520,6 +528,7 @@ const FormularioCompra = ({
     costoUnitario: number;
   }>>([{ productoId: "", cantidad: 1, costoUnitario: 0 }]);
   const [observaciones, setObservaciones] = useState("");
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   const handleAddItem = () => {
@@ -555,23 +564,6 @@ const FormularioCompra = ({
     const { subtotal, iva, total } = calcularTotales();
     const numero = `COMP-${(ultimoNumero + 1).toString().padStart(4, '0')}`;
 
-    // Generar asiento contable
-    const asiento = await generarAsientoCompra({
-      numero,
-      total,
-      subtotal,
-      iva
-    });
-
-    if (!asiento) {
-      return;
-    }
-
-    // Actualizar stock
-    items.forEach(item => {
-      actualizarStockProducto(item.productoId, item.cantidad, 'entrada');
-    });
-
     const nuevaCompra: CompraProveedor = {
       id: Date.now().toString(),
       proveedorId,
@@ -601,20 +593,45 @@ const FormularioCompra = ({
       observaciones
     };
 
-    onGuardar(nuevaCompra);
-    onCompraCreada();
+    try {
+      setSaving(true);
 
-    // Limpiar formulario
-    setProveedorId("");
-    setTipoPago('contado');
-    setItems([{ productoId: "", cantidad: 1, costoUnitario: 0 }]);
-    setObservaciones("");
-    onOpenChange(false);
+      const asiento = await generarAsientoCompra({
+        numero,
+        total,
+        subtotal,
+        iva
+      });
 
-    toast({
-      title: "Compra registrada",
-      description: `Compra ${numero} procesada exitosamente.`,
-    });
+      if (!asiento) {
+        return;
+      }
+
+      await onGuardar(nuevaCompra);
+
+      const stockResults = await Promise.all(
+        items.map((item) => actualizarStockProducto(item.productoId, item.cantidad, 'entrada'))
+      );
+      const stockActualizado = stockResults.every(Boolean);
+
+      onCompraCreada();
+
+      setProveedorId("");
+      setTipoPago('contado');
+      setItems([{ productoId: "", cantidad: 1, costoUnitario: 0 }]);
+      setObservaciones("");
+      onOpenChange(false);
+
+      toast({
+        title: stockActualizado ? "Compra registrada" : "Compra registrada con observaciones",
+        description: stockActualizado
+          ? `Compra ${numero} procesada exitosamente.`
+          : `Compra ${numero} guardada, pero no se pudo actualizar todo el stock.`,
+        variant: stockActualizado ? "default" : "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const { subtotal, iva, total } = calcularTotales();
@@ -644,7 +661,7 @@ const FormularioCompra = ({
             </div>
             <div>
               <Label>Tipo de Pago *</Label>
-              <Select value={tipoPago} onValueChange={(v) => setTipoPago(v as 'contado' | 'credito')}>
+              <Select value={tipoPago} onValueChange={(v) => setTipoPago(v as 'contado' | 'credito')} disabled={saving}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -669,7 +686,7 @@ const FormularioCompra = ({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>Items de la Compra *</Label>
-              <Button size="sm" variant="outline" onClick={handleAddItem}>
+              <Button size="sm" variant="outline" onClick={handleAddItem} disabled={saving}>
                 <Plus className="w-4 h-4 mr-1" />
                 Agregar Item
               </Button>
@@ -690,6 +707,7 @@ const FormularioCompra = ({
                       };
                       setItems(newItems);
                     }}
+                    disabled={saving}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccione" />
@@ -714,6 +732,7 @@ const FormularioCompra = ({
                       setItems(newItems);
                     }}
                     min="1"
+                    disabled={saving}
                   />
                 </div>
                 <div className="col-span-2">
@@ -728,6 +747,7 @@ const FormularioCompra = ({
                     }}
                     step="0.01"
                     min="0"
+                    disabled={saving}
                   />
                 </div>
                 <div className="col-span-2">
@@ -745,6 +765,7 @@ const FormularioCompra = ({
                       variant="ghost"
                       className="text-red-500"
                       onClick={() => handleRemoveItem(index)}
+                      disabled={saving}
                     >
                       <AlertCircle className="w-4 h-4" />
                     </Button>
@@ -761,6 +782,7 @@ const FormularioCompra = ({
               onChange={(e) => setObservaciones(e.target.value)}
               placeholder="Notas adicionales sobre la compra..."
               rows={2}
+              disabled={saving}
             />
           </div>
 
@@ -786,8 +808,10 @@ const FormularioCompra = ({
           </div>
         </div>
         <div className="flex justify-end gap-3 mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSubmit}>Guardar Compra</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>Cancelar</Button>
+          <Button onClick={handleSubmit} disabled={saving}>
+            {saving ? "Guardando..." : "Guardar Compra"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
