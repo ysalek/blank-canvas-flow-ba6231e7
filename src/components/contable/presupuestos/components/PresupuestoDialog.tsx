@@ -86,9 +86,15 @@ export const PresupuestoDialog: React.FC<PresupuestoDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (saving && !nextOpen) return;
+        onOpenChange(nextOpen);
+      }}
+    >
       <DialogTrigger asChild>
-        <Button className="flex items-center gap-2">
+        <Button className="flex items-center gap-2" disabled={saving}>
           <Plus className="w-4 h-4" />
           Nuevo Presupuesto
         </Button>
@@ -108,12 +114,13 @@ export const PresupuestoDialog: React.FC<PresupuestoDialogProps> = ({
               placeholder="Ej. Presupuesto Anual 2024" 
               value={formData.nombre}
               onChange={(e) => handleInputChange('nombre', e.target.value)}
+              disabled={saving}
             />
           </div>
           
           <div className="space-y-2">
             <Label htmlFor="periodo">Período</Label>
-            <Select value={formData.periodo} onValueChange={(value) => handleInputChange('periodo', value)}>
+            <Select value={formData.periodo} onValueChange={(value) => handleInputChange('periodo', value)} disabled={saving}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar período" />
               </SelectTrigger>
@@ -133,6 +140,7 @@ export const PresupuestoDialog: React.FC<PresupuestoDialogProps> = ({
               type="date" 
               value={formData.fechaInicio}
               onChange={(e) => handleInputChange('fechaInicio', e.target.value)}
+              disabled={saving}
             />
           </div>
           
@@ -143,6 +151,7 @@ export const PresupuestoDialog: React.FC<PresupuestoDialogProps> = ({
               type="date" 
               value={formData.fechaFin}
               onChange={(e) => handleInputChange('fechaFin', e.target.value)}
+              disabled={saving}
             />
           </div>
           
@@ -153,6 +162,7 @@ export const PresupuestoDialog: React.FC<PresupuestoDialogProps> = ({
               placeholder="Nombre del responsable" 
               value={formData.responsable}
               onChange={(e) => handleInputChange('responsable', e.target.value)}
+              disabled={saving}
             />
           </div>
           
@@ -164,6 +174,7 @@ export const PresupuestoDialog: React.FC<PresupuestoDialogProps> = ({
               placeholder="0.00" 
               value={formData.totalPresupuestado}
               onChange={(e) => handleInputChange('totalPresupuestado', parseFloat(e.target.value) || 0)}
+              disabled={saving}
             />
           </div>
           
@@ -174,11 +185,12 @@ export const PresupuestoDialog: React.FC<PresupuestoDialogProps> = ({
               placeholder="Descripción del presupuesto" 
               value={formData.descripcion}
               onChange={(e) => handleInputChange('descripcion', e.target.value)}
+              disabled={saving}
             />
           </div>
         </div>
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancelar
           </Button>
           <Button onClick={crearPresupuesto} disabled={saving}>

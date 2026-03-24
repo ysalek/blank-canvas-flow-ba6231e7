@@ -115,6 +115,7 @@ const CuentasPorCobrarPagar = () => {
     tipo: "cobro" | "pago";
     cuenta: CuentaPorCobrar | CuentaPorPagar;
   } | null>(null);
+  const [savingPago, setSavingPago] = useState(false);
 
   const { toast } = useToast();
   const { guardarAsiento } = useContabilidadIntegration();
@@ -232,6 +233,7 @@ const CuentasPorCobrarPagar = () => {
   }, [compras, pagosNormalizados, proveedores]);
 
   const registrarPago = async (pago: Omit<PagoRegistro, "id">) => {
+    setSavingPago(true);
     const monto = Number(pago.monto || 0);
     const cuenta = showPagoDialog?.cuenta;
     if (!cuenta || monto <= 0) {
@@ -240,6 +242,7 @@ const CuentasPorCobrarPagar = () => {
         description: "Debes ingresar un monto mayor a cero.",
         variant: "destructive",
       });
+      setSavingPago(false);
       return;
     }
 
@@ -249,6 +252,7 @@ const CuentasPorCobrarPagar = () => {
         description: "El monto no puede ser mayor al saldo pendiente.",
         variant: "destructive",
       });
+      setSavingPago(false);
       return;
     }
 
@@ -282,7 +286,10 @@ const CuentasPorCobrarPagar = () => {
     };
 
     const asientoGuardado = await guardarAsiento(asiento);
-    if (!asientoGuardado) return;
+    if (!asientoGuardado) {
+      setSavingPago(false);
+      return;
+    }
 
     try {
       await createPago({
@@ -329,6 +336,8 @@ const CuentasPorCobrarPagar = () => {
           "Se registro el asiento, pero hubo un problema actualizando la cartera. Revisa pagos y estado del documento.",
         variant: "destructive",
       });
+    } finally {
+      setSavingPago(false);
     }
   };
 
@@ -585,7 +594,13 @@ const CuentasPorCobrarPagar = () => {
       )}
 
       {showPagoDialog && (
-        <Dialog open={showPagoDialog.open} onOpenChange={(open) => !open && setShowPagoDialog(null)}>
+        <Dialog
+          open={showPagoDialog.open}
+          onOpenChange={(open) => {
+            if (savingPago && !open) return;
+            if (!open) setShowPagoDialog(null);
+          }}
+        >
           <DialogContent className="rounded-[1.75rem] border-slate-200 sm:max-w-xl">
             <DialogHeader>
               <DialogTitle>
@@ -602,6 +617,7 @@ const CuentasPorCobrarPagar = () => {
               montoMaximo={showPagoDialog.cuenta.montoSaldo}
               onSave={registrarPago}
               onCancel={() => setShowPagoDialog(null)}
+              saving={savingPago}
             />
           </DialogContent>
         </Dialog>
@@ -692,12 +708,14 @@ const PagoForm = ({
   montoMaximo,
   onSave,
   onCancel,
+  saving,
 }: {
   tipo: "cobro" | "pago";
   cuentaId: string;
   montoMaximo: number;
   onSave: (pago: Omit<PagoRegistro, "id">) => Promise<void>;
   onCancel: () => void;
+  saving: boolean;
 }) => {
   const [formData, setFormData] = useState({
     tipo,
@@ -724,6 +742,7 @@ const PagoForm = ({
             type="date"
             value={formData.fecha}
             onChange={(event) => setFormData((prev) => ({ ...prev, fecha: event.target.value }))}
+            disabled={saving}
             required
           />
         </div>
@@ -739,6 +758,7 @@ const PagoForm = ({
             onChange={(event) =>
               setFormData((prev) => ({ ...prev, monto: parseFloat(event.target.value) || 0 }))
             }
+            disabled={saving}
             required
           />
         </div>
@@ -756,6 +776,7 @@ const PagoForm = ({
             }))
           }
           className="w-full rounded-md border border-input bg-background px-3 py-2"
+          disabled={saving}
           required
         >
           <option value="efectivo">Efectivo</option>
@@ -772,6 +793,7 @@ const PagoForm = ({
           value={formData.referencia}
           onChange={(event) => setFormData((prev) => ({ ...prev, referencia: event.target.value }))}
           placeholder="Numero de cheque, transferencia, etc."
+          disabled={saving}
           required
         />
       </div>
@@ -785,14 +807,17 @@ const PagoForm = ({
             setFormData((prev) => ({ ...prev, observaciones: event.target.value }))
           }
           placeholder="Observaciones adicionales"
+          disabled={saving}
         />
       </div>
 
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="outline" onClick={onCancel}>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={saving}>
           Cancelar
         </Button>
-        <Button type="submit">Registrar {tipo === "cobro" ? "cobro" : "pago"}</Button>
+        <Button type="submit" disabled={saving}>
+          {saving ? "Guardando..." : `Registrar ${tipo === "cobro" ? "cobro" : "pago"}`}
+        </Button>
       </div>
     </form>
   );

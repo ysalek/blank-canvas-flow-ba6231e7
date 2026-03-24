@@ -135,7 +135,13 @@ const BackupModule = () => {
 
   return (
     <div className="page-shell space-y-6 pb-12">
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => {
+          if (deleting && !open) return;
+          if (!open) setDeleteTarget(null);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Eliminar todos los registros</AlertDialogTitle>
@@ -246,7 +252,7 @@ const BackupModule = () => {
                       <Badge variant="outline">{table.count}</Badge>
                       <button
                         onClick={() => table.count > 0 && setDeleteTarget(table)}
-                        disabled={table.count === 0}
+                        disabled={table.count === 0 || deleting || isExporting || isImporting}
                         className="rounded p-1 text-destructive transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-30"
                         title={`Eliminar todos los registros de ${table.label}`}
                       >
@@ -265,7 +271,7 @@ const BackupModule = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Exportar backup</Label>
-                  <Button onClick={() => crearBackup()} disabled={isExporting} className="w-full">
+                  <Button onClick={() => crearBackup()} disabled={isExporting || isImporting || deleting} className="w-full">
                     {isExporting ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
@@ -282,7 +288,7 @@ const BackupModule = () => {
                     type="file"
                     accept=".json"
                     onChange={restaurarBackup}
-                    disabled={isImporting}
+                    disabled={isImporting || isExporting || deleting}
                   />
                 </div>
               </CardContent>

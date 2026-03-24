@@ -34,11 +34,14 @@ const PaymentRequestsManager = () => {
   const { config, loading: configLoading, saveConfig, isConfigured } = usePaymentConfig();
   const [editConfig, setEditConfig] = useState<PaymentConfig>(config);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => { setEditConfig(config); }, [config]);
   useEffect(() => { loadRequests(); }, []);
 
   const loadRequests = async () => {
+    setRefreshing(true);
     setLoading(true);
     try {
       const { data } = await supabase
@@ -72,11 +75,14 @@ const PaymentRequestsManager = () => {
       setRequests(parsed);
     } catch (error) {
       console.error('Error loading payment requests:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    setLoading(false);
   };
 
   const handleApprove = async (req: PaymentRequest) => {
+    setProcessingRequestId(req.subscriberId);
     try {
       const newTier = req.plan;
       const endDate = new Date();
@@ -99,14 +105,17 @@ const PaymentRequestsManager = () => {
 
       toast({ title: 'Pago aprobado', description: `Se activó el plan ${newTier} para ${req.email}` });
       setDetailOpen(false);
-      loadRequests();
+      await loadRequests();
     } catch (error) {
       console.error('Error approving payment:', error);
       toast({ title: 'Error', description: 'No se pudo aprobar el pago', variant: 'destructive' });
+    } finally {
+      setProcessingRequestId(null);
     }
   };
 
   const handleReject = async (req: PaymentRequest) => {
+    setProcessingRequestId(req.subscriberId);
     try {
       await supabase
         .from('subscribers')
@@ -122,9 +131,11 @@ const PaymentRequestsManager = () => {
 
       toast({ title: 'Pago rechazado', description: `Se rechazó el pago de ${req.email}` });
       setDetailOpen(false);
-      loadRequests();
+      await loadRequests();
     } catch (error) {
       toast({ title: 'Error', description: 'No se pudo rechazar el pago', variant: 'destructive' });
+    } finally {
+      setProcessingRequestId(null);
     }
   };
 
@@ -154,7 +165,7 @@ const PaymentRequestsManager = () => {
             <p className="text-sm text-muted-foreground">Configuración y verificación de pagos</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={loadRequests} className="gap-2">
+        <Button variant="outline" size="sm" onClick={loadRequests} className="gap-2" disabled={loading || refreshing || savingConfig || Boolean(processingRequestId)}>
           <RefreshCw className="w-4 h-4" /> Actualizar
         </Button>
       </div>
@@ -203,6 +214,7 @@ const PaymentRequestsManager = () => {
                     placeholder="Ej: 78912345"
                     value={editConfig.tigo_money_number}
                     onChange={(e) => setEditConfig(prev => ({ ...prev, tigo_money_number: e.target.value }))}
+                    disabled={savingConfig}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -211,6 +223,7 @@ const PaymentRequestsManager = () => {
                     placeholder="Ej: ContaBolivia SRL"
                     value={editConfig.tigo_money_titular}
                     onChange={(e) => setEditConfig(prev => ({ ...prev, tigo_money_titular: e.target.value }))}
+                    disabled={savingConfig}
                   />
                 </div>
               </CardContent>
@@ -231,6 +244,7 @@ const PaymentRequestsManager = () => {
                     placeholder="Ej: Banco Mercantil Santa Cruz"
                     value={editConfig.banco_nombre}
                     onChange={(e) => setEditConfig(prev => ({ ...prev, banco_nombre: e.target.value }))}
+                    disabled={savingConfig}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -239,6 +253,7 @@ const PaymentRequestsManager = () => {
                     placeholder="Ej: ContaBolivia SRL"
                     value={editConfig.banco_titular}
                     onChange={(e) => setEditConfig(prev => ({ ...prev, banco_titular: e.target.value }))}
+                    disabled={savingConfig}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -247,6 +262,7 @@ const PaymentRequestsManager = () => {
                     placeholder="Ej: 4010-123456-001"
                     value={editConfig.banco_cuenta}
                     onChange={(e) => setEditConfig(prev => ({ ...prev, banco_cuenta: e.target.value }))}
+                    disabled={savingConfig}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -255,6 +271,7 @@ const PaymentRequestsManager = () => {
                     placeholder="Ej: Bolivianos (BOB)"
                     value={editConfig.banco_moneda}
                     onChange={(e) => setEditConfig(prev => ({ ...prev, banco_moneda: e.target.value }))}
+                    disabled={savingConfig}
                   />
                 </div>
               </CardContent>
@@ -363,6 +380,7 @@ const PaymentRequestsManager = () => {
                             size="sm" 
                             variant="ghost" 
                             onClick={() => { setSelectedRequest(req); setDetailOpen(true); }}
+                            disabled={savingConfig || processingRequestId === req.subscriberId}
                           >
                             <Eye className="w-4 h-4" />
                           </Button>
@@ -386,7 +404,13 @@ const PaymentRequestsManager = () => {
 
       {/* Detail Dialog */}
       {selectedRequest && (
-        <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <Dialog
+          open={detailOpen}
+          onOpenChange={(open) => {
+            if (processingRequestId && !open) return;
+            setDetailOpen(open);
+          }}
+        >
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Detalle de Pago</DialogTitle>
@@ -442,14 +466,16 @@ const PaymentRequestsManager = () => {
                     variant="destructive" 
                     onClick={() => handleReject(selectedRequest)}
                     className="flex-1 gap-2"
+                    disabled={processingRequestId === selectedRequest.subscriberId}
                   >
-                    <XCircle className="w-4 h-4" /> Rechazar
+                    <XCircle className="w-4 h-4" /> {processingRequestId === selectedRequest.subscriberId ? 'Procesando...' : 'Rechazar'}
                   </Button>
                   <Button 
                     onClick={() => handleApprove(selectedRequest)}
                     className="flex-1 gap-2"
+                    disabled={processingRequestId === selectedRequest.subscriberId}
                   >
-                    <CheckCircle className="w-4 h-4" /> Aprobar y Activar
+                    <CheckCircle className="w-4 h-4" /> {processingRequestId === selectedRequest.subscriberId ? 'Procesando...' : 'Aprobar y Activar'}
                   </Button>
                 </div>
               )}

@@ -24,6 +24,9 @@ interface UserRow {
   email?: string;
 }
 
+const getErrorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : 'Error desconocido';
+
 const UsersManagement = () => {
   const { toast } = useToast();
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -32,10 +35,13 @@ const UsersManagement = () => {
   const [filterRole, setFilterRole] = useState<string>('all');
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
+  const [changingPlanUserId, setChangingPlanUserId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => { loadUsers(); }, []);
 
   const loadUsers = async () => {
+    setRefreshing(true);
     setLoading(true);
     try {
       const [profilesRes, rolesRes, subsRes] = await Promise.all([
@@ -62,10 +68,12 @@ const UsersManagement = () => {
       console.error('Error loading users:', e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   const changePlan = async (userId: string, newTier: string) => {
+    setChangingPlanUserId(userId);
     const user = users.find(u => u.id === userId);
     try {
       // Check if subscriber row exists
@@ -101,10 +109,12 @@ const UsersManagement = () => {
         toast({ title: 'Error', description: error.message, variant: 'destructive' });
       } else {
         toast({ title: 'Plan actualizado', description: `Plan de ${user?.display_name || 'usuario'} cambiado a ${newTier}` });
-        loadUsers();
+        await loadUsers();
       }
-    } catch (e: any) {
-      toast({ title: 'Error', description: e.message || 'Error desconocido', variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Error', description: getErrorMessage(e), variant: 'destructive' });
+    } finally {
+      setChangingPlanUserId(null);
     }
   };
 
@@ -137,7 +147,7 @@ const UsersManagement = () => {
             <p className="text-sm text-muted-foreground">{users.length} usuarios registrados</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={loadUsers} className="gap-2">
+        <Button variant="outline" size="sm" onClick={loadUsers} className="gap-2" disabled={loading || refreshing || Boolean(changingPlanUserId)}>
           <RefreshCw className="w-4 h-4" /> Actualizar
         </Button>
       </div>
@@ -262,6 +272,7 @@ const UsersManagement = () => {
                       <Select
                         value={user.subscription_tier || 'basic'}
                         onValueChange={(val) => changePlan(user.id, val)}
+                        disabled={changingPlanUserId === user.id}
                       >
                         <SelectTrigger className="w-24 h-7 text-xs">
                           <SelectValue />
@@ -279,6 +290,7 @@ const UsersManagement = () => {
                         size="sm"
                         onClick={() => setSelectedUser(user)}
                         className="h-7 w-7 p-0"
+                        disabled={changingPlanUserId === user.id}
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
@@ -303,7 +315,13 @@ const UsersManagement = () => {
       </p>
 
       {/* User Detail Dialog */}
-      <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
+      <Dialog
+        open={!!selectedUser}
+        onOpenChange={() => {
+          if (selectedUser && changingPlanUserId === selectedUser.id) return;
+          setSelectedUser(null);
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Detalle de Usuario</DialogTitle>

@@ -66,12 +66,14 @@ const AdminDashboard = () => {
   const [userGrowthData, setUserGrowthData] = useState<GrowthPoint[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     void loadAll();
   }, []);
 
   const loadAll = async () => {
+    setRefreshing(true);
     setLoading(true);
     try {
       const [profilesRes, subscribersRes] = await Promise.all([
@@ -177,6 +179,7 @@ const AdminDashboard = () => {
       console.error('Error loading admin stats:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -211,7 +214,7 @@ const AdminDashboard = () => {
           variant: stats.proSubscribers > 0 ? 'secondary' : 'warning',
         }}
         actions={
-          <Button variant="outline" size="sm" onClick={loadAll} className="gap-2">
+          <Button variant="outline" size="sm" onClick={loadAll} className="gap-2" disabled={loading || refreshing}>
             <RefreshCw className="h-4 w-4" />
             Actualizar
           </Button>

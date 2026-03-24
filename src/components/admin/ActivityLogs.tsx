@@ -23,10 +23,12 @@ const ActivityLogs = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => { loadActivityLogs(); }, []);
 
   const loadActivityLogs = async () => {
+    setRefreshing(true);
     setLoading(true);
     try {
       const [facturas, compras, asientos, profiles, productos, clientes, proveedores] = await Promise.all([
@@ -87,6 +89,7 @@ const ActivityLogs = () => {
       console.error('Error loading activity:', e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -126,7 +129,7 @@ const ActivityLogs = () => {
           variant: 'secondary',
         }}
         actions={
-          <Button variant="outline" size="sm" onClick={loadActivityLogs} className="gap-2">
+          <Button variant="outline" size="sm" onClick={loadActivityLogs} className="gap-2" disabled={loading || refreshing}>
             <RefreshCw className="w-4 h-4" /> Actualizar
           </Button>
         }
@@ -136,7 +139,7 @@ const ActivityLogs = () => {
         <EnhancedMetricCard title="Actividad total" value={logs.length} subtitle="Eventos recopilados" icon={Activity} />
         <EnhancedMetricCard title="Categorias" value={categoriasActivas} subtitle="Fuentes activas de trazabilidad" icon={Filter} />
         <EnhancedMetricCard title="Resultados" value={filteredLogs.length} subtitle="Coincidencias segun filtros" icon={Search} variant="success" />
-        <EnhancedMetricCard title="Ultimo refresco" value={loading ? "Cargando" : "Listo"} subtitle="Estado de sincronizacion" icon={RefreshCw} variant={loading ? 'warning' : 'secondary'} />
+        <EnhancedMetricCard title="Ultimo refresco" value={loading || refreshing ? "Cargando" : "Listo"} subtitle="Estado de sincronizacion" icon={RefreshCw} variant={loading || refreshing ? 'warning' : 'secondary'} />
       </MetricGrid>
 
       <div className="hero-panel rounded-[2rem] p-6">

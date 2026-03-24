@@ -9,15 +9,34 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
+interface SubscriberRow {
+  id: string;
+  email: string | null;
+  subscription_tier: string | null;
+  subscribed: boolean | null;
+  stripe_customer_id: string | null;
+  subscription_end: string | null;
+  created_at: string;
+}
+
+interface RevenuePoint {
+  month: string;
+  ingresos: number;
+  suscriptores: number;
+}
+
 const SubscriptionsManager = () => {
   const { toast } = useToast();
-  const [subscribers, setSubscribers] = useState<any[]>([]);
+  const [subscribers, setSubscribers] = useState<SubscriberRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [revenueData, setRevenueData] = useState<any[]>([]);
+  const [revenueData, setRevenueData] = useState<RevenuePoint[]>([]);
+  const [changingSubscriptionId, setChangingSubscriptionId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => { loadSubscribers(); }, []);
 
   const loadSubscribers = async () => {
+    setRefreshing(true);
     setLoading(true);
     const { data } = await supabase
       .from('subscribers')
@@ -43,9 +62,11 @@ const SubscriptionsManager = () => {
     }
     setRevenueData(chartData);
     setLoading(false);
+    setRefreshing(false);
   };
 
   const changePlan = async (subId: string, newTier: string) => {
+    setChangingSubscriptionId(subId);
     const { error } = await supabase
       .from('subscribers')
       .update({
@@ -59,8 +80,9 @@ const SubscriptionsManager = () => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Plan actualizado' });
-      loadSubscribers();
+      await loadSubscribers();
     }
+    setChangingSubscriptionId(null);
   };
 
   const proCount = subscribers.filter(s => s.subscribed && s.subscription_tier === 'pro').length;
@@ -87,7 +109,7 @@ const SubscriptionsManager = () => {
             <p className="text-sm text-muted-foreground">Control de planes, pagos e ingresos</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={loadSubscribers} className="gap-2">
+        <Button variant="outline" size="sm" onClick={loadSubscribers} className="gap-2" disabled={loading || refreshing || Boolean(changingSubscriptionId)}>
           <RefreshCw className="w-4 h-4" /> Actualizar
         </Button>
       </div>
@@ -152,7 +174,7 @@ const SubscriptionsManager = () => {
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis dataKey="month" className="text-xs" />
               <YAxis className="text-xs" />
-              <Tooltip formatter={(value: any) => [`$${value}`, 'Ingresos']} />
+              <Tooltip formatter={(value: number | string) => [`$${value}`, 'Ingresos']} />
               <Area type="monotone" dataKey="ingresos" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.2)" />
             </AreaChart>
           </ResponsiveContainer>
@@ -209,6 +231,7 @@ const SubscriptionsManager = () => {
                       <Select
                         value={sub.subscription_tier || 'basic'}
                         onValueChange={(val) => changePlan(sub.id, val)}
+                        disabled={changingSubscriptionId === sub.id}
                       >
                         <SelectTrigger className="w-24 h-7 text-xs">
                           <SelectValue />
