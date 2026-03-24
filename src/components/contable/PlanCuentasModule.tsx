@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,29 +8,29 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Search, Edit, Trash2, FolderTree } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { inicializarPlanCuentas } from "@/utils/planCuentasInicial";
-import { useSupabasePlanCuentas } from "@/hooks/useSupabasePlanCuentas";
+import { CuentaContable, useSupabasePlanCuentas } from "@/hooks/useSupabasePlanCuentas";
 
-interface Cuenta {
+type CuentaTipo = "activo" | "pasivo" | "patrimonio" | "ingresos" | "gastos";
+type NaturalezaCuenta = "deudora" | "acreedora";
+
+interface CuentaFormData {
   codigo: string;
   nombre: string;
-  tipo: 'activo' | 'pasivo' | 'patrimonio' | 'ingresos' | 'gastos';
+  tipo: CuentaTipo;
   nivel: number;
-  padre?: string;
-  naturaleza: 'deudora' | 'acreedora';
-  saldo: number;
-  activa: boolean;
+  padre: string;
+  naturaleza: NaturalezaCuenta;
 }
 
 const PlanCuentasModule = () => {
   const [showNewCuenta, setShowNewCuenta] = useState(false);
   const [showEditCuenta, setShowEditCuenta] = useState(false);
-  const [editingCuenta, setEditingCuenta] = useState<any>(null);
+  const [editingCuenta, setEditingCuenta] = useState<CuentaContable | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterTipo, setFilterTipo] = useState("todos");
   const [savingNewCuenta, setSavingNewCuenta] = useState(false);
   const [savingEditCuenta, setSavingEditCuenta] = useState(false);
-  const [newCuenta, setNewCuenta] = useState({
+  const [newCuenta, setNewCuenta] = useState<CuentaFormData>({
     codigo: "",
     nombre: "",
     tipo: "activo" as const,
@@ -75,7 +75,7 @@ const PlanCuentasModule = () => {
 
     try {
       setSavingNewCuenta(true);
-      const cuentaData: any = {
+      const cuentaData: Omit<CuentaContable, "id"> = {
         codigo: newCuenta.codigo,
         nombre: newCuenta.nombre,
         tipo: newCuenta.tipo,
@@ -119,7 +119,7 @@ const PlanCuentasModule = () => {
     
     try {
       setSavingEditCuenta(true);
-      const cuentaData: any = {
+      const cuentaData: Partial<CuentaContable> = {
         codigo: editingCuenta.codigo,
         nombre: editingCuenta.nombre,
         tipo: editingCuenta.tipo,
@@ -174,14 +174,6 @@ const PlanCuentasModule = () => {
     }
   };
 
-  const cuentasAgrupadas = cuentas.reduce((acc, cuenta) => {
-    if (!acc[cuenta.tipo]) {
-      acc[cuenta.tipo] = [];
-    }
-    acc[cuenta.tipo].push(cuenta);
-    return acc;
-  }, {} as Record<string, any[]>);
-
   const cuentasFiltradas = cuentas.filter(cuenta => {
     const matchesSearch = cuenta.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          cuenta.nombre.toLowerCase().includes(searchTerm.toLowerCase());
@@ -189,7 +181,7 @@ const PlanCuentasModule = () => {
     return matchesSearch && matchesFilter;
   });
 
-  const tiposCuenta = ["activo", "pasivo", "patrimonio", "ingresos", "gastos"];
+  const tiposCuenta: CuentaTipo[] = ["activo", "pasivo", "patrimonio", "ingresos", "gastos"];
 
   if (loading) {
     return <div className="flex items-center justify-center p-8">Cargando plan de cuentas...</div>;
@@ -261,7 +253,7 @@ const PlanCuentasModule = () => {
                   <Label>Tipo de Cuenta</Label>
                   <Select 
                     value={newCuenta.tipo} 
-                    onValueChange={(value: any) => setNewCuenta(prev => ({ ...prev, tipo: value }))}
+                    onValueChange={(value: CuentaTipo) => setNewCuenta(prev => ({ ...prev, tipo: value }))}
                     disabled={savingNewCuenta}
                   >
                     <SelectTrigger>
@@ -281,7 +273,7 @@ const PlanCuentasModule = () => {
                   <Label>Naturaleza</Label>
                   <Select 
                     value={newCuenta.naturaleza} 
-                    onValueChange={(value: any) => setNewCuenta(prev => ({ ...prev, naturaleza: value }))}
+                    onValueChange={(value: NaturalezaCuenta) => setNewCuenta(prev => ({ ...prev, naturaleza: value }))}
                     disabled={savingNewCuenta}
                   >
                     <SelectTrigger>
@@ -466,7 +458,7 @@ const PlanCuentasModule = () => {
                   <Input
                     id="edit-codigo"
                     value={editingCuenta.codigo}
-                    onChange={(e) => setEditingCuenta((prev: any) => ({ ...prev, codigo: e.target.value }))}
+                    onChange={(e) => setEditingCuenta((prev) => prev ? ({ ...prev, codigo: e.target.value }) : prev)}
                     disabled={savingEditCuenta}
                   />
                 </div>
@@ -476,7 +468,7 @@ const PlanCuentasModule = () => {
                     id="edit-nivel"
                     type="number"
                     value={editingCuenta.nivel}
-                    onChange={(e) => setEditingCuenta((prev: any) => ({ ...prev, nivel: parseInt(e.target.value) || 1 }))}
+                    onChange={(e) => setEditingCuenta((prev) => prev ? ({ ...prev, nivel: parseInt(e.target.value) || 1 }) : prev)}
                     disabled={savingEditCuenta}
                   />
                 </div>
@@ -487,7 +479,7 @@ const PlanCuentasModule = () => {
                 <Input
                   id="edit-nombre"
                   value={editingCuenta.nombre}
-                  onChange={(e) => setEditingCuenta((prev: any) => ({ ...prev, nombre: e.target.value }))}
+                  onChange={(e) => setEditingCuenta((prev) => prev ? ({ ...prev, nombre: e.target.value }) : prev)}
                   disabled={savingEditCuenta}
                 />
               </div>
@@ -497,7 +489,7 @@ const PlanCuentasModule = () => {
                   <Label>Tipo</Label>
                   <Select 
                     value={editingCuenta.tipo} 
-                    onValueChange={(value) => setEditingCuenta((prev: any) => ({ ...prev, tipo: value }))}
+                    onValueChange={(value: CuentaTipo) => setEditingCuenta((prev) => prev ? ({ ...prev, tipo: value }) : prev)}
                     disabled={savingEditCuenta}
                   >
                     <SelectTrigger>
@@ -517,7 +509,7 @@ const PlanCuentasModule = () => {
                   <Label>Naturaleza</Label>
                   <Select 
                     value={editingCuenta.naturaleza} 
-                    onValueChange={(value) => setEditingCuenta((prev: any) => ({ ...prev, naturaleza: value }))}
+                    onValueChange={(value: NaturalezaCuenta) => setEditingCuenta((prev) => prev ? ({ ...prev, naturaleza: value }) : prev)}
                     disabled={savingEditCuenta}
                   >
                     <SelectTrigger>
