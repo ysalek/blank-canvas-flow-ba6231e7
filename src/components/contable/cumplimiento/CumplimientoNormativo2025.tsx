@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useCallback, useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,11 +43,7 @@ const CumplimientoNormativo2025 = () => {
   const [filtroCategoria, setFiltroCategoria] = useState("all");
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchNormativas();
-  }, []);
-
-  const fetchNormativas = async () => {
+  const fetchNormativas = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('normativas_2025')
@@ -66,7 +62,11 @@ const CumplimientoNormativo2025 = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    void fetchNormativas();
+  }, [fetchNormativas]);
 
   const actualizarNormativas = async () => {
     setSyncing(true);
@@ -77,8 +77,8 @@ const CumplimientoNormativo2025 = () => {
         {
           rnd_numero: 'RND 102500000019',
           fecha_emision: '2025-01-15',
-          titulo: 'Actualización Régimen Tributario Simplificado',
-          descripcion: 'Nuevos parámetros para el RTS aplicables a partir de febrero 2025',
+          titulo: 'ActualizaciÃ³n RÃ©gimen Tributario Simplificado',
+          descripcion: 'Nuevos parÃ¡metros para el RTS aplicables a partir de febrero 2025',
           contenido: {
             tasa_rts: '1.5%',
             limite_ingresos: 'UFV 500,000',
@@ -91,10 +91,10 @@ const CumplimientoNormativo2025 = () => {
         {
           rnd_numero: 'RND 102500000020',
           fecha_emision: '2025-01-10',
-          titulo: 'Modificación Formulario 200 - Declaración IVA',
-          descripcion: 'Actualización del formulario 200 para incluir nuevos campos de control',
+          titulo: 'ModificaciÃ³n Formulario 200 - DeclaraciÃ³n IVA',
+          descripcion: 'ActualizaciÃ³n del formulario 200 para incluir nuevos campos de control',
           contenido: {
-            nuevos_campos: ['Código QR', 'Validación biométrica', 'Geolocalización'],
+            nuevos_campos: ['CÃ³digo QR', 'ValidaciÃ³n biomÃ©trica', 'GeolocalizaciÃ³n'],
             vigencia_anterior: '2024-12-31',
             migracion_automatica: true
           },
@@ -169,7 +169,7 @@ const CumplimientoNormativo2025 = () => {
         <div className="text-center py-12">
           <Gavel className="w-16 h-16 mx-auto mb-4 text-muted-foreground animate-pulse" />
           <h3 className="text-lg font-semibold mb-2">Cargando normativas</h3>
-          <p className="text-muted-foreground">Obteniendo información actualizada...</p>
+          <p className="text-muted-foreground">Obteniendo informaciÃ³n actualizada...</p>
         </div>
       </div>
     );
@@ -180,7 +180,7 @@ const CumplimientoNormativo2025 = () => {
       {/* Enhanced Header */}
       <EnhancedHeader
         title="Cumplimiento Normativo 2025-2026"
-        subtitle="Seguimiento integral de normativas tributarias bolivianas vigentes - SIAT en Línea obligatorio desde mayo 2025"
+        subtitle="Seguimiento integral de normativas tributarias bolivianas vigentes - SIAT en LÃ­nea obligatorio desde mayo 2025"
         badge={{
           text: `${normativasVigentes} Normativas Vigentes`,
           variant: "default"
@@ -203,7 +203,7 @@ const CumplimientoNormativo2025 = () => {
         }
       />
 
-      {/* Métricas de Cumplimiento */}
+      {/* MÃ©tricas de Cumplimiento */}
       <Section 
         title="Resumen de Cumplimiento" 
         subtitle="Estado actual del cumplimiento normativo"
@@ -228,7 +228,7 @@ const CumplimientoNormativo2025 = () => {
             trendValue="Incluye tasa cero"
           />
           <EnhancedMetricCard
-            title="Actividades Económicas"
+            title="Actividades EconÃ³micas"
             value={normativasActividades}
             subtitle="Clasificador CAEB-SIN"
             icon={FileText}
@@ -237,24 +237,24 @@ const CumplimientoNormativo2025 = () => {
             trendValue="Nuevo CAEB 2025"
           />
           <EnhancedMetricCard
-            title="Última Actualización"
+            title="Ãšltima ActualizaciÃ³n"
             value={normativas.length > 0 ? new Date(normativas[0].fecha_emision).toLocaleDateString() : 'N/A'}
-            subtitle="Última RND emitida"
+            subtitle="Ãšltima RND emitida"
             icon={Clock}
             variant="default"
             trend="up"
-            trendValue="Sistema actualizado"
+            trendValue={syncing ? "Sincronizando" : "Sistema actualizado"}
           />
         </MetricGrid>
       </Section>
 
       {/* Alertas Importantes */}
-      <Section title="Alertas Normativas Críticas">
+      <Section title="Alertas Normativas CrÃ­ticas">
         <div className="grid gap-4">
           <Alert className="border-red-200 bg-red-50">
             <AlertCircle className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-red-800">
-              <strong>RND 102500000036:</strong> Grupos 9º al 12º deben migrar a facturación en línea 
+              <strong>RND 102500000036:</strong> Grupos 9Âº al 12Âº deben migrar a facturaciÃ³n en lÃ­nea 
               antes del <strong>31 de marzo de 2026</strong>. Obligatorio desde el 1 de abril de 2026.
             </AlertDescription>
           </Alert>
@@ -262,16 +262,16 @@ const CumplimientoNormativo2025 = () => {
           <Alert className="border-orange-200 bg-orange-50">
             <AlertCircle className="h-4 w-4 text-orange-600" />
             <AlertDescription className="text-orange-800">
-              <strong>RND 102500000042:</strong> Homologación de productos con actividades económicas del RNC. 
-              Plazo límite: <strong>27 de febrero de 2026</strong>.
+              <strong>RND 102500000042:</strong> HomologaciÃ³n de productos con actividades econÃ³micas del RNC. 
+              Plazo lÃ­mite: <strong>27 de febrero de 2026</strong>.
             </AlertDescription>
           </Alert>
 
           <Alert className="border-blue-200 bg-blue-50">
             <AlertCircle className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-800">
-              <strong>RND 102500000016:</strong> Todas las DDJJ deben presentarse mediante SIAT en Línea 
-              desde mayo 2025. Formularios electrónicos obligatorios.
+              <strong>RND 102500000016:</strong> Todas las DDJJ deben presentarse mediante SIAT en LÃ­nea 
+              desde mayo 2025. Formularios electrÃ³nicos obligatorios.
             </AlertDescription>
           </Alert>
           
@@ -279,24 +279,24 @@ const CumplimientoNormativo2025 = () => {
             <AlertCircle className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-red-800">
               <strong>DS 5516 (13/01/2026):</strong> ABROGA DS 5503. Los incentivos tributarios 
-              (Hecho en Bolivia, Depreciación Acelerada, Aportes patronales IVA) quedan <strong>sin efecto</strong>. 
-              DS 5516 mantiene eliminación de subvención a combustibles y bonos sociales.
+              (Hecho en Bolivia, DepreciaciÃ³n Acelerada, Aportes patronales IVA) quedan <strong>sin efecto</strong>. 
+              DS 5516 mantiene eliminaciÃ³n de subvenciÃ³n a combustibles y bonos sociales.
             </AlertDescription>
           </Alert>
 
           <Alert className="border-yellow-200 bg-yellow-50">
             <AlertCircle className="h-4 w-4 text-yellow-600" />
             <AlertDescription className="text-yellow-800">
-              <strong>RND 102500000041:</strong> Anulación extraordinaria de documentos fiscales fuera de plazo 
-              mediante nota escrita ante la AT. Regularización de facturas duplicadas anteriores a octubre 2025.
+              <strong>RND 102500000041:</strong> AnulaciÃ³n extraordinaria de documentos fiscales fuera de plazo 
+              mediante nota escrita ante la AT. RegularizaciÃ³n de facturas duplicadas anteriores a octubre 2025.
             </AlertDescription>
           </Alert>
 
           <Alert className="border-purple-200 bg-purple-50">
             <AlertCircle className="h-4 w-4 text-purple-600" />
             <AlertDescription className="text-purple-800">
-              <strong>Indicadores 2026:</strong> UFV ≈ Bs 3.05 | TC USD = Bs 6.96 | 
-              ISAE = Bs 464 | IEHD máx = Bs 10.40
+              <strong>Indicadores 2026:</strong> UFV â‰ˆ Bs 3.05 | TC USD = Bs 6.96 | 
+              ISAE = Bs 464 | IEHD mÃ¡x = Bs 10.40
             </AlertDescription>
           </Alert>
         </div>
@@ -306,13 +306,13 @@ const CumplimientoNormativo2025 = () => {
       <Section title="Normativas Tributarias 2025-2026">
         <Tabs value={filtroCategoria} onValueChange={setFiltroCategoria} className="w-full">
           <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="all">Todas</TabsTrigger>
-            <TabsTrigger value="iva">IVA</TabsTrigger>
-            <TabsTrigger value="actividades">Actividades</TabsTrigger>
-            <TabsTrigger value="registro">Registro</TabsTrigger>
-            <TabsTrigger value="facturacion">Facturación</TabsTrigger>
-            <TabsTrigger value="bancarizacion">Bancarización</TabsTrigger>
-            <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="all" disabled={syncing}>Todas</TabsTrigger>
+            <TabsTrigger value="iva" disabled={syncing}>IVA</TabsTrigger>
+            <TabsTrigger value="actividades" disabled={syncing}>Actividades</TabsTrigger>
+            <TabsTrigger value="registro" disabled={syncing}>Registro</TabsTrigger>
+            <TabsTrigger value="facturacion" disabled={syncing}>FacturaciÃ³n</TabsTrigger>
+            <TabsTrigger value="bancarizacion" disabled={syncing}>BancarizaciÃ³n</TabsTrigger>
+            <TabsTrigger value="general" disabled={syncing}>General</TabsTrigger>
           </TabsList>
 
           <TabsContent value={filtroCategoria} className="mt-6">
@@ -383,7 +383,7 @@ const CumplimientoNormativo2025 = () => {
                   <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
                   <h3 className="text-lg font-semibold mb-2">No hay normativas</h3>
                   <p className="text-sm">
-                    No se encontraron normativas para la categoría seleccionada.
+                    No se encontraron normativas para la categorÃ­a seleccionada.
                   </p>
                 </div>
               )}
@@ -396,3 +396,5 @@ const CumplimientoNormativo2025 = () => {
 };
 
 export default CumplimientoNormativo2025;
+
+
