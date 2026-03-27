@@ -170,6 +170,7 @@ const FacturacionElectronicaModule = () => {
   const [conectadoSIN, setConectadoSIN] = useState(false);
   const [verificandoSIN, setVerificandoSIN] = useState(false);
   const [facturaEnProcesoId, setFacturaEnProcesoId] = useState<string | null>(null);
+  const [creatingFactura, setCreatingFactura] = useState(false);
   const [formData, setFormData] = useState<NuevaFacturaElectronicaForm>({
     ...FORM_INITIAL_STATE,
     codigoPuntoVenta: Number(configSin.codigoPuntoVenta || configFiscal.puntoVenta || 0),
@@ -233,6 +234,7 @@ const FacturacionElectronicaModule = () => {
     () => obtenerPendientesSin(configSin, empresa.nit),
     [configSin, empresa.nit],
   );
+  const bloqueadoOperacion = verificandoSIN || creatingFactura || facturaEnProcesoId !== null;
 
   useEffect(() => {
     if (!facturaFocoId || activeTab !== "operaciones") {
@@ -418,78 +420,83 @@ const FacturacionElectronicaModule = () => {
       return;
     }
 
-    const numeroFactura = generarNumeroFactura();
-    const cufd = configSin.cufd || obtenerCUFD(formData.codigoPuntoVenta);
-    const subtotal = Number(calcularSubtotalSinIVA(formData.montoTotal, formData.codigoSector).toFixed(2));
-    const iva = Number(calcularIVA(formData.montoTotal, formData.codigoSector).toFixed(2));
+    setCreatingFactura(true);
+    try {
+      const numeroFactura = generarNumeroFactura();
+      const cufd = configSin.cufd || obtenerCUFD(formData.codigoPuntoVenta);
+      const subtotal = Number(calcularSubtotalSinIVA(formData.montoTotal, formData.codigoSector).toFixed(2));
+      const iva = Number(calcularIVA(formData.montoTotal, formData.codigoSector).toFixed(2));
 
-    const fechaFactura = new Date().toISOString().slice(0, 10);
-    const itemsFactura = [
-      {
-        id: `FE-${numeroFactura}`,
-        productoId: "",
-        codigo: formData.actividadEconomica || "SERV-SIN",
-        descripcion: `Factura electronica ${formData.actividadEconomica || "servicio general"}`,
-        cantidad: 1,
-        precioUnitario: formData.montoTotal,
-        descuento: 0,
-        subtotal: formData.montoTotal,
-        codigoSIN: String(formData.codigoSector),
-      },
-    ];
-    const factura: Factura = prepararFacturaTributaria({
-      id: "",
-      numero: numeroFactura,
-      cliente: {
+      const fechaFactura = new Date().toISOString().slice(0, 10);
+      const itemsFactura = [
+        {
+          id: `FE-${numeroFactura}`,
+          productoId: "",
+          codigo: formData.actividadEconomica || "SERV-SIN",
+          descripcion: `Factura electronica ${formData.actividadEconomica || "servicio general"}`,
+          cantidad: 1,
+          precioUnitario: formData.montoTotal,
+          descuento: 0,
+          subtotal: formData.montoTotal,
+          codigoSIN: String(formData.codigoSector),
+        },
+      ];
+      const factura: Factura = prepararFacturaTributaria({
         id: "",
-        nombre: formData.razonSocial.trim(),
-        nit: formData.nit.trim(),
-        email: "",
-        telefono: "",
-        direccion: "",
-        activo: true,
+        numero: numeroFactura,
+        cliente: {
+          id: "",
+          nombre: formData.razonSocial.trim(),
+          nit: formData.nit.trim(),
+          email: "",
+          telefono: "",
+          direccion: "",
+          activo: true,
+          fechaCreacion: fechaFactura,
+        },
+        fecha: fechaFactura,
+        fechaVencimiento: fechaFactura,
+        items: itemsFactura,
+        subtotal,
+        descuentoTotal: 0,
+        iva,
+        total: formData.montoTotal,
+        estado: "borrador",
+        estadoSIN: "pendiente",
+        puntoVenta: formData.codigoPuntoVenta,
+        observaciones: [
+          "Registro creado desde Facturacion Electronica.",
+          `Actividad economica: ${formData.actividadEconomica || "no especificada"}.`,
+          formData.observaciones.trim(),
+        ]
+          .filter(Boolean)
+          .join(" "),
         fechaCreacion: fechaFactura,
-      },
-      fecha: fechaFactura,
-      fechaVencimiento: fechaFactura,
-      items: itemsFactura,
-      subtotal,
-      descuentoTotal: 0,
-      iva,
-      total: formData.montoTotal,
-      estado: "borrador",
-      estadoSIN: "pendiente",
-      puntoVenta: formData.codigoPuntoVenta,
-      observaciones: [
-        "Registro creado desde Facturacion Electronica.",
-        `Actividad economica: ${formData.actividadEconomica || "no especificada"}.`,
-        formData.observaciones.trim(),
-      ]
-        .filter(Boolean)
-        .join(" "),
-      fechaCreacion: fechaFactura,
-      cufd,
-      nitEmisor: configSin.nit || empresa.nit,
-      sucursal: configSin.codigoSucursal || configFiscal.sucursal || "0",
-      modalidad: configSin.codigoModalidad || "1",
-      tipoEmision: configSin.codigoEmision || "1",
-      tipoFactura: configSin.tipoFacturaDocumento || "1",
-      tipoDocumentoSector: String(formData.codigoSector),
-    });
+        cufd,
+        nitEmisor: configSin.nit || empresa.nit,
+        sucursal: configSin.codigoSucursal || configFiscal.sucursal || "0",
+        modalidad: configSin.codigoModalidad || "1",
+        tipoEmision: configSin.codigoEmision || "1",
+        tipoFactura: configSin.tipoFacturaDocumento || "1",
+        tipoDocumentoSector: String(formData.codigoSector),
+      });
 
-    const facturaGuardada = await guardarFactura(factura);
-    if (!facturaGuardada) return;
+      const facturaGuardada = await guardarFactura(factura);
+      if (!facturaGuardada) return;
 
-    setFormData({
-      ...FORM_INITIAL_STATE,
-      codigoPuntoVenta: Number(configSin.codigoPuntoVenta || configFiscal.puntoVenta || 0),
-    });
-    setActiveTab("operaciones");
+      setFormData({
+        ...FORM_INITIAL_STATE,
+        codigoPuntoVenta: Number(configSin.codigoPuntoVenta || configFiscal.puntoVenta || 0),
+      });
+      setActiveTab("operaciones");
 
-    toast({
-      title: "Factura electronica registrada",
-      description: `La factura ${numeroFactura} ya esta persistida y lista para recepcion simulada.`,
-    });
+      toast({
+        title: "Factura electronica registrada",
+        description: `La factura ${numeroFactura} ya esta persistida y lista para recepcion simulada.`,
+      });
+    } finally {
+      setCreatingFactura(false);
+    }
   };
 
   const handleEnviarFactura = async (factura: Factura) => {
@@ -503,34 +510,37 @@ const FacturacionElectronicaModule = () => {
     }
 
     setFacturaEnProcesoId(factura.id);
-    await new Promise((resolve) => setTimeout(resolve, 1600));
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1600));
 
-    const resultado = evaluarRecepcionSINDemo(factura, {
-      conectadoSIN,
-      origen: "facturacion electronica",
-    });
-    const facturaProcesada = aplicarResultadoRecepcionSINDemo(factura, resultado);
+      const resultado = evaluarRecepcionSINDemo(factura, {
+        conectadoSIN,
+        origen: "facturacion electronica",
+      });
+      const facturaProcesada = aplicarResultadoRecepcionSINDemo(factura, resultado);
 
-    const actualizado = await actualizarFacturaElectronica(factura.id, {
-      estado: facturaProcesada.estado,
-      estadoSIN: facturaProcesada.estadoSIN,
-      cuf: facturaProcesada.cuf,
-      cufd: facturaProcesada.cufd || cufdActual,
-      puntoVenta: facturaProcesada.puntoVenta,
-      codigoControl: facturaProcesada.codigoControl,
-      observaciones: facturaProcesada.observaciones,
-    });
+      const actualizado = await actualizarFacturaElectronica(factura.id, {
+        estado: facturaProcesada.estado,
+        estadoSIN: facturaProcesada.estadoSIN,
+        cuf: facturaProcesada.cuf,
+        cufd: facturaProcesada.cufd || cufdActual,
+        puntoVenta: facturaProcesada.puntoVenta,
+        codigoControl: facturaProcesada.codigoControl,
+        observaciones: facturaProcesada.observaciones,
+      });
 
-    setFacturaEnProcesoId(null);
-    if (!actualizado) return;
+      if (!actualizado) return;
 
-    toast({
-      title: resultado.aceptada ? "Factura autorizada" : "Factura rechazada",
-      description: resultado.aceptada
-        ? `La factura ${factura.numero} quedo aceptada en el flujo simulado del SIN.`
-        : `La factura ${factura.numero} quedo observada: ${resultado.motivo}.`,
-      variant: resultado.aceptada ? "default" : "destructive",
-    });
+      toast({
+        title: resultado.aceptada ? "Factura autorizada" : "Factura rechazada",
+        description: resultado.aceptada
+          ? `La factura ${factura.numero} quedo aceptada en el flujo simulado del SIN.`
+          : `La factura ${factura.numero} quedo observada: ${resultado.motivo}.`,
+        variant: resultado.aceptada ? "default" : "destructive",
+      });
+    } finally {
+      setFacturaEnProcesoId(null);
+    }
   };
 
   const handleDescargarSoporte = (factura: Factura) => {
@@ -583,7 +593,7 @@ const FacturacionElectronicaModule = () => {
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button variant="secondary" className="bg-white text-slate-950 hover:bg-slate-100" onClick={() => void verificarConexionSIN()} disabled={verificandoSIN}>
+              <Button variant="secondary" className="bg-white text-slate-950 hover:bg-slate-100" onClick={() => void verificarConexionSIN()} disabled={bloqueadoOperacion}>
                 <Settings className="mr-2 h-4 w-4" />
                 {verificandoSIN ? "Verificando..." : "Verificar SIN"}
               </Button>
@@ -648,6 +658,7 @@ const FacturacionElectronicaModule = () => {
                 window.history.pushState({}, "", url.toString());
                 setPeriodoFiltro("");
               }}
+              disabled={bloqueadoOperacion}
             >
               Limpiar filtro
             </Button>
@@ -672,13 +683,13 @@ const FacturacionElectronicaModule = () => {
                 <Button
                   size="sm"
                   onClick={() => void handleEnviarFactura(facturaEnfocada)}
-                  disabled={!conectadoSIN || facturaEnProcesoId === facturaEnfocada.id || facturaEnfocada.estadoSIN === "aceptado"}
+                  disabled={!conectadoSIN || bloqueadoOperacion || facturaEnfocada.estadoSIN === "aceptado"}
                 >
                   {facturaEnProcesoId === facturaEnfocada.id ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                   Reenviar ahora
                 </Button>
               )}
-              <Button size="sm" variant="outline" onClick={() => handleDescargarSoporte(facturaEnfocada)}>
+              <Button size="sm" variant="outline" onClick={() => handleDescargarSoporte(facturaEnfocada)} disabled={bloqueadoOperacion}>
                 <Download className="mr-2 h-4 w-4" />
                 Descargar soporte
               </Button>
@@ -695,6 +706,7 @@ const FacturacionElectronicaModule = () => {
                   setAccionFoco("");
                   setCorreccionPreparadaId("");
                 }}
+                disabled={bloqueadoOperacion}
               >
                 Quitar foco
               </Button>
@@ -710,7 +722,7 @@ const FacturacionElectronicaModule = () => {
         <MetricCard title="Exito SIN" value={`${resumen.porcentajeExito}%`} detail={`${resumen.rechazadas} observadas`} tone="sky" icon={<ShieldCheck className="h-4 w-4" />} />
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(value) => { if (!bloqueadoOperacion) setActiveTab(value); }} className="space-y-4">
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-2 rounded-2xl bg-slate-100 p-2">
           <TabsTrigger value="operaciones" className="rounded-xl">Operaciones</TabsTrigger>
           <TabsTrigger value="nueva" className="rounded-xl">Nueva factura</TabsTrigger>
@@ -757,11 +769,11 @@ const FacturacionElectronicaModule = () => {
                             <TableCell className="text-right font-medium">Bs {factura.total.toLocaleString("es-BO", { minimumFractionDigits: 2 })}</TableCell>
                             <TableCell className="text-right">
                               <div className="flex justify-end gap-2">
-                                <Button size="sm" onClick={() => void handleEnviarFactura(factura)} disabled={!conectadoSIN || facturaEnProcesoId === factura.id || factura.estadoSIN === "aceptado"}>
+                                <Button size="sm" onClick={() => void handleEnviarFactura(factura)} disabled={!conectadoSIN || bloqueadoOperacion || factura.estadoSIN === "aceptado"}>
                                   {facturaEnProcesoId === factura.id ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                   {factura.estadoSIN === "aceptado" ? "Autorizada" : "Enviar"}
                                 </Button>
-                                <Button size="sm" variant="outline" onClick={() => handleDescargarSoporte(factura)}><Download className="mr-2 h-4 w-4" />Soporte</Button>
+                                <Button size="sm" variant="outline" onClick={() => handleDescargarSoporte(factura)} disabled={bloqueadoOperacion}><Download className="mr-2 h-4 w-4" />Soporte</Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -789,7 +801,7 @@ const FacturacionElectronicaModule = () => {
                       <CardContent className="space-y-4 p-4">
                         <div className="flex items-start justify-between gap-3"><div><div className="font-semibold">{factura.numero}</div><p className="text-sm text-muted-foreground">{factura.cliente.nombre}</p></div><EstadoSinBadge estado={factura.estadoSIN} /></div>
                         <div className="text-sm text-muted-foreground">Bs {factura.total.toLocaleString("es-BO", { minimumFractionDigits: 2 })} - PV {factura.puntoVenta}</div>
-                        <div className="flex gap-2"><Button size="sm" className="flex-1" onClick={() => void handleEnviarFactura(factura)} disabled={!conectadoSIN || facturaEnProcesoId === factura.id || factura.estadoSIN === "aceptado"}>Enviar</Button><Button size="sm" variant="outline" className="flex-1" onClick={() => handleDescargarSoporte(factura)}>Soporte</Button></div>
+                        <div className="flex gap-2"><Button size="sm" className="flex-1" onClick={() => void handleEnviarFactura(factura)} disabled={!conectadoSIN || bloqueadoOperacion || factura.estadoSIN === "aceptado"}>{facturaEnProcesoId === factura.id ? "Enviando..." : "Enviar"}</Button><Button size="sm" variant="outline" className="flex-1" onClick={() => handleDescargarSoporte(factura)} disabled={bloqueadoOperacion}>Soporte</Button></div>
                       </CardContent>
                     </Card>
                   ))}
@@ -842,11 +854,11 @@ const FacturacionElectronicaModule = () => {
                       Se preparo un borrador correctivo con base en la factura {facturaEnfocada.numero}. Ajusta los datos fiscales y registra una nueva version antes de reenviar.
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" onClick={() => handleDescargarSoporte(facturaEnfocada)}>
+                      <Button size="sm" variant="outline" onClick={() => handleDescargarSoporte(facturaEnfocada)} disabled={bloqueadoOperacion}>
                         <Download className="mr-2 h-4 w-4" />
                         Soporte origen
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setActiveTab("operaciones")}>
+                      <Button size="sm" variant="ghost" onClick={() => setActiveTab("operaciones")} disabled={bloqueadoOperacion}>
                         Volver a operaciones
                       </Button>
                     </div>
@@ -861,30 +873,30 @@ const FacturacionElectronicaModule = () => {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Punto de venta</Label>
-                  <Select value={String(formData.codigoPuntoVenta)} onValueChange={(value) => setFormData((prev) => ({ ...prev, codigoPuntoVenta: Number(value) }))}>
+                  <Select value={String(formData.codigoPuntoVenta)} onValueChange={(value) => setFormData((prev) => ({ ...prev, codigoPuntoVenta: Number(value) }))} disabled={bloqueadoOperacion}>
                     <SelectTrigger><SelectValue placeholder="Seleccione punto de venta" /></SelectTrigger>
                     <SelectContent>{puntosVenta.map((punto) => <SelectItem key={punto.codigo} value={String(punto.codigo)}>{punto.codigo} - {punto.nombre}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Sector especial</Label>
-                  <Select value={String(formData.codigoSector)} onValueChange={(value) => setFormData((prev) => ({ ...prev, codigoSector: Number(value) }))}>
+                  <Select value={String(formData.codigoSector)} onValueChange={(value) => setFormData((prev) => ({ ...prev, codigoSector: Number(value) }))} disabled={bloqueadoOperacion}>
                     <SelectTrigger><SelectValue placeholder="Seleccione sector" /></SelectTrigger>
                     <SelectContent>{Object.entries(sectoresEspeciales).map(([nombre, sector]) => <SelectItem key={sector.codigo} value={String(sector.codigo)}>{sector.codigo} - {nombre} (IVA {sector.tasa}%)</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2"><Label>NIT cliente</Label><Input value={formData.nit} onChange={(event) => setFormData((prev) => ({ ...prev, nit: event.target.value }))} placeholder="Ej. 1234567890" /></div>
-                <div className="space-y-2"><Label>Razon social</Label><Input value={formData.razonSocial} onChange={(event) => setFormData((prev) => ({ ...prev, razonSocial: event.target.value }))} placeholder="Nombre o razon social" /></div>
-                <div className="space-y-2"><Label>Monto total</Label><Input type="number" min="0" step="0.01" value={formData.montoTotal || ""} onChange={(event) => setFormData((prev) => ({ ...prev, montoTotal: Number(event.target.value) || 0 }))} placeholder="0.00" /></div>
+                <div className="space-y-2"><Label>NIT cliente</Label><Input value={formData.nit} onChange={(event) => setFormData((prev) => ({ ...prev, nit: event.target.value }))} placeholder="Ej. 1234567890" disabled={bloqueadoOperacion} /></div>
+                <div className="space-y-2"><Label>Razon social</Label><Input value={formData.razonSocial} onChange={(event) => setFormData((prev) => ({ ...prev, razonSocial: event.target.value }))} placeholder="Nombre o razon social" disabled={bloqueadoOperacion} /></div>
+                <div className="space-y-2"><Label>Monto total</Label><Input type="number" min="0" step="0.01" value={formData.montoTotal || ""} onChange={(event) => setFormData((prev) => ({ ...prev, montoTotal: Number(event.target.value) || 0 }))} placeholder="0.00" disabled={bloqueadoOperacion} /></div>
                 <div className="space-y-2">
                   <Label>Actividad economica</Label>
-                  <Select value={formData.actividadEconomica} onValueChange={(value) => setFormData((prev) => ({ ...prev, actividadEconomica: value }))}>
+                  <Select value={formData.actividadEconomica} onValueChange={(value) => setFormData((prev) => ({ ...prev, actividadEconomica: value }))} disabled={bloqueadoOperacion}>
                     <SelectTrigger><SelectValue placeholder="Seleccione actividad" /></SelectTrigger>
                     <SelectContent>{actividadesEconomicas.map((actividad) => <SelectItem key={actividad.codigo} value={actividad.codigo}>{actividad.codigo} - {actividad.descripcion}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="space-y-2"><Label>Observaciones</Label><Textarea value={formData.observaciones} onChange={(event) => setFormData((prev) => ({ ...prev, observaciones: event.target.value }))} placeholder="Leyendas comerciales, referencia interna o comentario tributario." /></div>
+              <div className="space-y-2"><Label>Observaciones</Label><Textarea value={formData.observaciones} onChange={(event) => setFormData((prev) => ({ ...prev, observaciones: event.target.value }))} placeholder="Leyendas comerciales, referencia interna o comentario tributario." disabled={bloqueadoOperacion} /></div>
               <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
                 <Card className="rounded-2xl border border-slate-200 bg-slate-50 shadow-none">
                   <CardContent className="grid gap-3 p-4 text-sm">
@@ -893,7 +905,7 @@ const FacturacionElectronicaModule = () => {
                     <div className="flex items-center justify-between"><span className="text-muted-foreground">Sector tributario</span><strong>{obtenerSectorEspecial(formData.codigoSector)?.tasa === 0 ? "Tasa cero" : "General"}</strong></div>
                   </CardContent>
                 </Card>
-                <div className="flex items-end justify-end"><Button className="w-full md:w-auto" onClick={() => void handleCrearFactura()} disabled={!conectadoSIN}><FileText className="mr-2 h-4 w-4" />Registrar factura electronica</Button></div>
+                <div className="flex items-end justify-end"><Button className="w-full md:w-auto" onClick={() => void handleCrearFactura()} disabled={!conectadoSIN || bloqueadoOperacion}><FileText className="mr-2 h-4 w-4" />{creatingFactura ? "Registrando..." : "Registrar factura electronica"}</Button></div>
               </div>
             </CardContent>
           </Card>

@@ -104,6 +104,7 @@ const EnhancedPOSModule = () => {
   const [descuentoGlobal, setDescuentoGlobal] = useState(0);
   const [selectedCategoria, setSelectedCategoria] = useState<string | null>(null);
   const [procesandoVenta, setProcesandoVenta] = useState(false);
+  const [creandoCliente, setCreandoCliente] = useState(false);
   const [nuevoCliente, setNuevoCliente] = useState<Partial<ClientePos>>({
     nombre: "",
     nit: "",
@@ -275,27 +276,32 @@ const EnhancedPOSModule = () => {
       return;
     }
 
-    const creado = await crearCliente({
-      nombre: nuevoCliente.nombre,
-      nit: nuevoCliente.nit,
-      telefono: nuevoCliente.telefono || "",
-      email: nuevoCliente.email || "",
-      direccion: nuevoCliente.direccion || "",
-      activo: true,
-    });
+    setCreandoCliente(true);
+    try {
+      const creado = await crearCliente({
+        nombre: nuevoCliente.nombre,
+        nit: nuevoCliente.nit,
+        telefono: nuevoCliente.telefono || "",
+        email: nuevoCliente.email || "",
+        direccion: nuevoCliente.direccion || "",
+        activo: true,
+      });
 
-    if (!creado) return;
+      if (!creado) return;
 
-    setCliente({
-      id: creado.id,
-      nombre: creado.nombre,
-      nit: creado.nit,
-      telefono: creado.telefono || "",
-      email: creado.email || "",
-      direccion: creado.direccion || "",
-    });
-    setNuevoCliente({ nombre: "", nit: "", telefono: "", email: "", direccion: "" });
-    setShowNuevoCliente(false);
+      setCliente({
+        id: creado.id,
+        nombre: creado.nombre,
+        nit: creado.nit,
+        telefono: creado.telefono || "",
+        email: creado.email || "",
+        direccion: creado.direccion || "",
+      });
+      setNuevoCliente({ nombre: "", nit: "", telefono: "", email: "", direccion: "" });
+      setShowNuevoCliente(false);
+    } finally {
+      setCreandoCliente(false);
+    }
   };
 
   const limpiarVenta = () => {
@@ -478,7 +484,7 @@ const EnhancedPOSModule = () => {
         event.preventDefault();
         setActiveTab("barras");
       }
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !procesandoVenta && !creandoCliente) {
         setShowTicket(false);
         setShowNuevoCliente(false);
       }
@@ -486,7 +492,7 @@ const EnhancedPOSModule = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [carrito.length, procesandoVenta, procesarVenta]);
+  }, [carrito.length, creandoCliente, procesandoVenta, procesarVenta]);
 
   const imprimirTicket = () => window.print();
 
@@ -513,7 +519,7 @@ const EnhancedPOSModule = () => {
               <div><p className="text-sm text-muted-foreground">Estado</p><p className="text-lg font-bold text-warning">{procesandoVenta ? "Procesando" : "Operativo"}</p></div>
             </div>
             <Separator orientation="vertical" className="h-8" />
-            <Button variant="outline" onClick={limpiarVenta}><RotateCcw className="mr-2 h-4 w-4" />Limpiar (F5)</Button>
+            <Button variant="outline" onClick={limpiarVenta} disabled={procesandoVenta || creandoCliente}><RotateCcw className="mr-2 h-4 w-4" />Limpiar (F5)</Button>
           </div>
         </div>
       </div>
@@ -530,8 +536,8 @@ const EnhancedPOSModule = () => {
                   </TabsList>
 
                   <TabsContent value="productos" className="mt-4">
-                    <Input ref={inputRef} placeholder="Buscar productos por nombre o codigo..." value={busquedaProducto} onChange={(event) => setBusquedaProducto(event.target.value)} className="h-12 text-lg" />
-                    {selectedCategoria && <div className="mt-2"><Badge variant="secondary" className="cursor-pointer" onClick={() => setSelectedCategoria(null)}>Categoria: {selectedCategoria} ×</Badge></div>}
+                    <Input ref={inputRef} placeholder="Buscar productos por nombre o codigo..." value={busquedaProducto} onChange={(event) => setBusquedaProducto(event.target.value)} className="h-12 text-lg" disabled={procesandoVenta} />
+                    {selectedCategoria && <div className="mt-2"><Badge variant="secondary" className="cursor-pointer" onClick={() => !procesandoVenta && setSelectedCategoria(null)}>Categoria: {selectedCategoria} ×</Badge></div>}
                   </TabsContent>
 
                   <TabsContent value="categorias" className="mt-4">
@@ -547,8 +553,8 @@ const EnhancedPOSModule = () => {
 
                   <TabsContent value="barras" className="mt-4">
                     <div className="flex gap-2">
-                      <Input placeholder="Escanear o escribir codigo de barras..." value={codigoBarras} onChange={(event) => setCodigoBarras(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") buscarPorCodigoBarras(codigoBarras); }} className="h-12 text-lg" />
-                      <Button onClick={() => buscarPorCodigoBarras(codigoBarras)} className="h-12 px-6"><Scan className="h-5 w-5" /></Button>
+                      <Input placeholder="Escanear o escribir codigo de barras..." value={codigoBarras} onChange={(event) => setCodigoBarras(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !procesandoVenta) buscarPorCodigoBarras(codigoBarras); }} className="h-12 text-lg" disabled={procesandoVenta} />
+                      <Button onClick={() => buscarPorCodigoBarras(codigoBarras)} className="h-12 px-6" disabled={procesandoVenta}><Scan className="h-5 w-5" /></Button>
                     </div>
                   </TabsContent>
                 </Tabs>
@@ -596,11 +602,11 @@ const EnhancedPOSModule = () => {
               <CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-lg"><Users className="h-5 w-5" />Cliente</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex gap-2">
-                  <Select value={cliente?.id || ""} onValueChange={(value) => setCliente(clientesDisponibles.find((item) => item.id === value) || null)}>
+                  <Select value={cliente?.id || ""} onValueChange={(value) => setCliente(clientesDisponibles.find((item) => item.id === value) || null)} disabled={procesandoVenta || creandoCliente}>
                     <SelectTrigger className="flex-1"><SelectValue placeholder="Seleccionar cliente" /></SelectTrigger>
                     <SelectContent>{clientesDisponibles.map((item) => <SelectItem key={item.id} value={item.id}>{item.nombre} - {item.nit}</SelectItem>)}</SelectContent>
                   </Select>
-                  <Button variant="outline" size="icon" onClick={() => setShowNuevoCliente(true)}><UserPlus className="h-4 w-4" /></Button>
+                  <Button variant="outline" size="icon" onClick={() => setShowNuevoCliente(true)} disabled={procesandoVenta || creandoCliente}><UserPlus className="h-4 w-4" /></Button>
                 </div>
                 {cliente && cliente.id !== CLIENTE_GENERAL.id && <div className="space-y-1 text-xs text-muted-foreground"><p><strong>NIT:</strong> {cliente.nit}</p>{cliente.telefono && <p><strong>Tel:</strong> {cliente.telefono}</p>}{cliente.email && <p><strong>Email:</strong> {cliente.email}</p>}</div>}
                 {loadingClientes && <p className="text-xs text-muted-foreground">Cargando clientes...</p>}
@@ -615,12 +621,12 @@ const EnhancedPOSModule = () => {
                     <div key={item.id} className="space-y-2 rounded-lg bg-muted/50 p-3">
                       <div className="flex items-start justify-between">
                         <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{item.producto.nombre}</p><p className="text-xs text-muted-foreground">Bs. {item.precioUnitario.toFixed(2)} c/u</p></div>
-                        <Button size="sm" variant="ghost" onClick={() => eliminarDelCarrito(item.id)} className="h-6 w-6 p-0 text-destructive hover:text-destructive/80"><Trash2 className="h-3 w-3" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => eliminarDelCarrito(item.id)} className="h-6 w-6 p-0 text-destructive hover:text-destructive/80" disabled={procesandoVenta}><Trash2 className="h-3 w-3" /></Button>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button size="sm" variant="outline" onClick={() => actualizarCantidad(item.id, item.cantidad - 1)} className="h-8 w-8 p-0"><Minus className="h-3 w-3" /></Button>
+                        <Button size="sm" variant="outline" onClick={() => actualizarCantidad(item.id, item.cantidad - 1)} className="h-8 w-8 p-0" disabled={procesandoVenta}><Minus className="h-3 w-3" /></Button>
                         <span className="w-8 text-center text-sm font-medium">{item.cantidad}</span>
-                        <Button size="sm" variant="outline" onClick={() => actualizarCantidad(item.id, item.cantidad + 1)} className="h-8 w-8 p-0"><Plus className="h-3 w-3" /></Button>
+                        <Button size="sm" variant="outline" onClick={() => actualizarCantidad(item.id, item.cantidad + 1)} className="h-8 w-8 p-0" disabled={procesandoVenta}><Plus className="h-3 w-3" /></Button>
                         <div className="flex-1 text-right"><p className="font-bold text-primary">Bs. {item.subtotal.toFixed(2)}</p></div>
                       </div>
                     </div>
@@ -644,7 +650,7 @@ const EnhancedPOSModule = () => {
                 <div className="space-y-3">
                   <div>
                     <label className="text-sm font-medium">Metodo de Pago</label>
-                    <Select value={metodoPago} onValueChange={setMetodoPago}>
+                    <Select value={metodoPago} onValueChange={setMetodoPago} disabled={procesandoVenta}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="efectivo"><div className="flex items-center gap-2"><Banknote className="h-4 w-4" />Efectivo</div></SelectItem>
@@ -653,11 +659,11 @@ const EnhancedPOSModule = () => {
                       </SelectContent>
                     </Select>
                   </div>
-                  {metodoPago === "efectivo" && <div><label className="text-sm font-medium">Monto Recibido</label><Input type="number" value={montoRecibido} onChange={(event) => setMontoRecibido(Number(event.target.value))} placeholder="0.00" className="h-12 text-lg" />{montoRecibido > calcularTotal() && <p className="mt-1 text-sm font-medium text-success">Cambio: Bs. {(montoRecibido - calcularTotal()).toFixed(2)}</p>}</div>}
+                  {metodoPago === "efectivo" && <div><label className="text-sm font-medium">Monto Recibido</label><Input type="number" value={montoRecibido} onChange={(event) => setMontoRecibido(Number(event.target.value))} placeholder="0.00" className="h-12 text-lg" disabled={procesandoVenta} />{montoRecibido > calcularTotal() && <p className="mt-1 text-sm font-medium text-success">Cambio: Bs. {(montoRecibido - calcularTotal()).toFixed(2)}</p>}</div>}
                 </div>
 
                 <div className="space-y-2">
-                  <Button onClick={() => void procesarVenta(false)} className="h-12 w-full text-lg" disabled={carrito.length === 0 || procesandoVenta}><Receipt className="mr-2 h-5 w-5" />Cobrar (F4)</Button>
+                  <Button onClick={() => void procesarVenta(false)} className="h-12 w-full text-lg" disabled={carrito.length === 0 || procesandoVenta || creandoCliente}><Receipt className="mr-2 h-5 w-5" />{procesandoVenta ? "Procesando..." : "Cobrar (F4)"}</Button>
                   <Button onClick={() => void procesarVenta(true)} className="h-10 w-full text-sm" variant="outline" disabled={carrito.length === 0 || procesandoVenta || !cliente || cliente.id === CLIENTE_GENERAL.id}><CreditCard className="mr-2 h-4 w-4" />Venta a Credito</Button>
                 </div>
               </CardContent>
@@ -665,19 +671,19 @@ const EnhancedPOSModule = () => {
           </div>
         </div>
       </div>
-      <Dialog open={showNuevoCliente} onOpenChange={setShowNuevoCliente}>
+      <Dialog open={showNuevoCliente} onOpenChange={(open) => { if (!open && creandoCliente) return; setShowNuevoCliente(open); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Nuevo Cliente</DialogTitle>
             <DialogDescription>Complete los datos del cliente para registrarlo en el POS.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div><label className="text-sm font-medium">Nombre *</label><Input value={nuevoCliente.nombre} onChange={(event) => setNuevoCliente((prev) => ({ ...prev, nombre: event.target.value }))} placeholder="Nombre completo" /></div>
-            <div><label className="text-sm font-medium">NIT/CI *</label><Input value={nuevoCliente.nit} onChange={(event) => setNuevoCliente((prev) => ({ ...prev, nit: event.target.value }))} placeholder="Numero de identificacion" /></div>
-            <div><label className="text-sm font-medium">Telefono</label><Input value={nuevoCliente.telefono} onChange={(event) => setNuevoCliente((prev) => ({ ...prev, telefono: event.target.value }))} placeholder="Numero de telefono" /></div>
-            <div><label className="text-sm font-medium">Email</label><Input type="email" value={nuevoCliente.email} onChange={(event) => setNuevoCliente((prev) => ({ ...prev, email: event.target.value }))} placeholder="correo@ejemplo.com" /></div>
-            <div><label className="text-sm font-medium">Direccion</label><Input value={nuevoCliente.direccion} onChange={(event) => setNuevoCliente((prev) => ({ ...prev, direccion: event.target.value }))} placeholder="Direccion completa" /></div>
-            <div className="flex gap-2 pt-4"><Button variant="outline" onClick={() => setShowNuevoCliente(false)} className="flex-1">Cancelar</Button><Button onClick={() => void agregarClientePos()} className="flex-1">Agregar Cliente</Button></div>
+            <div><label className="text-sm font-medium">Nombre *</label><Input value={nuevoCliente.nombre} onChange={(event) => setNuevoCliente((prev) => ({ ...prev, nombre: event.target.value }))} placeholder="Nombre completo" disabled={creandoCliente} /></div>
+            <div><label className="text-sm font-medium">NIT/CI *</label><Input value={nuevoCliente.nit} onChange={(event) => setNuevoCliente((prev) => ({ ...prev, nit: event.target.value }))} placeholder="Numero de identificacion" disabled={creandoCliente} /></div>
+            <div><label className="text-sm font-medium">Telefono</label><Input value={nuevoCliente.telefono} onChange={(event) => setNuevoCliente((prev) => ({ ...prev, telefono: event.target.value }))} placeholder="Numero de telefono" disabled={creandoCliente} /></div>
+            <div><label className="text-sm font-medium">Email</label><Input type="email" value={nuevoCliente.email} onChange={(event) => setNuevoCliente((prev) => ({ ...prev, email: event.target.value }))} placeholder="correo@ejemplo.com" disabled={creandoCliente} /></div>
+            <div><label className="text-sm font-medium">Direccion</label><Input value={nuevoCliente.direccion} onChange={(event) => setNuevoCliente((prev) => ({ ...prev, direccion: event.target.value }))} placeholder="Direccion completa" disabled={creandoCliente} /></div>
+            <div className="flex gap-2 pt-4"><Button variant="outline" onClick={() => setShowNuevoCliente(false)} className="flex-1" disabled={creandoCliente}>Cancelar</Button><Button onClick={() => void agregarClientePos()} className="flex-1" disabled={creandoCliente}>{creandoCliente ? "Guardando..." : "Agregar Cliente"}</Button></div>
           </div>
         </DialogContent>
       </Dialog>
