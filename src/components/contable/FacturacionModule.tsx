@@ -66,6 +66,8 @@ const FacturacionModule = () => {
   const [normativasAlerts, setNormativasAlerts] = useState<NormativaAlert[]>([]);
   const [configuracionTributaria, setConfiguracionTributaria] =
     useState<ConfiguracionTributaria | null>(null);
+  const [creatingInvoice, setCreatingInvoice] = useState(false);
+  const [processingInvoiceId, setProcessingInvoiceId] = useState<string | null>(null);
   const { toast } = useToast();
   const {
     productos,
@@ -163,14 +165,13 @@ const FacturacionModule = () => {
   };
 
   const handleSaveInvoice = async (nuevaFactura: Factura) => {
-    setShowNewInvoice(false);
-
-    toast({
-      title: "Procesando factura...",
-      description: "Ejecutando validacion operativa del circuito SIN y registrando la venta.",
-    });
-
+    setCreatingInvoice(true);
     try {
+      toast({
+        title: "Procesando factura...",
+        description: "Ejecutando validacion operativa del circuito SIN y registrando la venta.",
+      });
+
       const facturaValidada = await simularValidacionSIN(nuevaFactura, {
         origen: "facturacion comercial",
       });
@@ -267,6 +268,7 @@ const FacturacionModule = () => {
                 variant: "destructive",
               },
         );
+        setShowNewInvoice(false);
       } else {
         const facturaGuardada = await guardarFacturaDB(facturaValidada);
         if (!facturaGuardada) {
@@ -284,6 +286,7 @@ const FacturacionModule = () => {
           variant: "destructive",
           duration: 9000,
         });
+        setShowNewInvoice(false);
       }
     } catch (error) {
       console.error("Error al procesar la factura:", error);
@@ -292,6 +295,8 @@ const FacturacionModule = () => {
         description: "No se pudo comunicar con el servicio de Impuestos Nacionales. Intenta nuevamente.",
         variant: "destructive",
       });
+    } finally {
+      setCreatingInvoice(false);
     }
   };
 
@@ -302,41 +307,46 @@ const FacturacionModule = () => {
     const invoiceToUpdate = facturas.find((factura) => factura.id === invoiceId);
     if (!invoiceToUpdate) return;
 
-    if (newStatus === "pagada") {
-      if (invoiceToUpdate.estado !== "enviada") {
+    setProcessingInvoiceId(invoiceId);
+    try {
+      if (newStatus === "pagada") {
+        if (invoiceToUpdate.estado !== "enviada") {
+          toast({
+            title: "Accion no permitida",
+            description: "Solo se pueden pagar facturas enviadas.",
+          });
+          return;
+        }
+
+        const updatedInvoice = { ...invoiceToUpdate, estado: "pagada" as const };
+        await generarAsientoPagoFactura(updatedInvoice);
+        await actualizarEstadoFactura(invoiceId, "pagada");
         toast({
-          title: "Accion no permitida",
-          description: "Solo se pueden pagar facturas enviadas.",
+          title: "Factura pagada",
+          description: `La factura N ${updatedInvoice.numero} se marco como pagada.`,
         });
         return;
       }
 
-      const updatedInvoice = { ...invoiceToUpdate, estado: "pagada" as const };
-      await generarAsientoPagoFactura(updatedInvoice);
-      await actualizarEstadoFactura(invoiceId, "pagada");
-      toast({
-        title: "Factura pagada",
-        description: `La factura N ${updatedInvoice.numero} se marco como pagada.`,
-      });
-      return;
-    }
+      if (invoiceToUpdate.estado === "anulada" || invoiceToUpdate.estado === "pagada") {
+        toast({
+          title: "Accion no permitida",
+          description: "No se puede anular una factura pagada o ya anulada.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-    if (invoiceToUpdate.estado === "anulada" || invoiceToUpdate.estado === "pagada") {
+      const updatedInvoice = { ...invoiceToUpdate, estado: "anulada" as const };
+      await generarAsientoAnulacionFactura(updatedInvoice);
+      await actualizarEstadoFactura(invoiceId, "anulada");
       toast({
-        title: "Accion no permitida",
-        description: "No se puede anular una factura pagada o ya anulada.",
-        variant: "destructive",
+        title: "Factura anulada",
+        description: `La factura N ${updatedInvoice.numero} ha sido anulada.`,
       });
-      return;
+    } finally {
+      setProcessingInvoiceId(null);
     }
-
-    const updatedInvoice = { ...invoiceToUpdate, estado: "anulada" as const };
-    await generarAsientoAnulacionFactura(updatedInvoice);
-    await actualizarEstadoFactura(invoiceId, "anulada");
-    toast({
-      title: "Factura anulada",
-      description: `La factura N ${updatedInvoice.numero} ha sido anulada.`,
-    });
   };
 
   const handleShowDetails = (invoice: Factura) => {
@@ -449,6 +459,7 @@ const FacturacionModule = () => {
         onSave={handleSaveInvoice}
         onCancel={() => setShowNewInvoice(false)}
         onAddNewClient={handleAddNewClient}
+        saving={creatingInvoice}
       />
     );
   }
@@ -502,7 +513,7 @@ const FacturacionModule = () => {
               <BarChart className="mr-1.5 h-4 w-4" />
               IVA
             </Button>
-            <Button size="sm" onClick={() => setShowNewInvoice(true)}>
+            <Button size="sm" onClick={() => setShowNewInvoice(true)} disabled={creatingInvoice}>
               <Plus className="mr-1.5 h-4 w-4" />
               Nueva factura
             </Button>
@@ -646,6 +657,7 @@ const FacturacionModule = () => {
             facturas={facturas}
             onShowDetails={handleShowDetails}
             onUpdateStatus={handleUpdateInvoiceStatus}
+            processingInvoiceId={processingInvoiceId}
           />
         </Section>
 

@@ -34,6 +34,7 @@ interface InvoiceFormProps {
   onCancel: () => void;
   onAddNewClient: (cliente: Cliente) => Promise<void> | void;
   onProductCreated?: (producto: Producto) => void;
+  saving?: boolean;
 }
 
 const InvoiceForm = ({
@@ -43,7 +44,8 @@ const InvoiceForm = ({
   onSave,
   onCancel,
   onAddNewClient,
-  onProductCreated
+  onProductCreated,
+  saving = false,
 }: InvoiceFormProps) => {
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
   const [items, setItems] = useState<ItemFactura[]>([
@@ -248,7 +250,13 @@ const InvoiceForm = ({
                 Crear factura electronica para validacion operativa y registro comercial.
               </CardDescription>
             </div>
-            <Button variant="ghost" size="icon" onClick={onCancel} className="text-muted-foreground hover:bg-muted">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onCancel}
+              disabled={saving}
+              className="text-muted-foreground hover:bg-muted"
+            >
               <X className="w-5 h-5" />
             </Button>
           </div>
@@ -261,10 +269,12 @@ const InvoiceForm = ({
               onSelectCliente={setSelectedCliente}
               onAddNewClient={onAddNewClient}
               error={errors.cliente}
+              disabled={saving}
             />
             <div className="space-y-2">
               <Label htmlFor="punto-venta">Punto de Venta</Label>
               <Select
+                disabled={saving}
                 onValueChange={(value) => setSelectedPuntoVenta(puntosVenta.find((punto) => punto.codigo === parseInt(value, 10)) || puntosVenta[0])}
                 defaultValue={selectedPuntoVenta.codigo.toString()}
               >
@@ -290,9 +300,11 @@ const InvoiceForm = ({
             removeItem={removeItem}
             error={errors.items}
             onCreateProduct={(index) => {
+              if (saving) return;
               setQuickProductTargetIndex(index);
               setShowQuickProductForm(true);
             }}
+            disabled={saving}
           />
 
           <div className="space-y-2">
@@ -302,6 +314,7 @@ const InvoiceForm = ({
               value={observaciones}
               onChange={(event) => setObservaciones(event.target.value)}
               placeholder="Observaciones adicionales"
+              disabled={saving}
             />
           </div>
 
@@ -314,12 +327,17 @@ const InvoiceForm = ({
           <InvoiceActions
             onPreview={handlePreview}
             onSubmit={() => void handleSubmit()}
+            disabled={saving}
+            submitLabel={saving ? "Guardando..." : "Crear Factura"}
           />
         </CardContent>
       </Card>
 
       {previewingInvoice && (
-        <Dialog open={Boolean(previewingInvoice)} onOpenChange={(open) => !open && setPreviewingInvoice(null)}>
+        <Dialog
+          open={Boolean(previewingInvoice)}
+          onOpenChange={(open) => !open && !saving && setPreviewingInvoice(null)}
+        >
           <DialogContent className="max-w-4xl p-0">
             <div className="p-6">
               <InvoicePreview invoice={previewingInvoice} />
@@ -330,7 +348,11 @@ const InvoiceForm = ({
 
       <QuickProductForm
         open={showQuickProductForm}
-        onOpenChange={setShowQuickProductForm}
+        onOpenChange={(open) => {
+          if (!saving) {
+            setShowQuickProductForm(open);
+          }
+        }}
         onProductCreated={(producto) => {
           if (quickProductTargetIndex !== null) {
             updateItem(quickProductTargetIndex, "productoId", producto.id);

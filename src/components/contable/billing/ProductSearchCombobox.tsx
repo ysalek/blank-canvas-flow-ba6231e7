@@ -13,16 +13,31 @@ interface ProductSearchComboboxProps {
   onChange: (productId: string) => void;
   error?: string;
   onCreateProduct?: () => void;
+  disabled?: boolean;
 }
 
-const ProductSearchCombobox = ({ productos, value, onChange, error, onCreateProduct }: ProductSearchComboboxProps) => {
+const ProductSearchCombobox = ({
+  productos,
+  value,
+  onChange,
+  error,
+  onCreateProduct,
+  disabled = false,
+}: ProductSearchComboboxProps) => {
   const [open, setOpen] = useState(false);
 
   const selected = productos.find((p) => p.id === value);
 
   return (
     <div className="flex gap-1">
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!disabled) {
+          setOpen(nextOpen);
+        }
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -31,6 +46,7 @@ const ProductSearchCombobox = ({ productos, value, onChange, error, onCreateProd
             "w-full justify-between",
             error ? "border-red-500" : ""
           )}
+          disabled={disabled}
         >
           {selected
             ? (
@@ -76,7 +92,15 @@ const ProductSearchCombobox = ({ productos, value, onChange, error, onCreateProd
       </PopoverContent>
     </Popover>
     {onCreateProduct && (
-      <Button type="button" variant="outline" size="icon" onClick={onCreateProduct} title="Crear producto" className="shrink-0">
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        onClick={onCreateProduct}
+        title="Crear producto"
+        className="shrink-0"
+        disabled={disabled}
+      >
         <Plus className="h-4 w-4" />
       </Button>
     )}

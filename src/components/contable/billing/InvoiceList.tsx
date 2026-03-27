@@ -11,6 +11,7 @@ interface InvoiceListProps {
   facturas: Factura[];
   onShowDetails: (factura: Factura) => void;
   onUpdateStatus: (invoiceId: string, newStatus: 'pagada' | 'anulada') => void;
+  processingInvoiceId?: string | null;
 }
 
 const getStatusClasses = (estado: Factura['estado']) => {
@@ -28,7 +29,12 @@ const getStatusClasses = (estado: Factura['estado']) => {
   }
 };
 
-const InvoiceList = ({ facturas, onShowDetails, onUpdateStatus }: InvoiceListProps) => {
+const InvoiceList = ({
+  facturas,
+  onShowDetails,
+  onUpdateStatus,
+  processingInvoiceId = null,
+}: InvoiceListProps) => {
   return (
     <Card className="card-gradient rounded-[1.9rem]">
       <CardHeader>
@@ -76,7 +82,12 @@ const InvoiceList = ({ facturas, onShowDetails, onUpdateStatus }: InvoiceListPro
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-xl"
+                          disabled={processingInvoiceId === factura.id}
+                        >
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -87,14 +98,18 @@ const InvoiceList = ({ facturas, onShowDetails, onUpdateStatus }: InvoiceListPro
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => onUpdateStatus(factura.id, 'pagada')}
-                          disabled={factura.estado !== 'enviada'}
+                          disabled={factura.estado !== 'enviada' || processingInvoiceId === factura.id}
                         >
                           <CheckCircle className="mr-2 h-4 w-4" />
                           Marcar como pagada
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => onUpdateStatus(factura.id, 'anulada')}
-                          disabled={factura.estado === 'anulada' || factura.estado === 'pagada'}
+                          disabled={
+                            factura.estado === 'anulada' ||
+                            factura.estado === 'pagada' ||
+                            processingInvoiceId === factura.id
+                          }
                           className="focus:bg-red-100 focus:text-red-600"
                         >
                           <XCircle className="mr-2 h-4 w-4" />

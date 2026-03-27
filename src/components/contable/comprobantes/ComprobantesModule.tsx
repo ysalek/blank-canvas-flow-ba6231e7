@@ -29,6 +29,9 @@ const ComprobantesModule = () => {
   const [selectedComprobante, setSelectedComprobante] = useState<ComprobanteIntegrado | null>(null);
   const [filtroTipo, setFiltroTipo] = useState<string>("todos");
   const [filtroEstado, setFiltroEstado] = useState<string>("todos");
+  const [savingDialog, setSavingDialog] = useState(false);
+  const [processingComprobanteId, setProcessingComprobanteId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const {
     comprobantes,
     loading,
@@ -43,16 +46,50 @@ const ComprobantesModule = () => {
     const contadorTipo = comprobantes.filter((comprobante) => comprobante.tipo === datos.tipo).length + 1;
     const prefijo = datos.tipo === "ingreso" ? "ING" : datos.tipo === "egreso" ? "EGR" : "TRA";
 
-    await createComprobante({
-      ...datos,
-      numero: `${prefijo}-${contadorTipo.toString().padStart(4, "0")}`,
-      monto:
-        datos.tipo === "traspaso"
-          ? datos.cuentas.reduce((sum, cuenta) => sum + cuenta.debe, 0)
-          : datos.monto,
-    });
+    setSavingDialog(true);
+    try {
+      const comprobanteId = await createComprobante({
+        ...datos,
+        numero: `${prefijo}-${contadorTipo.toString().padStart(4, "0")}`,
+        monto:
+          datos.tipo === "traspaso"
+            ? datos.cuentas.reduce((sum, cuenta) => sum + cuenta.debe, 0)
+            : datos.monto,
+      });
 
-    setShowComprobanteDialog({ open: false, tipo: null });
+      if (comprobanteId) {
+        setShowComprobanteDialog({ open: false, tipo: null });
+      }
+    } finally {
+      setSavingDialog(false);
+    }
+  };
+
+  const handleAutorizarComprobante = async (id: string) => {
+    setProcessingComprobanteId(id);
+    try {
+      await autorizarComprobante(id);
+    } finally {
+      setProcessingComprobanteId(null);
+    }
+  };
+
+  const handleAnularComprobante = async (id: string) => {
+    setProcessingComprobanteId(id);
+    try {
+      await anularComprobante(id);
+    } finally {
+      setProcessingComprobanteId(null);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const comprobantesFiltrados = useMemo(
@@ -105,6 +142,7 @@ const ComprobantesModule = () => {
           <Button
             onClick={() => setShowComprobanteDialog({ open: true, tipo: "ingreso" })}
             className="bg-green-600 hover:bg-green-700"
+            disabled={savingDialog || processingComprobanteId !== null || refreshing}
           >
             <ArrowUpCircle className="mr-2 h-4 w-4" />
             Ingreso
@@ -112,6 +150,7 @@ const ComprobantesModule = () => {
           <Button
             onClick={() => setShowComprobanteDialog({ open: true, tipo: "egreso" })}
             className="bg-red-600 hover:bg-red-700"
+            disabled={savingDialog || processingComprobanteId !== null || refreshing}
           >
             <ArrowDownCircle className="mr-2 h-4 w-4" />
             Egreso
@@ -119,12 +158,17 @@ const ComprobantesModule = () => {
           <Button
             onClick={() => setShowComprobanteDialog({ open: true, tipo: "traspaso" })}
             className="bg-blue-600 hover:bg-blue-700"
+            disabled={savingDialog || processingComprobanteId !== null || refreshing}
           >
             <ArrowRightLeft className="mr-2 h-4 w-4" />
             Traspaso
           </Button>
-          <Button variant="outline" onClick={refetch}>
-            Actualizar
+          <Button
+            variant="outline"
+            onClick={() => void handleRefresh()}
+            disabled={refreshing || savingDialog || processingComprobanteId !== null}
+          >
+            {refreshing ? "Actualizando..." : "Actualizar"}
           </Button>
         </div>
       </div>
@@ -170,7 +214,7 @@ const ComprobantesModule = () => {
       </div>
 
       <div className="flex gap-4">
-        <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+        <Select value={filtroTipo} onValueChange={setFiltroTipo} disabled={refreshing || savingDialog}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filtrar por tipo" />
           </SelectTrigger>
@@ -182,7 +226,7 @@ const ComprobantesModule = () => {
           </SelectContent>
         </Select>
 
-        <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+        <Select value={filtroEstado} onValueChange={setFiltroEstado} disabled={refreshing || savingDialog}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filtrar por estado" />
           </SelectTrigger>
@@ -243,20 +287,30 @@ const ComprobantesModule = () => {
                       <TableCell>
                         <div className="flex gap-2">
                           {comprobante.estado === "borrador" && (
-                            <Button size="sm" onClick={() => autorizarComprobante(comprobante.id)}>
-                              Autorizar
+                            <Button
+                              size="sm"
+                              onClick={() => void handleAutorizarComprobante(comprobante.id)}
+                              disabled={processingComprobanteId !== null}
+                            >
+                              {processingComprobanteId === comprobante.id ? "Autorizando..." : "Autorizar"}
                             </Button>
                           )}
                           {comprobante.estado === "autorizado" && (
                             <Button
                               size="sm"
                               variant="destructive"
-                              onClick={() => anularComprobante(comprobante.id)}
+                              onClick={() => void handleAnularComprobante(comprobante.id)}
+                              disabled={processingComprobanteId !== null}
                             >
-                              Anular
+                              {processingComprobanteId === comprobante.id ? "Anulando..." : "Anular"}
                             </Button>
                           )}
-                          <Button size="sm" variant="outline" onClick={() => setSelectedComprobante(comprobante)}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedComprobante(comprobante)}
+                            disabled={processingComprobanteId === comprobante.id}
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
                         </div>
@@ -272,7 +326,11 @@ const ComprobantesModule = () => {
 
       <Dialog
         open={showComprobanteDialog.open}
-        onOpenChange={(open) => !open && setShowComprobanteDialog({ open: false, tipo: null })}
+        onOpenChange={(open) => {
+          if (!open && !savingDialog) {
+            setShowComprobanteDialog({ open: false, tipo: null });
+          }
+        }}
       >
         <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
@@ -289,7 +347,11 @@ const ComprobantesModule = () => {
             <ComprobanteForm
               tipo={showComprobanteDialog.tipo}
               onSave={guardarComprobante}
-              onCancel={() => setShowComprobanteDialog({ open: false, tipo: null })}
+              onCancel={() => {
+                if (!savingDialog) {
+                  setShowComprobanteDialog({ open: false, tipo: null });
+                }
+              }}
             />
           )}
         </DialogContent>

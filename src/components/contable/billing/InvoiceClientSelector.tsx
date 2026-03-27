@@ -16,9 +16,17 @@ interface InvoiceClientSelectorProps {
   onSelectCliente: (cliente: Cliente) => void;
   onAddNewClient: (cliente: Cliente) => Promise<void> | void;
   error?: string;
+  disabled?: boolean;
 }
 
-const InvoiceClientSelector = ({ clientes, selectedCliente, onSelectCliente, onAddNewClient, error }: InvoiceClientSelectorProps) => {
+const InvoiceClientSelector = ({
+  clientes,
+  selectedCliente,
+  onSelectCliente,
+  onAddNewClient,
+  error,
+  disabled = false,
+}: InvoiceClientSelectorProps) => {
   const [openCombobox, setOpenCombobox] = useState(false);
   const [showNewClientDialog, setShowNewClientDialog] = useState(false);
   const [savingClient, setSavingClient] = useState(false);
@@ -39,13 +47,21 @@ const InvoiceClientSelector = ({ clientes, selectedCliente, onSelectCliente, onA
       <div className="space-y-2">
         <Label>Cliente *</Label>
         <div className="flex items-center gap-2">
-          <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+          <Popover
+            open={openCombobox}
+            onOpenChange={(open) => {
+              if (!disabled && !savingClient) {
+                setOpenCombobox(open);
+              }
+            }}
+          >
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 role="combobox"
                 aria-expanded={openCombobox}
                 className={`w-full justify-between ${error ? "border-red-500" : ""}`}
+                disabled={disabled || savingClient}
               >
                 {selectedCliente
                   ? `${selectedCliente.nombre} - ${selectedCliente.nit}`
@@ -82,7 +98,12 @@ const InvoiceClientSelector = ({ clientes, selectedCliente, onSelectCliente, onA
               </Command>
             </PopoverContent>
           </Popover>
-          <Button variant="outline" size="sm" onClick={() => setShowNewClientDialog(true)} disabled={savingClient}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowNewClientDialog(true)}
+            disabled={disabled || savingClient}
+          >
             <Plus className="w-4 h-4" />
           </Button>
         </div>
@@ -93,7 +114,14 @@ const InvoiceClientSelector = ({ clientes, selectedCliente, onSelectCliente, onA
           </p>
         )}
       </div>
-      <Dialog open={showNewClientDialog} onOpenChange={setShowNewClientDialog}>
+      <Dialog
+        open={showNewClientDialog}
+        onOpenChange={(open) => {
+          if (!savingClient && !disabled) {
+            setShowNewClientDialog(open);
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-[800px]">
           <DialogHeader>
             <DialogTitle>Crear Nuevo Cliente</DialogTitle>
