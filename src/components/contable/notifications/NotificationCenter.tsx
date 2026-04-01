@@ -1,70 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Bell, AlertTriangle, CheckCircle, Info, X, Archive, RefreshCw, ArrowUpRight } from "lucide-react";
-import { useProductosValidated } from "@/hooks/useProductosValidated";
-import { useFacturas } from "@/hooks/useFacturas";
-import { useAsientos } from "@/hooks/useAsientos";
-import { useCumplimientoEjecutivo } from "@/hooks/useCumplimientoEjecutivo";
-
-type NotificationType = "info" | "warning" | "error" | "success";
-type NotificationPriority = "low" | "medium" | "high" | "critical";
-type NotificationCategory = "fiscal" | "inventory" | "finance" | "system";
-
-interface NotificationItem {
-  id: string;
-  type: NotificationType;
-  priority: NotificationPriority;
-  category: NotificationCategory;
-  title: string;
-  message: string;
-  timestamp: string;
-  module: string;
-  navigation?: {
-    view: string;
-    params?: Record<string, string>;
-  };
-}
-
-const READ_STORAGE_KEY = "notification-center-read";
-const HIDDEN_STORAGE_KEY = "notification-center-hidden";
+import { useOperationalNotifications } from "@/hooks/useOperationalNotifications";
 
 const NotificationCenter = () => {
   const [filter, setFilter] = useState<"all" | "unread" | "warnings">("all");
-  const [readIds, setReadIds] = useState<string[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      return JSON.parse(window.localStorage.getItem(READ_STORAGE_KEY) || "[]") as string[];
-    } catch {
-      return [];
-    }
-  });
-  const [hiddenIds, setHiddenIds] = useState<string[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      return JSON.parse(window.localStorage.getItem(HIDDEN_STORAGE_KEY) || "[]") as string[];
-    } catch {
-      return [];
-    }
-  });
-  const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
-
-  const { productos } = useProductosValidated();
-  const { facturas } = useFacturas();
-  const { getAsientos } = useAsientos();
-  const { alerts, loading: complianceLoading, refetch: refetchCompliance } = useCumplimientoEjecutivo();
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(READ_STORAGE_KEY, JSON.stringify(readIds));
-  }, [readIds]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem(HIDDEN_STORAGE_KEY, JSON.stringify(hiddenIds));
-  }, [hiddenIds]);
+  const {
+    notifications,
+    unreadCount,
+    warningCount,
+    complianceLoading,
+    refreshing,
+    refresh,
+    markAsRead,
+    markAllAsRead,
+    archiveNotification,
+  } = useOperationalNotifications();
 
   const navigateTo = useCallback((view: string, params?: Record<string, string>) => {
     const url = new URL(window.location.href);
@@ -74,158 +28,6 @@ const NotificationCenter = () => {
     window.dispatchEvent(new PopStateEvent("popstate"));
   }, []);
 
-  const generatedNotifications = useMemo<NotificationItem[]>(() => {
-    const now = new Date().toISOString();
-    const items: NotificationItem[] = [];
-
-    const productosStockBajo = productos.filter(
-      (producto) =>
-        Number(producto.stock_actual || 0) <= Number(producto.stock_minimo || 0) &&
-        producto.activo,
-    );
-    if (productosStockBajo.length > 0) {
-      items.push({
-        id: "stock-bajo",
-        type: "warning",
-        priority: "high",
-        category: "inventory",
-        title: "Productos con stock bajo",
-        message: `${productosStockBajo.length} producto(s) requieren reposicion o ajuste de compra.`,
-        timestamp: now,
-        module: "inventario",
-        navigation: {
-          view: "inventario",
-        },
-      });
-    }
-
-    const facturasPendientes = facturas.filter((factura) => factura.estado === "enviada");
-    if (facturasPendientes.length > 0) {
-      const totalPendiente = facturasPendientes.reduce((sum, factura) => sum + Number(factura.total || 0), 0);
-      items.push({
-        id: "facturas-pendientes-cobro",
-        type: "info",
-        priority: "medium",
-        category: "finance",
-        title: "Facturas pendientes de cobro",
-        message: `${facturasPendientes.length} factura(s) pendientes por ${totalPendiente.toFixed(2)} Bs.`,
-        timestamp: now,
-        module: "facturacion",
-        navigation: {
-          view: "facturacion",
-        },
-      });
-    }
-
-    const asientosRegistrados = getAsientos().filter((asiento) => asiento.estado === "registrado");
-    if (asientosRegistrados.length > 0) {
-      const balance = asientosRegistrados.reduce(
-        (acc, asiento) => {
-          asiento.cuentas.forEach((cuenta) => {
-            acc.debe += Number(cuenta.debe || 0);
-            acc.haber += Number(cuenta.haber || 0);
-          });
-          return acc;
-        },
-        { debe: 0, haber: 0 },
-      );
-
-      const diferencia = Math.abs(balance.debe - balance.haber);
-      items.push({
-        id: diferencia > 0.01 ? "balance-descuadrado" : "balance-cuadrado",
-        type: diferencia > 0.01 ? "error" : "success",
-        priority: diferencia > 0.01 ? "critical" : "low",
-        category: "finance",
-        title: diferencia > 0.01 ? "Balance contable descuadrado" : "Balance contable consistente",
-        message:
-          diferencia > 0.01
-            ? `Se detecto una diferencia de ${diferencia.toFixed(2)} Bs. entre debe y haber.`
-            : "Los asientos registrados mantienen equilibrio contable.",
-        timestamp: now,
-        module: "contabilidad",
-        navigation: {
-          view: "balance-comprobacion",
-        },
-      });
-    }
-
-    const ultimoBackup = typeof window !== "undefined" ? window.localStorage.getItem("ultimo-backup") : null;
-    if (!ultimoBackup) {
-      items.push({
-        id: "backup-pendiente",
-        type: "warning",
-        priority: "medium",
-        category: "system",
-        title: "Respaldo inicial pendiente",
-        message: "Todavia no se registro ningun backup del sistema en este entorno.",
-        timestamp: now,
-        module: "backup",
-        navigation: {
-          view: "backup",
-        },
-      });
-    } else {
-      const diasSinBackup = Math.floor((Date.now() - new Date(ultimoBackup).getTime()) / (1000 * 60 * 60 * 24));
-      if (diasSinBackup > 7) {
-        items.push({
-          id: "backup-desactualizado",
-          type: "warning",
-          priority: "medium",
-          category: "system",
-          title: "Backup desactualizado",
-          message: `El ultimo respaldo fue hace ${diasSinBackup} dia(s). Conviene actualizarlo.`,
-          timestamp: now,
-          module: "backup",
-          navigation: {
-            view: "backup",
-          },
-        });
-      }
-    }
-
-    alerts.forEach((alert) => {
-      if (alert.id === "sin-alertas") return;
-      items.push({
-        id: `compliance-${alert.id}`,
-        type:
-          alert.priority === "critical"
-            ? "error"
-            : alert.priority === "high"
-              ? "warning"
-              : "info",
-        priority: alert.priority,
-        category: "fiscal",
-        title: alert.title,
-        message: alert.description,
-        timestamp: alert.deadline || now,
-        module: alert.source,
-        navigation: alert.navigation,
-      });
-    });
-
-    return items
-      .filter((item) => !hiddenIds.includes(item.id))
-      .sort((a, b) => {
-        const priorityOrder: Record<NotificationPriority, number> = {
-          critical: 4,
-          high: 3,
-          medium: 2,
-          low: 1,
-        };
-        return priorityOrder[b.priority] - priorityOrder[a.priority];
-      })
-      .slice(0, 25);
-  }, [alerts, facturas, getAsientos, hiddenIds, productos]);
-
-  const notifications = useMemo(
-    () =>
-      generatedNotifications.map((notification) => ({
-        ...notification,
-        read: readIds.includes(notification.id),
-      })),
-    [generatedNotifications, readIds],
-  );
-
   const filteredNotifications = useMemo(() => {
     return notifications.filter((notification) => {
       if (filter === "unread") return !notification.read;
@@ -234,31 +36,7 @@ const NotificationCenter = () => {
     });
   }, [filter, notifications]);
 
-  const unreadCount = notifications.filter((notification) => !notification.read).length;
-  const warningCount = notifications.filter((notification) => notification.type === "warning" || notification.type === "error").length;
   const uiBlocked = refreshing || processingId !== null;
-
-  const handleRefresh = async () => {
-    try {
-      setRefreshing(true);
-      await refetchCompliance();
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  const markAsRead = (id: string) => {
-    setReadIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-  };
-
-  const markAllAsRead = () => {
-    setReadIds((prev) => Array.from(new Set([...prev, ...notifications.map((notification) => notification.id)])));
-  };
-
-  const archiveNotification = (id: string) => {
-    setHiddenIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-    setReadIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-  };
 
   const handleOpenNotification = async (notification: (typeof notifications)[number]) => {
     if (!notification.navigation) return;
@@ -271,7 +49,7 @@ const NotificationCenter = () => {
     }
   };
 
-  const getIcon = (type: NotificationType) => {
+  const getIcon = (type: (typeof notifications)[number]["type"]) => {
     switch (type) {
       case "warning":
         return <AlertTriangle className="h-5 w-5 text-amber-500" />;
@@ -284,7 +62,7 @@ const NotificationCenter = () => {
     }
   };
 
-  const getCardTone = (type: NotificationType) => {
+  const getCardTone = (type: (typeof notifications)[number]["type"]) => {
     switch (type) {
       case "warning":
         return "border-l-amber-500 bg-amber-50/80";
@@ -319,7 +97,7 @@ const NotificationCenter = () => {
           <Button variant="outline" onClick={markAllAsRead} disabled={uiBlocked || unreadCount === 0}>
             Marcar todas como leidas
           </Button>
-          <Button onClick={() => void handleRefresh()} disabled={uiBlocked || complianceLoading}>
+          <Button onClick={() => void refresh()} disabled={uiBlocked || complianceLoading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             {refreshing ? "Actualizando..." : "Actualizar"}
           </Button>

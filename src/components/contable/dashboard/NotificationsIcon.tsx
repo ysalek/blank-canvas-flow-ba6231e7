@@ -1,121 +1,35 @@
-import { useEffect, useMemo, useState } from "react";
-import { Bell, AlertTriangle, Info, CheckCircle, X, Calendar } from "lucide-react";
+import { useCallback, useState } from "react";
+import { Bell, AlertTriangle, Info, CheckCircle, X, Calendar, ArrowUpRight, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { useFacturas } from "@/hooks/useFacturas";
-import { useProductosValidated } from "@/hooks/useProductosValidated";
-
-interface Notification {
-  id: string;
-  type: "warning" | "info" | "success" | "error";
-  title: string;
-  message: string;
-  date: string;
-  read: boolean;
-  priority: "high" | "medium" | "low";
-  category: "fiscal" | "inventory" | "finance" | "system";
-}
+import { useOperationalNotifications } from "@/hooks/useOperationalNotifications";
 
 const NotificationsIcon = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [open, setOpen] = useState(false);
-  const { facturas } = useFacturas();
-  const { productos } = useProductosValidated();
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const {
+    notifications,
+    unreadCount,
+    complianceLoading,
+    refreshing,
+    refresh,
+    markAsRead,
+    archiveNotification,
+  } = useOperationalNotifications();
 
-  const generatedNotifications = useMemo(() => {
-    const today = new Date();
-    const currentNotifications: Notification[] = [];
+  const navigateTo = useCallback((view: string, params?: Record<string, string>) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", view);
+    Object.entries(params || {}).forEach(([key, value]) => url.searchParams.set(key, value));
+    window.history.pushState({}, "", `${url.pathname}${url.search}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  }, []);
 
-    const productosStockBajo = productos.filter(
-      (producto) =>
-        Number(producto.stock_actual || 0) <= Number(producto.stock_minimo || 0) &&
-        Number(producto.stock_actual || 0) > 0
-    );
-
-    if (productosStockBajo.length > 0) {
-      currentNotifications.push({
-        id: "stock-bajo",
-        type: "warning",
-        title: "Productos con Stock Bajo",
-        message: `${productosStockBajo.length} productos necesitan reposicion urgente`,
-        date: today.toISOString(),
-        read: false,
-        priority: "high",
-        category: "inventory",
-      });
-    }
-
-    const facturasPendientes = facturas.filter((factura) => factura.estado === "enviada");
-    if (facturasPendientes.length > 0) {
-      const totalPendiente = facturasPendientes.reduce((sum, factura) => sum + factura.total, 0);
-      currentNotifications.push({
-        id: "facturas-pendientes",
-        type: "info",
-        title: "Facturas Pendientes de Cobro",
-        message: `${facturasPendientes.length} facturas por Bs. ${totalPendiente.toFixed(2)}`,
-        date: today.toISOString(),
-        read: false,
-        priority: "medium",
-        category: "finance",
-      });
-    }
-
-    const proximaDeclaracion = new Date();
-    proximaDeclaracion.setDate(proximaDeclaracion.getDate() + 5);
-    if (proximaDeclaracion.getDate() <= 15) {
-      currentNotifications.push({
-        id: "declaracion-iva",
-        type: "warning",
-        title: "Proximo Vencimiento IVA",
-        message: "La declaracion mensual de IVA vence en 5 dias",
-        date: today.toISOString(),
-        read: false,
-        priority: "high",
-        category: "fiscal",
-      });
-    }
-
-    const ultimoBackup = localStorage.getItem("ultimo-backup");
-    if (!ultimoBackup || Date.now() - new Date(ultimoBackup).getTime() > 7 * 24 * 60 * 60 * 1000) {
-      currentNotifications.push({
-        id: "backup-requerido",
-        type: "info",
-        title: "Respaldo Recomendado",
-        message: "No se ha realizado un respaldo en los ultimos 7 dias",
-        date: today.toISOString(),
-        read: false,
-        priority: "medium",
-        category: "system",
-      });
-    }
-
-    return currentNotifications;
-  }, [facturas, productos]);
-
-  useEffect(() => {
-    setNotifications((prev) =>
-      generatedNotifications.map((notification) => {
-        const existing = prev.find((item) => item.id === notification.id);
-        return existing ? { ...notification, read: existing.read } : notification;
-      })
-    );
-  }, [generatedNotifications]);
-
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((notification) => (notification.id === id ? { ...notification, read: true } : notification))
-    );
-  };
-
-  const dismissNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((notification) => notification.id !== id));
-  };
-
-  const getIcon = (type: Notification["type"]) => {
+  const getIcon = (type: (typeof notifications)[number]["type"]) => {
     switch (type) {
       case "warning":
       case "error":
@@ -127,7 +41,7 @@ const NotificationsIcon = () => {
     }
   };
 
-  const getIconColor = (type: Notification["type"]) => {
+  const getIconColor = (type: (typeof notifications)[number]["type"]) => {
     switch (type) {
       case "warning":
         return "text-orange-500";
@@ -140,18 +54,32 @@ const NotificationsIcon = () => {
     }
   };
 
-  const getPriorityColor = (priority: Notification["priority"]) => {
+  const getPriorityColor = (priority: (typeof notifications)[number]["priority"]) => {
     switch (priority) {
-      case "high":
+      case "critical":
         return "bg-red-100 text-red-800 border-red-200";
-      case "medium":
+      case "high":
         return "bg-orange-100 text-orange-800 border-orange-200";
+      case "medium":
+        return "bg-amber-100 text-amber-800 border-amber-200";
       default:
         return "bg-blue-100 text-blue-800 border-blue-200";
     }
   };
 
-  const unreadCount = notifications.filter((notification) => !notification.read).length;
+  const handleOpen = async (notification: (typeof notifications)[number]) => {
+    if (!notification.navigation) return;
+    try {
+      setProcessingId(notification.id);
+      markAsRead(notification.id);
+      navigateTo(notification.navigation.view, notification.navigation.params);
+      setOpen(false);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const uiBlocked = refreshing || processingId !== null;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -161,7 +89,7 @@ const NotificationsIcon = () => {
           {unreadCount > 0 && (
             <Badge
               variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+              className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center p-0 text-xs"
             >
               {unreadCount}
             </Badge>
@@ -169,17 +97,24 @@ const NotificationsIcon = () => {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-96 p-0" align="end">
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between border-b p-4">
           <h3 className="font-semibold">Notificaciones</h3>
-          <Button variant="ghost" size="sm" onClick={() => setNotifications(generatedNotifications)} className="text-xs">
-            Actualizar
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void refresh()}
+            disabled={uiBlocked || complianceLoading}
+            className="text-xs"
+          >
+            <RefreshCw className={`mr-2 h-3 w-3 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Actualizando..." : "Actualizar"}
           </Button>
         </div>
 
         <ScrollArea className="h-96">
           {notifications.length === 0 ? (
             <div className="p-4 text-center text-muted-foreground">
-              <CheckCircle className="w-8 h-8 mx-auto mb-2 text-green-500" />
+              <CheckCircle className="mx-auto mb-2 h-8 w-8 text-green-500" />
               <p className="text-sm">Todo en orden</p>
               <p className="text-xs">No hay notificaciones pendientes</p>
             </div>
@@ -192,36 +127,45 @@ const NotificationsIcon = () => {
                     <Card className={`mb-2 ${!notification.read ? "ring-1 ring-primary/20" : ""}`}>
                       <CardContent className="p-3">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start gap-2 flex-1">
-                            <Icon className={`w-4 h-4 mt-0.5 ${getIconColor(notification.type)}`} />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1 mb-1">
+                          <div className="flex min-w-0 flex-1 items-start gap-2">
+                            <Icon className={`mt-0.5 h-4 w-4 ${getIconColor(notification.type)}`} />
+                            <div className="min-w-0 flex-1">
+                              <div className="mb-1 flex items-center gap-1">
                                 <h4 className="text-sm font-medium">{notification.title}</h4>
-                                {!notification.read && <div className="w-2 h-2 bg-primary rounded-full" />}
+                                {!notification.read && <div className="h-2 w-2 rounded-full bg-primary" />}
                               </div>
-                              <p className="text-xs text-muted-foreground mb-2">{notification.message}</p>
-                              <div className="flex items-center gap-2">
+                              <p className="mb-2 text-xs text-muted-foreground">{notification.message}</p>
+                              <div className="flex flex-wrap items-center gap-2">
                                 <Badge className={`text-xs ${getPriorityColor(notification.priority)}`}>
-                                  {notification.priority === "high"
-                                    ? "Alta"
-                                    : notification.priority === "medium"
-                                      ? "Media"
-                                      : "Baja"}
+                                  {notification.priority}
                                 </Badge>
                                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Calendar className="w-3 h-3" />
-                                  {new Date(notification.date).toLocaleDateString("es-BO")}
+                                  <Calendar className="h-3 w-3" />
+                                  {new Date(notification.timestamp).toLocaleDateString("es-BO")}
                                 </div>
                               </div>
                             </div>
                           </div>
                           <div className="flex flex-col gap-1">
+                            {notification.navigation && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => void handleOpen(notification)}
+                                disabled={uiBlocked}
+                                className="h-6 px-2 text-xs"
+                              >
+                                <ArrowUpRight className="mr-1 h-3 w-3" />
+                                {processingId === notification.id ? "Abriendo..." : "Abrir"}
+                              </Button>
+                            )}
                             {!notification.read && (
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => markAsRead(notification.id)}
                                 className="h-6 px-2 text-xs"
+                                disabled={uiBlocked}
                               >
                                 Marcar leido
                               </Button>
@@ -229,10 +173,11 @@ const NotificationsIcon = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => dismissNotification(notification.id)}
+                              onClick={() => archiveNotification(notification.id)}
                               className="h-6 w-6 p-0"
+                              disabled={uiBlocked}
                             >
-                              <X className="w-3 h-3" />
+                              <X className="h-3 w-3" />
                             </Button>
                           </div>
                         </div>
