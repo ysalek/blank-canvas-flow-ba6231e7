@@ -36,6 +36,11 @@ interface ImagenProductoResultado {
   path: string;
 }
 
+interface VerificacionStorageResultado {
+  ok: boolean;
+  message?: string;
+}
+
 type ProductoPayload = Record<string, unknown>;
 
 const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
@@ -308,6 +313,22 @@ export const useSupabaseProductos = () => {
     return { publicUrl, path };
   };
 
+  const verificarStorageProductos = async (): Promise<VerificacionStorageResultado> => {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+    if (!user) throw new Error('Usuario no autenticado');
+
+    const probe = await supabase.storage.from(PRODUCTOS_BUCKET).list(user.id, { limit: 1 });
+    if (probe.error) {
+      return {
+        ok: false,
+        message: getStorageUploadMessage(probe.error),
+      };
+    }
+
+    return { ok: true };
+  };
+
   const eliminarImagenProducto = async (storagePath?: string | null) => {
     if (!storagePath) return;
 
@@ -420,6 +441,7 @@ export const useSupabaseProductos = () => {
     actualizarProducto,
     actualizarStockProducto,
     subirImagenProducto,
+    verificarStorageProductos,
     eliminarImagenProducto,
     generarCodigoProducto,
     refetch: fetchData

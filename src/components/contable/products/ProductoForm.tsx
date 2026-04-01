@@ -38,6 +38,7 @@ const ProductoForm = ({ producto, productos, onSave, onCancel }: ProductoFormPro
     categorias: categoriasHook,
     refetch,
     subirImagenProducto,
+    verificarStorageProductos,
     eliminarImagenProducto,
   } = useSupabaseProductos();
   const { proveedores: proveedoresDB } = useSupabaseProveedores();
@@ -59,6 +60,11 @@ const ProductoForm = ({ producto, productos, onSave, onCancel }: ProductoFormPro
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
+  const [storageStatus, setStorageStatus] = useState<{ checking: boolean; ok: boolean; message: string }>({
+    checking: false,
+    ok: true,
+    message: "",
+  });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [formData, setFormData] = useState({
     codigo: "",
@@ -131,6 +137,44 @@ const ProductoForm = ({ producto, productos, onSave, onCancel }: ProductoFormPro
       }
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkStorage = async () => {
+      if (imageMode !== 'upload') {
+        setStorageStatus({ checking: false, ok: true, message: "" });
+        return;
+      }
+
+      setStorageStatus((prev) => ({ ...prev, checking: true }));
+
+      try {
+        const result = await verificarStorageProductos();
+        if (!cancelled) {
+          setStorageStatus({
+            checking: false,
+            ok: result.ok,
+            message: result.message || "",
+          });
+        }
+      } catch (error: unknown) {
+        if (!cancelled) {
+          setStorageStatus({
+            checking: false,
+            ok: false,
+            message: getErrorMessage(error),
+          });
+        }
+      }
+    };
+
+    void checkStorage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [imageMode, verificarStorageProductos]);
 
   const handleInputChange = (field: string, value: string | number | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -518,41 +562,66 @@ const ProductoForm = ({ producto, productos, onSave, onCancel }: ProductoFormPro
                   </div>
 
                   {imageMode === 'upload' ? (
-                    <div
-                      className="dropzone-shell"
-                      data-active={isDragActive ? "true" : "false"}
-                      onDragOver={(event) => { event.preventDefault(); setIsDragActive(true); }}
-                      onDragLeave={() => setIsDragActive(false)}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        setIsDragActive(false);
-                        handleImageFile(event.dataTransfer.files?.[0]);
-                      }}
-                    >
-                      <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => handleImageFile(event.target.files?.[0])} />
-                      <div className="space-y-3 text-center">
-                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
-                          <ImagePlus className="h-7 w-7 text-primary" />
+                    <div className="space-y-3">
+                      <div className={`rounded-2xl border px-4 py-3 text-sm ${storageStatus.ok ? "border-emerald-200 bg-emerald-50/80 text-emerald-900" : "border-amber-300 bg-amber-50 text-amber-950"}`}>
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                          <div className="space-y-1">
+                            <p className="font-medium">
+                              {storageStatus.checking
+                                ? "Verificando configuracion de almacenamiento..."
+                                : storageStatus.ok
+                                  ? "Carga directa habilitada"
+                                  : "Storage de productos pendiente"}
+                            </p>
+                            <p className="text-xs leading-5">
+                              {storageStatus.checking
+                                ? "El sistema esta validando el bucket y los permisos para imagenes de productos."
+                                : storageStatus.ok
+                                  ? "Puedes subir una imagen JPG, PNG o WEBP de hasta 4 MB."
+                                  : storageStatus.message || "No se pudo validar el bucket de productos. Aplica la migracion de Storage o usa temporalmente la opcion por URL."}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">Arrastra una imagen aqui o selecciona un archivo</p>
-                          <p className="mt-1 text-xs leading-5 text-muted-foreground">JPG, PNG o WEBP. Tamano maximo: 4 MB.</p>
-                        </div>
-                        <div className="flex flex-wrap justify-center gap-2">
-                          <Button type="button" variant="outline" className="rounded-2xl" onClick={() => fileInputRef.current?.click()}>
-                            <UploadCloud className="mr-2 h-4 w-4" />
-                            Elegir archivo
-                          </Button>
-                          {(selectedImageFile || imagePreview) && (
-                            <Button type="button" variant="ghost" className="rounded-2xl text-destructive hover:text-destructive" onClick={handleRemoveImage}>
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Quitar imagen
+                      </div>
+
+                      <div
+                        className="dropzone-shell"
+                        data-active={isDragActive ? "true" : "false"}
+                        onDragOver={(event) => { event.preventDefault(); setIsDragActive(true); }}
+                        onDragLeave={() => setIsDragActive(false)}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          setIsDragActive(false);
+                          if (!storageStatus.ok || storageStatus.checking || saving) return;
+                          handleImageFile(event.dataTransfer.files?.[0]);
+                        }}
+                      >
+                        <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => handleImageFile(event.target.files?.[0])} />
+                        <div className="space-y-3 text-center">
+                          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+                            <ImagePlus className="h-7 w-7 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">Arrastra una imagen aqui o selecciona un archivo</p>
+                            <p className="mt-1 text-xs leading-5 text-muted-foreground">JPG, PNG o WEBP. Tamano maximo: 4 MB.</p>
+                          </div>
+                          <div className="flex flex-wrap justify-center gap-2">
+                            <Button type="button" variant="outline" className="rounded-2xl" onClick={() => fileInputRef.current?.click()} disabled={saving || storageStatus.checking || !storageStatus.ok}>
+                              <UploadCloud className="mr-2 h-4 w-4" />
+                              Elegir archivo
                             </Button>
+                            {(selectedImageFile || imagePreview) && (
+                              <Button type="button" variant="ghost" className="rounded-2xl text-destructive hover:text-destructive" onClick={handleRemoveImage} disabled={saving}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Quitar imagen
+                              </Button>
+                            )}
+                          </div>
+                          {selectedImageFile && (
+                            <p className="text-xs text-muted-foreground">Archivo listo para guardar: <span className="font-medium text-foreground">{selectedImageFile.name}</span></p>
                           )}
                         </div>
-                        {selectedImageFile && (
-                          <p className="text-xs text-muted-foreground">Archivo listo para guardar: <span className="font-medium text-foreground">{selectedImageFile.name}</span></p>
-                        )}
                       </div>
                     </div>
                   ) : (
