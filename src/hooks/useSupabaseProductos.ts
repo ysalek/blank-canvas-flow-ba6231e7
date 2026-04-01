@@ -43,6 +43,7 @@ const getErrorMessage = (error: unknown) => error instanceof Error ? error.messa
 const PRODUCTOS_BUCKET = 'productos';
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024;
 const VALID_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const PRODUCTOS_STORAGE_MIGRATION = '20260323003000_productos_imagenes_storage.sql';
 
 const sanitizeFileName = (name: string) =>
   name
@@ -55,6 +56,29 @@ const isMissingColumnError = (error: unknown, column: string) => {
   const supabaseError = error as { message?: string; details?: string };
   const message = `${supabaseError?.message || ''} ${supabaseError?.details || ''}`.toLowerCase();
   return message.includes(column.toLowerCase()) && (message.includes('column') || message.includes('schema cache'));
+};
+
+const getStorageUploadMessage = (error: unknown) => {
+  const supabaseError = error as { message?: string; details?: string; statusCode?: string | number };
+  const rawMessage = `${supabaseError?.message || ''} ${supabaseError?.details || ''}`.toLowerCase();
+
+  if (rawMessage.includes('bucket') && (rawMessage.includes('not found') || rawMessage.includes('does not exist'))) {
+    return `No existe el bucket de imagenes de productos en Supabase. Aplica la migracion ${PRODUCTOS_STORAGE_MIGRATION}.`;
+  }
+
+  if (rawMessage.includes('row-level security') || rawMessage.includes('policy') || rawMessage.includes('unauthorized')) {
+    return `La base rechazo la subida por permisos del bucket de productos. Revisa y aplica la migracion ${PRODUCTOS_STORAGE_MIGRATION}.`;
+  }
+
+  if (rawMessage.includes('mime') || rawMessage.includes('invalid content type')) {
+    return 'El bucket de productos no acepta este tipo de imagen. Usa JPG, PNG o WEBP.';
+  }
+
+  if (rawMessage.includes('payload too large') || rawMessage.includes('too large') || rawMessage.includes('file size')) {
+    return 'La imagen supera el limite permitido por Supabase Storage.';
+  }
+
+  return getErrorMessage(error);
 };
 
 export const useSupabaseProductos = () => {
@@ -265,10 +289,15 @@ export const useSupabaseProductos = () => {
         upsert: false,
       });
 
-    if (uploadResult.error) throw uploadResult.error;
+    if (uploadResult.error) {
+      throw new Error(getStorageUploadMessage(uploadResult.error));
+    }
 
     if (currentPath && currentPath !== path) {
-      await supabase.storage.from(PRODUCTOS_BUCKET).remove([currentPath]);
+      const removePreviousImage = await supabase.storage.from(PRODUCTOS_BUCKET).remove([currentPath]);
+      if (removePreviousImage.error) {
+        console.warn('No se pudo eliminar la imagen anterior del producto:', removePreviousImage.error);
+      }
     }
 
     const publicUrl = resolvePublicUrl(path);
@@ -284,7 +313,7 @@ export const useSupabaseProductos = () => {
 
     const result = await supabase.storage.from(PRODUCTOS_BUCKET).remove([storagePath]);
     if (result.error && !`${result.error.message || ''}`.toLowerCase().includes('not found')) {
-      throw result.error;
+      throw new Error(getStorageUploadMessage(result.error));
     }
   };
 
