@@ -42,8 +42,11 @@ const PlanCuentasBoliviano2025Module = () => {
   const [filtroBusqueda, setFiltroBusqueda] = useState<string>("");
   const [modoVista, setModoVista] = useState<"tabla" | "arbol">("tabla");
   const [cuentaSeleccionada, setCuentaSeleccionada] = useState<CuentaVista | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
-  const { planCuentas, loading, syncPlanCuentas } = useSupabasePlanCuentas();
+  const { planCuentas, loading, syncPlanCuentas, refetch } = useSupabasePlanCuentas();
 
   const cuentas = useMemo<CuentaVista[]>(() => {
     const cuentasPersistidas = new Map(planCuentas.map((cuenta) => [cuenta.codigo, cuenta]));
@@ -95,27 +98,32 @@ const PlanCuentasBoliviano2025Module = () => {
   }, [cuentas, cuentasFiltradas, filtroBusqueda, filtroTipo]);
 
   const exportarPlanCuentas = () => {
-    const dataExport = {
-      fecha: new Date().toISOString(),
-      version: "2025.1",
-      normativa: "CAMC 2025 - SIN Bolivia",
-      plan: cuentas,
-    };
+    setExporting(true);
+    try {
+      const dataExport = {
+        fecha: new Date().toISOString(),
+        version: "2025.1",
+        normativa: "CAMC 2025 - SIN Bolivia",
+        plan: cuentas,
+      };
 
-    const blob = new Blob([JSON.stringify(dataExport, null, 2)], {
-      type: "application/json"
-    });
+      const blob = new Blob([JSON.stringify(dataExport, null, 2)], {
+        type: "application/json"
+      });
 
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `plan_cuentas_bolivia_2025_${new Date().toISOString().slice(0, 10)}.json`;
-    anchor.click();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `plan_cuentas_bolivia_2025_${new Date().toISOString().slice(0, 10)}.json`;
+      anchor.click();
 
-    toast({
-      title: "Plan de cuentas exportado",
-      description: "El plan de cuentas vigente se exporto correctamente."
-    });
+      toast({
+        title: "Plan de cuentas exportado",
+        description: "El plan de cuentas vigente se exporto correctamente."
+      });
+    } finally {
+      setExporting(false);
+    }
   };
 
   const importarPlanCuentas = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,6 +132,7 @@ const PlanCuentasBoliviano2025Module = () => {
 
     const reader = new FileReader();
     reader.onload = async (loadEvent) => {
+      setImporting(true);
       try {
         const raw = JSON.parse(loadEvent.target?.result as string);
         if (!raw.plan || !Array.isArray(raw.plan)) {
@@ -150,6 +159,7 @@ const PlanCuentasBoliviano2025Module = () => {
           variant: "destructive"
         });
       } finally {
+        setImporting(false);
         event.target.value = "";
       }
     };
@@ -158,7 +168,21 @@ const PlanCuentasBoliviano2025Module = () => {
   };
 
   const restaurarPlanOriginal = async () => {
-    await syncPlanCuentas(planCuentasBoliviano2025.map(mapNormativaToSyncPayload));
+    setSyncing(true);
+    try {
+      await syncPlanCuentas(planCuentasBoliviano2025.map(mapNormativaToSyncPayload));
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setSyncing(true);
+    try {
+      await Promise.resolve(refetch());
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const getBadgeVariant = (tipo: string) => {
@@ -232,9 +256,13 @@ const PlanCuentasBoliviano2025Module = () => {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={exportarPlanCuentas} variant="outline">
+            <Button
+              onClick={exportarPlanCuentas}
+              variant="outline"
+              disabled={loading || syncing || importing || exporting}
+            >
               <Download className="mr-2 h-4 w-4" />
-              Exportar
+              {exporting ? "Exportando..." : "Exportar"}
             </Button>
             <div className="relative">
               <input
@@ -242,15 +270,28 @@ const PlanCuentasBoliviano2025Module = () => {
                 accept=".json"
                 onChange={importarPlanCuentas}
                 className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                disabled={loading || syncing || importing || exporting}
               />
-              <Button variant="outline">
+              <Button variant="outline" disabled={loading || syncing || importing || exporting}>
                 <Upload className="mr-2 h-4 w-4" />
-                Importar
+                {importing ? "Importando..." : "Importar"}
               </Button>
             </div>
-            <Button onClick={() => void restaurarPlanOriginal()} variant="outline" disabled={loading}>
+            <Button
+              onClick={() => void restaurarPlanOriginal()}
+              variant="outline"
+              disabled={loading || syncing || importing || exporting}
+            >
               <RefreshCw className="mr-2 h-4 w-4" />
-              Sincronizar Catalogo Oficial
+              {syncing ? "Sincronizando..." : "Sincronizar Catalogo Oficial"}
+            </Button>
+            <Button
+              onClick={() => void handleRefresh()}
+              variant="outline"
+              disabled={loading || syncing || importing || exporting}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              {syncing ? "Actualizando..." : "Actualizar Base"}
             </Button>
           </div>
         </div>
@@ -280,6 +321,7 @@ const PlanCuentasBoliviano2025Module = () => {
                   placeholder="Buscar por codigo o nombre..."
                   value={filtroBusqueda}
                   onChange={(event) => setFiltroBusqueda(event.target.value)}
+                  disabled={loading || syncing || importing}
                 />
               </div>
               <div className="min-w-[170px]">
@@ -287,6 +329,7 @@ const PlanCuentasBoliviano2025Module = () => {
                   value={filtroTipo}
                   onChange={(event) => setFiltroTipo(event.target.value)}
                   className="w-full rounded-md border bg-background p-2"
+                  disabled={loading || syncing || importing}
                 >
                   <option value="">Todos los tipos</option>
                   <option value="activo">Activos</option>
@@ -297,10 +340,20 @@ const PlanCuentasBoliviano2025Module = () => {
                 </select>
               </div>
               <div className="flex gap-2">
-                <Button variant={modoVista === "tabla" ? "default" : "outline"} onClick={() => setModoVista("tabla")} size="sm">
+                <Button
+                  variant={modoVista === "tabla" ? "default" : "outline"}
+                  onClick={() => setModoVista("tabla")}
+                  size="sm"
+                  disabled={loading || syncing || importing}
+                >
                   Tabla
                 </Button>
-                <Button variant={modoVista === "arbol" ? "default" : "outline"} onClick={() => setModoVista("arbol")} size="sm">
+                <Button
+                  variant={modoVista === "arbol" ? "default" : "outline"}
+                  onClick={() => setModoVista("arbol")}
+                  size="sm"
+                  disabled={loading || syncing || importing}
+                >
                   <TreePine className="mr-2 h-4 w-4" />
                   Arbol
                 </Button>

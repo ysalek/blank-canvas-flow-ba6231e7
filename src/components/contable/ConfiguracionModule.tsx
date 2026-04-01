@@ -47,6 +47,12 @@ const ConfiguracionModule = () => {
 
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle");
+  const [importingConfig, setImportingConfig] = useState(false);
+  const [exportingConfig, setExportingConfig] = useState(false);
+  const [refreshingConfig, setRefreshingConfig] = useState(false);
+  const [savingSection, setSavingSection] = useState<"empresa" | "sin" | "sistema" | null>(null);
+  const [generatingCuis, setGeneratingCuis] = useState(false);
+  const [generatingCufd, setGeneratingCufd] = useState(false);
   const integracionSinLista = Boolean(configSin.tokenDelegado && configSin.codigoSistema);
   const parametrosEmpresaCompletos = [empresa.razonSocial, empresa.nit, empresa.actividadEconomica].filter(
     (value) => value?.trim().length > 0
@@ -57,6 +63,16 @@ const ConfiguracionModule = () => {
     configSistema.notificacionesEmail,
     configSistema.posHabilitado,
   ].filter(Boolean).length;
+
+  const uiBlocked =
+    loading ||
+    testingConnection ||
+    importingConfig ||
+    exportingConfig ||
+    refreshingConfig ||
+    savingSection !== null ||
+    generatingCuis ||
+    generatingCufd;
 
   const testearConexionSin = async () => {
     setTestingConnection(true);
@@ -83,12 +99,17 @@ const ConfiguracionModule = () => {
   };
 
   const obtenerCuis = async () => {
-    const nuevoCuis = `CUIS${Date.now()}`;
-    setConfigSin((prev) => ({ ...prev, cuis: nuevoCuis }));
-    toast({
-      title: "CUIS simulado generado",
-      description: `Se asigno ${nuevoCuis} para pruebas internas.`,
-    });
+    setGeneratingCuis(true);
+    try {
+      const nuevoCuis = `CUIS${Date.now()}`;
+      setConfigSin((prev) => ({ ...prev, cuis: nuevoCuis }));
+      toast({
+        title: "CUIS simulado generado",
+        description: `Se asigno ${nuevoCuis} para pruebas internas.`,
+      });
+    } finally {
+      setGeneratingCuis(false);
+    }
   };
 
   const obtenerCufd = async () => {
@@ -100,19 +121,23 @@ const ConfiguracionModule = () => {
       });
       return;
     }
+    setGeneratingCufd(true);
+    try {
+      const fechaVigencia = new Date();
+      fechaVigencia.setDate(fechaVigencia.getDate() + 1);
+      setConfigSin((prev) => ({
+        ...prev,
+        cufd: `CUFD${Date.now()}`,
+        fechaVigenciaCufd: fechaVigencia.toISOString().split("T")[0],
+      }));
 
-    const fechaVigencia = new Date();
-    fechaVigencia.setDate(fechaVigencia.getDate() + 1);
-    setConfigSin((prev) => ({
-      ...prev,
-      cufd: `CUFD${Date.now()}`,
-      fechaVigenciaCufd: fechaVigencia.toISOString().split("T")[0],
-    }));
-
-    toast({
-      title: "CUFD simulado generado",
-      description: `El CUFD de prueba quedo vigente hasta ${fechaVigencia.toLocaleDateString("es-BO")}.`,
-    });
+      toast({
+        title: "CUFD simulado generado",
+        description: `El CUFD de prueba quedo vigente hasta ${fechaVigencia.toLocaleDateString("es-BO")}.`,
+      });
+    } finally {
+      setGeneratingCufd(false);
+    }
   };
 
   const handleImportarClick = () => {
@@ -123,6 +148,7 @@ const ConfiguracionModule = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setImportingConfig(true);
     try {
       const contenido = await file.text();
       const data = JSON.parse(contenido);
@@ -135,9 +161,55 @@ const ConfiguracionModule = () => {
         variant: "destructive",
       });
     } finally {
+      setImportingConfig(false);
       if (event.target) {
         event.target.value = "";
       }
+    }
+  };
+
+  const handleExportarConfiguracion = () => {
+    setExportingConfig(true);
+    try {
+      exportarConfiguracion();
+    } finally {
+      setExportingConfig(false);
+    }
+  };
+
+  const handleRefetch = async () => {
+    setRefreshingConfig(true);
+    try {
+      await Promise.resolve(refetch());
+    } finally {
+      setRefreshingConfig(false);
+    }
+  };
+
+  const handleGuardarEmpresaFiscal = async () => {
+    setSavingSection("empresa");
+    try {
+      await guardarEmpresaFiscal();
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
+  const handleGuardarSistema = async () => {
+    setSavingSection("sistema");
+    try {
+      await guardarSistema();
+    } finally {
+      setSavingSection(null);
+    }
+  };
+
+  const handleGuardarSin = async () => {
+    setSavingSection("sin");
+    try {
+      await guardarSin();
+    } finally {
+      setSavingSection(null);
     }
   };
 
@@ -171,17 +243,17 @@ const ConfiguracionModule = () => {
         }}
         actions={
           <div className="flex flex-wrap gap-2">
-            <Button onClick={handleImportarClick} variant="outline" size="sm">
+            <Button onClick={handleImportarClick} variant="outline" size="sm" disabled={uiBlocked}>
               <Upload className="mr-2 h-4 w-4" />
-              Importar
+              {importingConfig ? "Importando..." : "Importar"}
             </Button>
-            <Button onClick={exportarConfiguracion} variant="outline" size="sm">
+            <Button onClick={handleExportarConfiguracion} variant="outline" size="sm" disabled={uiBlocked}>
               <Download className="mr-2 h-4 w-4" />
-              Exportar
+              {exportingConfig ? "Exportando..." : "Exportar"}
             </Button>
-            <Button onClick={refetch} variant="outline" size="sm">
+            <Button onClick={() => void handleRefetch()} variant="outline" size="sm" disabled={uiBlocked}>
               <RefreshCw className="mr-2 h-4 w-4" />
-              Recargar
+              {refreshingConfig ? "Recargando..." : "Recargar"}
             </Button>
           </div>
         }
@@ -281,6 +353,7 @@ const ConfiguracionModule = () => {
                     id="razonSocial"
                     value={empresa.razonSocial}
                     onChange={(event) => setEmpresa({ ...empresa, razonSocial: event.target.value })}
+                    disabled={uiBlocked}
                   />
                 </div>
                 <div className="space-y-2">
@@ -289,6 +362,7 @@ const ConfiguracionModule = () => {
                     id="nit"
                     value={empresa.nit}
                     onChange={(event) => setEmpresa({ ...empresa, nit: event.target.value })}
+                    disabled={uiBlocked}
                   />
                 </div>
                 <div className="space-y-2">
@@ -297,6 +371,7 @@ const ConfiguracionModule = () => {
                     id="telefono"
                     value={empresa.telefono}
                     onChange={(event) => setEmpresa({ ...empresa, telefono: event.target.value })}
+                    disabled={uiBlocked}
                   />
                 </div>
                 <div className="space-y-2">
@@ -306,6 +381,7 @@ const ConfiguracionModule = () => {
                     type="email"
                     value={empresa.email}
                     onChange={(event) => setEmpresa({ ...empresa, email: event.target.value })}
+                    disabled={uiBlocked}
                   />
                 </div>
               </div>
@@ -316,6 +392,7 @@ const ConfiguracionModule = () => {
                   id="direccion"
                   value={empresa.direccion}
                   onChange={(event) => setEmpresa({ ...empresa, direccion: event.target.value })}
+                  disabled={uiBlocked}
                 />
               </div>
 
@@ -328,6 +405,7 @@ const ConfiguracionModule = () => {
                     onChange={(event) =>
                       setEmpresa({ ...empresa, actividadEconomica: event.target.value })
                     }
+                    disabled={uiBlocked}
                   />
                 </div>
                 <div className="space-y-2">
@@ -336,13 +414,14 @@ const ConfiguracionModule = () => {
                     id="codigoSin"
                     value={empresa.codigoSin}
                     onChange={(event) => setEmpresa({ ...empresa, codigoSin: event.target.value })}
+                    disabled={uiBlocked}
                   />
                 </div>
               </div>
 
-              <Button onClick={guardarEmpresaFiscal} className="w-full">
+              <Button onClick={() => void handleGuardarEmpresaFiscal()} className="w-full" disabled={uiBlocked}>
                 <Save className="mr-2 h-4 w-4" />
-                Guardar empresa y base tributaria
+                {savingSection === "empresa" ? "Guardando..." : "Guardar empresa y base tributaria"}
               </Button>
             </CardContent>
           </Card>
@@ -370,6 +449,7 @@ const ConfiguracionModule = () => {
                         ivaGeneral: parseFloat(event.target.value) || 0,
                       })
                     }
+                    disabled={uiBlocked}
                   />
                 </div>
                 <div className="space-y-2">
@@ -377,6 +457,7 @@ const ConfiguracionModule = () => {
                   <Select
                     value={configFiscal.regimen}
                     onValueChange={(value) => setConfigFiscal({ ...configFiscal, regimen: value })}
+                    disabled={uiBlocked}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -395,6 +476,7 @@ const ConfiguracionModule = () => {
                     onValueChange={(value) =>
                       setConfigFiscal({ ...configFiscal, modalidadFacturacion: value })
                     }
+                    disabled={uiBlocked}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -412,6 +494,7 @@ const ConfiguracionModule = () => {
                     onValueChange={(value) =>
                       setConfigFiscal({ ...configFiscal, ambienteSin: value })
                     }
+                    disabled={uiBlocked}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -430,6 +513,7 @@ const ConfiguracionModule = () => {
                     onChange={(event) =>
                       setConfigFiscal({ ...configFiscal, sucursal: event.target.value })
                     }
+                    disabled={uiBlocked}
                   />
                 </div>
                 <div className="space-y-2">
@@ -440,13 +524,14 @@ const ConfiguracionModule = () => {
                     onChange={(event) =>
                       setConfigFiscal({ ...configFiscal, puntoVenta: event.target.value })
                     }
+                    disabled={uiBlocked}
                   />
                 </div>
               </div>
 
-              <Button onClick={guardarEmpresaFiscal} className="w-full">
+              <Button onClick={() => void handleGuardarEmpresaFiscal()} className="w-full" disabled={uiBlocked}>
                 <Save className="mr-2 h-4 w-4" />
-                Guardar configuracion fiscal
+                {savingSection === "empresa" ? "Guardando..." : "Guardar configuracion fiscal"}
               </Button>
             </CardContent>
           </Card>
@@ -471,6 +556,7 @@ const ConfiguracionModule = () => {
                     id="urlApi"
                     value={configSin.urlApi}
                     onChange={(event) => setConfigSin({ ...configSin, urlApi: event.target.value })}
+                    disabled={uiBlocked}
                   />
                 </div>
                 <div className="space-y-2">
@@ -478,6 +564,7 @@ const ConfiguracionModule = () => {
                   <Select
                     value={configSin.tipoAmbiente}
                     onValueChange={(value) => setConfigSin({ ...configSin, tipoAmbiente: value })}
+                    disabled={uiBlocked}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -497,6 +584,7 @@ const ConfiguracionModule = () => {
                     onChange={(event) =>
                       setConfigSin({ ...configSin, tokenDelegado: event.target.value })
                     }
+                    disabled={uiBlocked}
                   />
                 </div>
                 <div className="space-y-2">
@@ -507,6 +595,7 @@ const ConfiguracionModule = () => {
                     onChange={(event) =>
                       setConfigSin({ ...configSin, codigoSistema: event.target.value })
                     }
+                    disabled={uiBlocked}
                   />
                 </div>
                 <div className="space-y-2">
@@ -515,6 +604,7 @@ const ConfiguracionModule = () => {
                     id="nitSin"
                     value={configSin.nit}
                     onChange={(event) => setConfigSin({ ...configSin, nit: event.target.value })}
+                    disabled={uiBlocked}
                   />
                 </div>
                 <div className="space-y-2">
@@ -524,6 +614,7 @@ const ConfiguracionModule = () => {
                     onValueChange={(value) =>
                       setConfigSin({ ...configSin, codigoModalidad: value })
                     }
+                    disabled={uiBlocked}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -542,6 +633,7 @@ const ConfiguracionModule = () => {
                     onChange={(event) =>
                       setConfigSin({ ...configSin, codigoSucursal: event.target.value })
                     }
+                    disabled={uiBlocked}
                   />
                 </div>
                 <div className="space-y-2">
@@ -552,6 +644,7 @@ const ConfiguracionModule = () => {
                     onChange={(event) =>
                       setConfigSin({ ...configSin, codigoPuntoVenta: event.target.value })
                     }
+                    disabled={uiBlocked}
                   />
                 </div>
               </div>
@@ -566,7 +659,7 @@ const ConfiguracionModule = () => {
                 <div className="flex items-center gap-2">
                   {connectionStatus === "success" && <CheckCircle className="h-5 w-5 text-green-500" />}
                   {connectionStatus === "error" && <XCircle className="h-5 w-5 text-red-500" />}
-                  <Button onClick={testearConexionSin} disabled={testingConnection} variant="outline">
+                  <Button onClick={testearConexionSin} disabled={uiBlocked} variant="outline">
                     <TestTube className="mr-2 h-4 w-4" />
                     {testingConnection ? "Probando..." : "Probar conexion"}
                   </Button>
@@ -583,18 +676,18 @@ const ConfiguracionModule = () => {
                 <div className="space-y-2">
                   <Label htmlFor="cuis">CUIS</Label>
                   <div className="flex gap-2">
-                    <Input id="cuis" value={configSin.cuis} readOnly placeholder="No generado" />
-                    <Button onClick={obtenerCuis} variant="outline">
-                      Obtener
+                    <Input id="cuis" value={configSin.cuis} readOnly placeholder="No generado" disabled={uiBlocked} />
+                    <Button onClick={obtenerCuis} variant="outline" disabled={uiBlocked}>
+                      {generatingCuis ? "Obteniendo..." : "Obtener"}
                     </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="cufd">CUFD</Label>
                   <div className="flex gap-2">
-                    <Input id="cufd" value={configSin.cufd} readOnly placeholder="No generado" />
-                    <Button onClick={obtenerCufd} variant="outline" disabled={!configSin.cuis}>
-                      Obtener
+                    <Input id="cufd" value={configSin.cufd} readOnly placeholder="No generado" disabled={uiBlocked} />
+                    <Button onClick={obtenerCufd} variant="outline" disabled={uiBlocked || !configSin.cuis}>
+                      {generatingCufd ? "Obteniendo..." : "Obtener"}
                     </Button>
                   </div>
                 </div>
@@ -619,12 +712,13 @@ const ConfiguracionModule = () => {
                 <Switch
                   checked={configSin.activo}
                   onCheckedChange={(checked) => setConfigSin({ ...configSin, activo: checked })}
+                  disabled={uiBlocked}
                 />
               </div>
 
-              <Button onClick={guardarSin} className="w-full">
+              <Button onClick={() => void handleGuardarSin()} className="w-full" disabled={uiBlocked}>
                 <Save className="mr-2 h-4 w-4" />
-                Guardar configuracion SIN
+                {savingSection === "sin" ? "Guardando..." : "Guardar configuracion SIN"}
               </Button>
             </CardContent>
           </Card>
@@ -646,6 +740,7 @@ const ConfiguracionModule = () => {
                   <Select
                     value={configSistema.monedaBase}
                     onValueChange={(value) => setConfigSistema({ ...configSistema, monedaBase: value })}
+                    disabled={uiBlocked}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -663,6 +758,7 @@ const ConfiguracionModule = () => {
                     onValueChange={(value) =>
                       setConfigSistema({ ...configSistema, formatoFecha: value })
                     }
+                    disabled={uiBlocked}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -688,6 +784,7 @@ const ConfiguracionModule = () => {
                         decimalesMontos: parseInt(event.target.value, 10) || 0,
                       })
                     }
+                    disabled={uiBlocked}
                   />
                 </div>
               </div>
@@ -705,6 +802,7 @@ const ConfiguracionModule = () => {
                     onCheckedChange={(checked) =>
                       setConfigSistema({ ...configSistema, numeracionAutomatica: checked })
                     }
+                    disabled={uiBlocked}
                   />
                 </div>
 
@@ -718,6 +816,7 @@ const ConfiguracionModule = () => {
                     onCheckedChange={(checked) =>
                       setConfigSistema({ ...configSistema, backupAutomatico: checked })
                     }
+                    disabled={uiBlocked}
                   />
                 </div>
 
@@ -731,6 +830,7 @@ const ConfiguracionModule = () => {
                     onCheckedChange={(checked) =>
                       setConfigSistema({ ...configSistema, notificacionesEmail: checked })
                     }
+                    disabled={uiBlocked}
                   />
                 </div>
 
@@ -744,6 +844,7 @@ const ConfiguracionModule = () => {
                     onCheckedChange={(checked) =>
                       setConfigSistema({ ...configSistema, posHabilitado: checked })
                     }
+                    disabled={uiBlocked}
                   />
                 </div>
 
@@ -759,6 +860,7 @@ const ConfiguracionModule = () => {
                         onCheckedChange={(checked) =>
                           setConfigSistema({ ...configSistema, posAutoimpresion: checked })
                         }
+                        disabled={uiBlocked}
                       />
                     </div>
 
@@ -777,15 +879,16 @@ const ConfiguracionModule = () => {
                             posRequiereAutorizacion: checked,
                           })
                         }
+                        disabled={uiBlocked}
                       />
                     </div>
                   </>
                 )}
               </div>
 
-              <Button onClick={guardarSistema} className="w-full">
+              <Button onClick={() => void handleGuardarSistema()} className="w-full" disabled={uiBlocked}>
                 <Save className="mr-2 h-4 w-4" />
-                Guardar configuracion del sistema
+                {savingSection === "sistema" ? "Guardando..." : "Guardar configuracion del sistema"}
               </Button>
             </CardContent>
           </Card>

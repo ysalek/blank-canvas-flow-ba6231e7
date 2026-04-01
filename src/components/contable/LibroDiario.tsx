@@ -36,6 +36,8 @@ const LibroDiario = () => {
   const [asientoEditando, setAsientoEditando] = useState<AsientoContable | null>(null);
   const [asientoDetalle, setAsientoDetalle] = useState<AsientoContable | null>(null);
   const [savingEditAsiento, setSavingEditAsiento] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [processingAsientoId, setProcessingAsientoId] = useState<string | null>(null);
 
   const { asientos, updateAsiento, actualizarEstadoAsiento, refetch } = useAsientos();
   const { getBalanceSheetData } = useContabilidadIntegration();
@@ -101,29 +103,39 @@ const LibroDiario = () => {
       return;
     }
 
-    const resultado = await actualizarEstadoAsiento(asientoId, "anulado");
-    if (!resultado) return;
+    setProcessingAsientoId(asientoId);
+    try {
+      const resultado = await actualizarEstadoAsiento(asientoId, "anulado");
+      if (!resultado) return;
 
-    toast({
-      title: "Asiento anulado",
-      description: "El asiento contable ha sido anulado exitosamente.",
-      variant: "destructive",
-    });
-    refetch();
+      toast({
+        title: "Asiento anulado",
+        description: "El asiento contable ha sido anulado exitosamente.",
+        variant: "destructive",
+      });
+      await Promise.resolve(refetch());
+    } finally {
+      setProcessingAsientoId(null);
+    }
   };
 
   const cambiarEstadoAsiento = async (
     asientoId: string,
     nuevoEstado: "borrador" | "registrado" | "anulado"
   ) => {
-    const resultado = await actualizarEstadoAsiento(asientoId, nuevoEstado);
-    if (!resultado) return;
+    setProcessingAsientoId(asientoId);
+    try {
+      const resultado = await actualizarEstadoAsiento(asientoId, nuevoEstado);
+      if (!resultado) return;
 
-    toast({
-      title: "Estado actualizado",
-      description: `El asiento ha sido ${nuevoEstado === "anulado" ? "anulado" : nuevoEstado}.`,
-    });
-    refetch();
+      toast({
+        title: "Estado actualizado",
+        description: `El asiento ha sido ${nuevoEstado === "anulado" ? "anulado" : nuevoEstado}.`,
+      });
+      await Promise.resolve(refetch());
+    } finally {
+      setProcessingAsientoId(null);
+    }
   };
 
   const guardarEdicion = async () => {
@@ -133,13 +145,21 @@ const LibroDiario = () => {
       setSavingEditAsiento(true);
       const resultado = await updateAsiento(asientoEditando);
       if (resultado) {
-        refetch();
+        await Promise.resolve(refetch());
+        setShowEditDialog(false);
+        setAsientoEditando(null);
       }
-
-      setShowEditDialog(false);
-      setAsientoEditando(null);
     } finally {
       setSavingEditAsiento(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.resolve(refetch());
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -173,13 +193,23 @@ const LibroDiario = () => {
         }}
         actions={
           <div className="flex gap-2">
-            <Button onClick={exportarDiario} variant="outline" size="sm">
+            <Button
+              onClick={exportarDiario}
+              variant="outline"
+              size="sm"
+              disabled={refreshing || savingEditAsiento || processingAsientoId !== null}
+            >
               <Download className="mr-2 h-4 w-4" />
               Exportar
             </Button>
-            <Button onClick={refetch} variant="outline" size="sm">
+            <Button
+              onClick={() => void handleRefresh()}
+              variant="outline"
+              size="sm"
+              disabled={refreshing || savingEditAsiento || processingAsientoId !== null}
+            >
               <RefreshCw className="mr-2 h-4 w-4" />
-              Actualizar
+              {refreshing ? "Actualizando..." : "Actualizar"}
             </Button>
           </div>
         }
@@ -262,6 +292,7 @@ const LibroDiario = () => {
                   value={fechaInicio}
                   onChange={(event) => setFechaInicio(event.target.value)}
                   className="w-auto"
+                  disabled={refreshing || savingEditAsiento}
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -272,12 +303,17 @@ const LibroDiario = () => {
                   value={fechaFin}
                   onChange={(event) => setFechaFin(event.target.value)}
                   className="w-auto"
+                  disabled={refreshing || savingEditAsiento}
                 />
               </div>
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4" />
                 <Label>Estado:</Label>
-                <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+                <Select
+                  value={filtroEstado}
+                  onValueChange={setFiltroEstado}
+                  disabled={refreshing || savingEditAsiento}
+                >
                   <SelectTrigger className="w-[140px]">
                     <SelectValue />
                   </SelectTrigger>
@@ -341,8 +377,10 @@ const LibroDiario = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {asientosFiltrados.map((asiento) => (
-                <TableRow key={asiento.id} className="table-row-interactive group">
+              {asientosFiltrados.map((asiento) => {
+                const isProcessing = processingAsientoId === asiento.id;
+                return (
+                  <TableRow key={asiento.id} className="table-row-interactive group">
                   <TableCell>{new Date(asiento.fecha).toLocaleDateString("es-BO")}</TableCell>
                   <TableCell className="font-mono">{asiento.numero}</TableCell>
                   <TableCell>{asiento.concepto}</TableCell>
@@ -358,22 +396,32 @@ const LibroDiario = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button size="sm" variant="outline" onClick={() => verDetalle(asiento)} className="mr-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => verDetalle(asiento)}
+                        className="mr-1"
+                        disabled={processingAsientoId !== null}
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => editarAsiento(asiento)}
-                        disabled={asiento.estado !== "borrador"}
+                        disabled={asiento.estado !== "borrador" || processingAsientoId !== null}
                         className="mr-1"
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
 
                       {asiento.estado === "borrador" && (
-                        <Button size="sm" onClick={() => cambiarEstadoAsiento(asiento.id, "registrado")}>
-                          Registrar
+                        <Button
+                          size="sm"
+                          onClick={() => void cambiarEstadoAsiento(asiento.id, "registrado")}
+                          disabled={processingAsientoId !== null}
+                        >
+                          {isProcessing ? "Registrando..." : "Registrar"}
                         </Button>
                       )}
 
@@ -381,19 +429,26 @@ const LibroDiario = () => {
                         <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => cambiarEstadoAsiento(asiento.id, "anulado")}
+                          onClick={() => void cambiarEstadoAsiento(asiento.id, "anulado")}
+                          disabled={processingAsientoId !== null}
                         >
-                          Anular
+                          {isProcessing ? "Anulando..." : "Anular"}
                         </Button>
                       )}
 
-                      <Button size="sm" variant="outline" onClick={() => eliminarAsiento(asiento.id)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void eliminarAsiento(asiento.id)}
+                        disabled={processingAsientoId !== null}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
-                </TableRow>
-              ))}
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
@@ -507,7 +562,14 @@ const LibroDiario = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+      <Dialog
+        open={showEditDialog}
+        onOpenChange={(open) => {
+          if (!savingEditAsiento) {
+            setShowEditDialog(open);
+          }
+        }}
+      >
         <DialogContent className="dialog-animated max-w-2xl">
           <DialogHeader>
             <DialogTitle>Editar Asiento Contable</DialogTitle>

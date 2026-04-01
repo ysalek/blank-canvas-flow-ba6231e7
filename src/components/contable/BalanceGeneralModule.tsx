@@ -24,13 +24,16 @@ const BalanceGeneralModule = () => {
   const [fechaInicio, setFechaInicio] = useState<Date>(new Date(new Date().getFullYear(), 0, 1));
   const [fechaCorte, setFechaCorte] = useState<Date>(new Date());
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const { getBalanceSheetData } = useContabilidadIntegration();
 
   const generarReporte = async () => {
     setIsGenerating(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsGenerating(false);
-    window.location.hash = `#${Date.now()}`;
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const balanceData = getBalanceSheetData({
@@ -42,38 +45,45 @@ const BalanceGeneralModule = () => {
     balanceData;
 
   const exportarExcel = () => {
-    const fechaInicioStr = format(fechaInicio, "dd/MM/yyyy");
-    const fechaCorteStr = format(fechaCorte, "dd/MM/yyyy");
+    setIsExporting(true);
+    try {
+      const fechaInicioStr = format(fechaInicio, "dd/MM/yyyy");
+      const fechaCorteStr = format(fechaCorte, "dd/MM/yyyy");
 
-    const datos = [
-      ["BALANCE GENERAL"],
-      [`Periodo: ${fechaInicioStr} al ${fechaCorteStr}`],
-      [""],
-      ["ACTIVOS", "", "Bs."],
-      ...activos.cuentas.map((cuenta) => [cuenta.codigo, cuenta.nombre, cuenta.saldo.toFixed(2)]),
-      ["", "TOTAL ACTIVOS", activos.total.toFixed(2)],
-      [""],
-      ["PASIVOS", "", "Bs."],
-      ...pasivos.cuentas.map((cuenta) => [cuenta.codigo, cuenta.nombre, cuenta.saldo.toFixed(2)]),
-      ["", "TOTAL PASIVOS", pasivos.total.toFixed(2)],
-      [""],
-      ["PATRIMONIO", "", "Bs."],
-      ...patrimonio.cuentas.map((cuenta) => [cuenta.codigo, cuenta.nombre, cuenta.saldo.toFixed(2)]),
-      ["", "TOTAL PATRIMONIO", patrimonio.total.toFixed(2)],
-      [""],
-      ["", "TOTAL PASIVO + PATRIMONIO", totalPasivoPatrimonio.toFixed(2)],
-      [""],
-      ["Ecuacion contable:", ecuacionCuadrada ? "BALANCEADA" : "DESBALANCEADA"],
-    ];
+      const datos = [
+        ["BALANCE GENERAL"],
+        [`Periodo: ${fechaInicioStr} al ${fechaCorteStr}`],
+        [""],
+        ["ACTIVOS", "", "Bs."],
+        ...activos.cuentas.map((cuenta) => [cuenta.codigo, cuenta.nombre, cuenta.saldo.toFixed(2)]),
+        ["", "TOTAL ACTIVOS", activos.total.toFixed(2)],
+        [""],
+        ["PASIVOS", "", "Bs."],
+        ...pasivos.cuentas.map((cuenta) => [cuenta.codigo, cuenta.nombre, cuenta.saldo.toFixed(2)]),
+        ["", "TOTAL PASIVOS", pasivos.total.toFixed(2)],
+        [""],
+        ["PATRIMONIO", "", "Bs."],
+        ...patrimonio.cuentas.map((cuenta) => [cuenta.codigo, cuenta.nombre, cuenta.saldo.toFixed(2)]),
+        ["", "TOTAL PATRIMONIO", patrimonio.total.toFixed(2)],
+        [""],
+        ["", "TOTAL PASIVO + PATRIMONIO", totalPasivoPatrimonio.toFixed(2)],
+        [""],
+        ["Ecuacion contable:", ecuacionCuadrada ? "BALANCEADA" : "DESBALANCEADA"],
+      ];
 
-    const ws = XLSX.utils.aoa_to_sheet(datos);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Balance General");
-    XLSX.writeFile(
-      wb,
-      `Balance_General_${format(fechaInicio, "yyyy-MM-dd")}_${format(fechaCorte, "yyyy-MM-dd")}.xlsx`
-    );
+      const ws = XLSX.utils.aoa_to_sheet(datos);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Balance General");
+      XLSX.writeFile(
+        wb,
+        `Balance_General_${format(fechaInicio, "yyyy-MM-dd")}_${format(fechaCorte, "yyyy-MM-dd")}.xlsx`
+      );
+    } finally {
+      setIsExporting(false);
+    }
   };
+
+  const uiBlocked = isGenerating || isExporting;
 
   return (
     <div className="page-shell space-y-6 pb-12">
@@ -102,7 +112,7 @@ const BalanceGeneralModule = () => {
             </div>
             <Button
               onClick={generarReporte}
-              disabled={isGenerating}
+              disabled={uiBlocked}
               variant="default"
               size="sm"
               className="flex items-center gap-2"
@@ -124,6 +134,7 @@ const BalanceGeneralModule = () => {
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
+                    disabled={uiBlocked}
                     className={cn(
                       "w-[180px] justify-start text-left font-normal",
                       !fechaInicio && "text-muted-foreground"
@@ -151,6 +162,7 @@ const BalanceGeneralModule = () => {
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
+                    disabled={uiBlocked}
                     className={cn(
                       "w-[180px] justify-start text-left font-normal",
                       !fechaCorte && "text-muted-foreground"
@@ -172,9 +184,14 @@ const BalanceGeneralModule = () => {
               </Popover>
             </div>
 
-            <Button onClick={exportarExcel} variant="outline" className="flex items-center gap-2">
+            <Button
+              onClick={exportarExcel}
+              variant="outline"
+              className="flex items-center gap-2"
+              disabled={uiBlocked}
+            >
               <Download className="h-4 w-4" />
-              Exportar Excel
+              {isExporting ? "Exportando..." : "Exportar Excel"}
             </Button>
           </div>
 

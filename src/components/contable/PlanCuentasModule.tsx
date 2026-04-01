@@ -30,6 +30,8 @@ const PlanCuentasModule = () => {
   const [filterTipo, setFilterTipo] = useState("todos");
   const [savingNewCuenta, setSavingNewCuenta] = useState(false);
   const [savingEditCuenta, setSavingEditCuenta] = useState(false);
+  const [initializingPlan, setInitializingPlan] = useState(false);
+  const [processingCuentaId, setProcessingCuentaId] = useState<string | null>(null);
   const [newCuenta, setNewCuenta] = useState<CuentaFormData>({
     codigo: "",
     nombre: "",
@@ -48,10 +50,12 @@ const PlanCuentasModule = () => {
     initializePlanCuentasBasico,
     refetch
   } = useSupabasePlanCuentas();
+  const uiBlocked = loading || savingNewCuenta || savingEditCuenta || initializingPlan || processingCuentaId !== null;
 
   // Inicializar plan de cuentas básico si no hay cuentas
   const inicializarPlanBasico = async () => {
     try {
+      setInitializingPlan(true);
       await initializePlanCuentasBasico();
       refetch();
     } catch (error) {
@@ -60,6 +64,8 @@ const PlanCuentasModule = () => {
         description: "No se pudo inicializar el plan de cuentas",
         variant: "destructive"
       });
+    } finally {
+      setInitializingPlan(false);
     }
   };
 
@@ -156,6 +162,7 @@ const PlanCuentasModule = () => {
 
     if (confirm(`¿Está seguro de eliminar la cuenta ${codigo} - ${cuenta.nombre}?`)) {
       try {
+        setProcessingCuentaId(cuenta.id ?? codigo);
         await deleteCuenta(cuenta.id!);
         
         toast({
@@ -170,6 +177,8 @@ const PlanCuentasModule = () => {
           description: "No se pudo eliminar la cuenta",
           variant: "destructive"
         });
+      } finally {
+        setProcessingCuentaId(null);
       }
     }
   };
@@ -199,9 +208,9 @@ const PlanCuentasModule = () => {
            </p>
           </div>
         </div>
-        <Dialog open={showNewCuenta} onOpenChange={setShowNewCuenta}>
+        <Dialog open={showNewCuenta} onOpenChange={(open) => !savingNewCuenta && setShowNewCuenta(open)}>
           <DialogTrigger asChild>
-            <Button size="sm">
+            <Button size="sm" disabled={uiBlocked}>
               <Plus className="w-4 h-4 mr-1.5" />
               Nueva Cuenta
             </Button>
@@ -319,12 +328,13 @@ const PlanCuentasModule = () => {
             <Input
               placeholder="Buscar por código o nombre..."
               value={searchTerm}
+              disabled={uiBlocked}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
         </div>
-        <Select value={filterTipo} onValueChange={setFilterTipo}>
+        <Select value={filterTipo} onValueChange={setFilterTipo} disabled={uiBlocked}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Filtrar por tipo" />
           </SelectTrigger>
@@ -354,7 +364,7 @@ const PlanCuentasModule = () => {
                 El plan de cuentas básico incluye las cuentas principales según la normativa boliviana:
                 Activos, Pasivos, Patrimonio, Ingresos y Gastos.
               </p>
-              <Button onClick={inicializarPlanBasico} className="min-w-[200px]">
+              <Button onClick={inicializarPlanBasico} disabled={uiBlocked} className="min-w-[200px]">
                 <FolderTree className="w-4 h-4 mr-2" />
                 Inicializar Plan de Cuentas Básico
               </Button>
@@ -411,12 +421,13 @@ const PlanCuentasModule = () => {
                               </div>
                             </div>
                             <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setEditingCuenta(cuenta);
-                                setShowEditCuenta(true);
+                             <Button
+                               size="sm"
+                               variant="outline"
+                               disabled={uiBlocked}
+                               onClick={() => {
+                                 setEditingCuenta(cuenta);
+                                 setShowEditCuenta(true);
                               }}
                             >
                               <Edit className="w-4 h-4" />
@@ -424,6 +435,7 @@ const PlanCuentasModule = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
+                                disabled={uiBlocked}
                                 onClick={() => eliminarCuenta(cuenta.codigo)}
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -442,7 +454,7 @@ const PlanCuentasModule = () => {
       )}
 
       {/* Dialog para editar cuenta */}
-      <Dialog open={showEditCuenta} onOpenChange={setShowEditCuenta}>
+      <Dialog open={showEditCuenta} onOpenChange={(open) => !savingEditCuenta && setShowEditCuenta(open)}>
         <DialogContent className="dialog-animated">
           <DialogHeader>
             <DialogTitle>Editar Cuenta</DialogTitle>

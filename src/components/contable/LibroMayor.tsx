@@ -39,9 +39,11 @@ const LibroMayor = () => {
   const [busquedaCuenta, setBusquedaCuenta] = useState('');
   const [cuentasMayor, setCuentasMayor] = useState<CuentaMayor[]>([]);
   const [cuentasDisponibles, setCuentasDisponibles] = useState<{codigo: string, nombre: string}[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
   
   const { getAsientos, asientos, loading } = useAsientos();
   const { planCuentas: planCuentasSupabase, loading: loadingPlan } = useSupabasePlanCuentas();
+  const uiBlocked = loading || loadingPlan || isExporting;
 
   const generarLibroMayor = useCallback(() => {
     const asientos = getAsientos();
@@ -224,6 +226,15 @@ const LibroMayor = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportarLibroMayor = async () => {
+    try {
+      setIsExporting(true);
+      exportarLibroMayor();
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const cuentasFiltradas = filtrarCuentas();
   const totalDebe = cuentasFiltradas.reduce((sum, cuenta) => sum + cuenta.totalDebe, 0);
   const totalHaber = cuentasFiltradas.reduce((sum, cuenta) => sum + cuenta.totalHaber, 0);
@@ -239,9 +250,9 @@ const LibroMayor = () => {
           variant: 'secondary'
         }}
         actions={
-          <Button onClick={exportarLibroMayor} variant="outline" size="sm">
+          <Button onClick={handleExportarLibroMayor} disabled={uiBlocked} variant="outline" size="sm">
             <Download className="mr-2 h-4 w-4" />
-            Exportar
+            {isExporting ? 'Exportando...' : 'Exportar'}
           </Button>
         }
       />
@@ -274,6 +285,7 @@ const LibroMayor = () => {
                   id="fecha-inicio"
                   type="date"
                   value={fechaInicio}
+                  disabled={uiBlocked}
                   onChange={(e) => setFechaInicio(e.target.value)}
                 />
               </div>
@@ -285,6 +297,7 @@ const LibroMayor = () => {
                   id="fecha-fin"
                   type="date"
                   value={fechaFin}
+                  disabled={uiBlocked}
                   onChange={(e) => setFechaFin(e.target.value)}
                 />
               </div>
@@ -296,6 +309,7 @@ const LibroMayor = () => {
                 <Input
                   placeholder="Código o nombre..."
                   value={busquedaCuenta}
+                  disabled={uiBlocked}
                   onChange={(e) => setBusquedaCuenta(e.target.value)}
                 />
               </div>
@@ -304,7 +318,7 @@ const LibroMayor = () => {
               <Filter className="w-4 h-4" />
               <div className="flex flex-col gap-1">
                 <Label>Cuenta Específica:</Label>
-                <Select value={cuentaSeleccionada} onValueChange={setCuentaSeleccionada}>
+                <Select value={cuentaSeleccionada} onValueChange={setCuentaSeleccionada} disabled={uiBlocked}>
                   <SelectTrigger>
                     <SelectValue placeholder="Todas las cuentas" />
                   </SelectTrigger>
@@ -323,9 +337,9 @@ const LibroMayor = () => {
 
           {/* Botón de exportar */}
           <div className="flex justify-end mb-4">
-            <Button onClick={exportarLibroMayor} className="flex items-center gap-2">
+            <Button onClick={handleExportarLibroMayor} disabled={uiBlocked} className="flex items-center gap-2">
               <Download className="w-4 h-4" />
-              Exportar Libro Mayor
+              {isExporting ? 'Exportando...' : 'Exportar Libro Mayor'}
             </Button>
           </div>
 

@@ -175,7 +175,10 @@ const PresupuestosEmpresariales = () => {
         </TabsContent>
 
         <TabsContent value="reportes">
-          <ReportesPresupuesto />
+          <ReportesPresupuesto
+            presupuestos={presupuestos}
+            itemsPresupuesto={itemsPresupuesto}
+          />
         </TabsContent>
       </Tabs>
     </div>

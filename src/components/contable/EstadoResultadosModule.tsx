@@ -20,7 +20,9 @@ const EstadoResultadosModule = () => {
   const [fechaFin, setFechaFin] = useState<Date>(new Date());
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const { getIncomeStatementData, getTrialBalanceData } = useReportesContables();
+  const uiBlocked = isGenerating || isExporting;
 
   const generarReporte = async () => {
     setIsGenerating(true);
@@ -28,7 +30,7 @@ const EstadoResultadosModule = () => {
     await new Promise(resolve => setTimeout(resolve, 1000));
     setIsGenerating(false);
     // Forzar actualización de datos
-    window.location.hash = `#${Date.now()}`;
+    return;
   };
 
   // Obtener datos reales del sistema contable integrado con comprobantes
@@ -395,6 +397,19 @@ const EstadoResultadosModule = () => {
     XLSX.writeFile(wb, `Estado_Resultados_${format(fechaInicio, 'yyyy-MM-dd')}_${format(fechaFin, 'yyyy-MM-dd')}.xlsx`);
   };
 
+  const handleGenerarReporte = async () => {
+    await generarReporte();
+  };
+
+  const handleExportarExcel = async () => {
+    try {
+      setIsExporting(true);
+      exportarExcel();
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="page-shell space-y-6 pb-12">
       <EnhancedHeader
@@ -422,8 +437,8 @@ const EstadoResultadosModule = () => {
             </div>
             <div className="flex gap-2">
               <Button 
-                onClick={generarReporte}
-                disabled={isGenerating}
+                onClick={handleGenerarReporte}
+                disabled={uiBlocked}
                 variant="default"
                 size="sm"
                 className="flex items-center gap-2"
@@ -432,13 +447,14 @@ const EstadoResultadosModule = () => {
                 {isGenerating ? 'Generando...' : 'Generar Reporte'}
               </Button>
               <Button 
-                onClick={exportarExcel}
+                onClick={handleExportarExcel}
+                disabled={uiBlocked}
                 variant="outline"
                 size="sm"
                 className="flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
-                Exportar Excel
+                {isExporting ? 'Exportando...' : 'Exportar Excel'}
               </Button>
             </div>
           </CardTitle>
@@ -455,6 +471,7 @@ const EstadoResultadosModule = () => {
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
+                    disabled={uiBlocked}
                     className={cn(
                       "w-[180px] justify-start text-left font-normal",
                       !fechaInicio && "text-muted-foreground"
@@ -465,11 +482,12 @@ const EstadoResultadosModule = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={fechaInicio}
-                    onSelect={(date) => date && setFechaInicio(date)}
-                    initialFocus
+                    <CalendarComponent
+                      mode="single"
+                      selected={fechaInicio}
+                      onSelect={(date) => date && setFechaInicio(date)}
+                      disabled={uiBlocked}
+                      initialFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
@@ -481,6 +499,7 @@ const EstadoResultadosModule = () => {
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
+                    disabled={uiBlocked}
                     className={cn(
                       "w-[180px] justify-start text-left font-normal",
                       !fechaFin && "text-muted-foreground"
@@ -491,11 +510,12 @@ const EstadoResultadosModule = () => {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={fechaFin}
-                    onSelect={(date) => date && setFechaFin(date)}
-                    initialFocus
+                    <CalendarComponent
+                      mode="single"
+                      selected={fechaFin}
+                      onSelect={(date) => date && setFechaFin(date)}
+                      disabled={uiBlocked}
+                      initialFocus
                     className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
