@@ -43,10 +43,12 @@ const PlanCuentasBoliviano2025Module = () => {
   const [modoVista, setModoVista] = useState<"tabla" | "arbol">("tabla");
   const [cuentaSeleccionada, setCuentaSeleccionada] = useState<CuentaVista | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
   const { planCuentas, loading, syncPlanCuentas, refetch } = useSupabasePlanCuentas();
+  const uiBlocked = loading || syncing || refreshing || importing || exporting;
 
   const cuentas = useMemo<CuentaVista[]>(() => {
     const cuentasPersistidas = new Map(planCuentas.map((cuenta) => [cuenta.codigo, cuenta]));
@@ -151,6 +153,10 @@ const PlanCuentasBoliviano2025Module = () => {
         }));
 
         await syncPlanCuentas(payload);
+        toast({
+          title: "Plan importado",
+          description: `Se sincronizaron ${payload.length} cuenta(s) desde el archivo seleccionado.`,
+        });
       } catch (error) {
         console.error("Error importando plan de cuentas:", error);
         toast({
@@ -171,17 +177,25 @@ const PlanCuentasBoliviano2025Module = () => {
     setSyncing(true);
     try {
       await syncPlanCuentas(planCuentasBoliviano2025.map(mapNormativaToSyncPayload));
+      toast({
+        title: "Catalogo restaurado",
+        description: "El plan de cuentas oficial fue sincronizado nuevamente con la base principal.",
+      });
     } finally {
       setSyncing(false);
     }
   };
 
   const handleRefresh = async () => {
-    setSyncing(true);
+    setRefreshing(true);
     try {
       await Promise.resolve(refetch());
+      toast({
+        title: "Base actualizada",
+        description: "Se recargaron las cuentas persistidas desde la base principal.",
+      });
     } finally {
-      setSyncing(false);
+      setRefreshing(false);
     }
   };
 
@@ -259,7 +273,7 @@ const PlanCuentasBoliviano2025Module = () => {
             <Button
               onClick={exportarPlanCuentas}
               variant="outline"
-              disabled={loading || syncing || importing || exporting}
+              disabled={uiBlocked}
             >
               <Download className="mr-2 h-4 w-4" />
               {exporting ? "Exportando..." : "Exportar"}
@@ -270,9 +284,9 @@ const PlanCuentasBoliviano2025Module = () => {
                 accept=".json"
                 onChange={importarPlanCuentas}
                 className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                disabled={loading || syncing || importing || exporting}
+                disabled={uiBlocked}
               />
-              <Button variant="outline" disabled={loading || syncing || importing || exporting}>
+              <Button variant="outline" disabled={uiBlocked}>
                 <Upload className="mr-2 h-4 w-4" />
                 {importing ? "Importando..." : "Importar"}
               </Button>
@@ -280,7 +294,7 @@ const PlanCuentasBoliviano2025Module = () => {
             <Button
               onClick={() => void restaurarPlanOriginal()}
               variant="outline"
-              disabled={loading || syncing || importing || exporting}
+              disabled={uiBlocked}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
               {syncing ? "Sincronizando..." : "Sincronizar Catalogo Oficial"}
@@ -288,10 +302,10 @@ const PlanCuentasBoliviano2025Module = () => {
             <Button
               onClick={() => void handleRefresh()}
               variant="outline"
-              disabled={loading || syncing || importing || exporting}
+              disabled={uiBlocked}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
-              {syncing ? "Actualizando..." : "Actualizar Base"}
+              {refreshing ? "Actualizando..." : "Actualizar Base"}
             </Button>
           </div>
         </div>
@@ -321,7 +335,7 @@ const PlanCuentasBoliviano2025Module = () => {
                   placeholder="Buscar por codigo o nombre..."
                   value={filtroBusqueda}
                   onChange={(event) => setFiltroBusqueda(event.target.value)}
-                  disabled={loading || syncing || importing}
+                  disabled={uiBlocked}
                 />
               </div>
               <div className="min-w-[170px]">
@@ -329,7 +343,7 @@ const PlanCuentasBoliviano2025Module = () => {
                   value={filtroTipo}
                   onChange={(event) => setFiltroTipo(event.target.value)}
                   className="w-full rounded-md border bg-background p-2"
-                  disabled={loading || syncing || importing}
+                  disabled={uiBlocked}
                 >
                   <option value="">Todos los tipos</option>
                   <option value="activo">Activos</option>
@@ -344,7 +358,7 @@ const PlanCuentasBoliviano2025Module = () => {
                   variant={modoVista === "tabla" ? "default" : "outline"}
                   onClick={() => setModoVista("tabla")}
                   size="sm"
-                  disabled={loading || syncing || importing}
+                  disabled={uiBlocked}
                 >
                   Tabla
                 </Button>
@@ -352,7 +366,7 @@ const PlanCuentasBoliviano2025Module = () => {
                   variant={modoVista === "arbol" ? "default" : "outline"}
                   onClick={() => setModoVista("arbol")}
                   size="sm"
-                  disabled={loading || syncing || importing}
+                  disabled={uiBlocked}
                 >
                   <TreePine className="mr-2 h-4 w-4" />
                   Arbol
@@ -415,6 +429,16 @@ const PlanCuentasBoliviano2025Module = () => {
                       ))}
                     </TableBody>
                   </Table>
+                ) : cuentasFiltradas.length === 0 ? (
+                  <div className="flex min-h-[260px] items-center justify-center rounded-xl border border-dashed border-border/70 bg-muted/10 p-6 text-center">
+                    <div className="space-y-2">
+                      <Eye className="mx-auto h-10 w-10 text-muted-foreground/70" />
+                      <h3 className="font-medium">Sin cuentas para mostrar</h3>
+                      <p className="max-w-md text-sm text-muted-foreground">
+                        Los filtros actuales no devolvieron resultados. Ajusta el tipo o la busqueda para volver a explorar el catalogo.
+                      </p>
+                    </div>
+                  </div>
                 ) : (
                   <div className="max-h-96 space-y-1 overflow-y-auto">
                     {renderArbolCuentas(arbolFiltrado as (CuentaVista & { hijas?: CuentaVista[] })[])}
